@@ -1,0 +1,57 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/base/usecase.dart';
+import '../../domain/usecases/camera_usecases.dart';
+import 'camera_event.dart';
+import 'camera_state.dart';
+
+class CameraBloc extends Bloc<CameraEvent, CameraState> {
+  final CapturePhotoUseCase capturePhotoUseCase;
+  final UploadPhotoUseCase uploadPhotoUseCase;
+
+  CameraBloc({
+    required this.capturePhotoUseCase,
+    required this.uploadPhotoUseCase,
+  }) : super(const CameraInitial()) {
+    on<InitializeCameraEvent>(_onInitializeCamera);
+    on<CapturePhotoEvent>(_onCapturePhoto);
+    on<UploadPhotoEvent>(_onUploadPhoto);
+  }
+
+  Future<void> _onInitializeCamera(
+    InitializeCameraEvent event,
+    Emitter<CameraState> emit,
+  ) async {
+    emit(const CameraReady());
+  }
+
+  Future<void> _onCapturePhoto(
+    CapturePhotoEvent event,
+    Emitter<CameraState> emit,
+  ) async {
+    emit(const CameraCapturing());
+
+    final result = await capturePhotoUseCase(const NoParams());
+
+    result.fold(
+      (failure) => emit(CameraError(failure.message)),
+      (photo) => emit(CameraPhotoCaptured(photo)),
+    );
+  }
+
+  Future<void> _onUploadPhoto(
+    UploadPhotoEvent event,
+    Emitter<CameraState> emit,
+  ) async {
+    if (state is! CameraPhotoCaptured) return;
+
+    final photo = (state as CameraPhotoCaptured).photo;
+    emit(CameraUploading(photo));
+
+    final result = await uploadPhotoUseCase(photo);
+
+    result.fold(
+      (failure) => emit(CameraError(failure.message)),
+      (_) => emit(CameraPhotoUploaded(photo)),
+    );
+  }
+}

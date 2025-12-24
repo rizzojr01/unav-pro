@@ -1,0 +1,103 @@
+import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'core/network/api_client.dart';
+import 'core/services/storage_service.dart';
+import 'core/utils/logger.dart';
+import 'core/constants/app_constants.dart';
+
+// Camera
+import 'features/camera/data/datasources/camera_local_datasource.dart';
+import 'features/camera/data/datasources/camera_remote_datasource.dart';
+import 'features/camera/data/repositories/camera_repository_impl.dart';
+import 'features/camera/domain/repositories/camera_repository.dart';
+import 'features/camera/domain/usecases/camera_usecases.dart';
+import 'features/camera/presentation/bloc/camera_bloc.dart';
+
+// Destination
+import 'features/destination/data/datasources/destination_remote_datasource.dart';
+import 'features/destination/data/repositories/destination_repository_impl.dart';
+import 'features/destination/domain/repositories/destination_repository.dart';
+import 'features/destination/domain/usecases/destination_usecases.dart';
+import 'features/destination/presentation/bloc/destination_bloc.dart';
+
+// Navigation
+import 'features/navigation/data/datasources/navigation_local_datasource.dart';
+import 'features/navigation/data/datasources/navigation_remote_datasource.dart';
+import 'features/navigation/data/repositories/navigation_repository_impl.dart';
+import 'features/navigation/domain/repositories/navigation_repository.dart';
+import 'features/navigation/domain/usecases/navigation_usecases.dart';
+import 'features/navigation/presentation/bloc/navigation_bloc.dart';
+
+final getIt = GetIt.instance;
+
+Future<void> initializeDependencies() async {
+  // External
+  final sharedPreferences = await SharedPreferences.getInstance();
+  getIt.registerSingleton<SharedPreferences>(sharedPreferences);
+
+  // Core
+  getIt.registerLazySingleton<AppLogger>(() => AppLogger());
+  getIt.registerLazySingleton<StorageService>(() => StorageService(getIt()));
+  getIt.registerLazySingleton<ApiClient>(
+    () => ApiClient(baseUrl: AppConstants.baseUrl, logger: getIt()),
+  );
+
+  // Camera Feature
+  getIt.registerLazySingleton<CameraLocalDataSource>(
+    () => CameraLocalDataSourceImpl(),
+  );
+  getIt.registerLazySingleton<CameraRemoteDataSource>(
+    () => CameraRemoteDataSourceImpl(getIt()),
+  );
+  getIt.registerLazySingleton<CameraRepository>(
+    () => CameraRepositoryImpl(
+      localDataSource: getIt(),
+      remoteDataSource: getIt(),
+    ),
+  );
+  getIt.registerLazySingleton(() => CapturePhotoUseCase(getIt()));
+  getIt.registerLazySingleton(() => UploadPhotoUseCase(getIt()));
+  getIt.registerFactory(
+    () => CameraBloc(capturePhotoUseCase: getIt(), uploadPhotoUseCase: getIt()),
+  );
+
+  // Destination Feature
+  getIt.registerLazySingleton<DestinationRemoteDataSource>(
+    () => DestinationRemoteDataSourceImpl(getIt()),
+  );
+  getIt.registerLazySingleton<DestinationRepository>(
+    () => DestinationRepositoryImpl(remoteDataSource: getIt()),
+  );
+  getIt.registerLazySingleton(() => SearchDestinationsUseCase(getIt()));
+  getIt.registerLazySingleton(() => SelectDestinationUseCase(getIt()));
+  getIt.registerFactory(
+    () => DestinationBloc(
+      searchDestinationsUseCase: getIt(),
+      selectDestinationUseCase: getIt(),
+    ),
+  );
+
+  // Navigation Feature
+  getIt.registerLazySingleton<NavigationLocalDataSource>(
+    () => NavigationLocalDataSourceImpl(),
+  );
+  getIt.registerLazySingleton<NavigationRemoteDataSource>(
+    () => NavigationRemoteDataSourceImpl(getIt()),
+  );
+  getIt.registerLazySingleton<NavigationRepository>(
+    () => NavigationRepositoryImpl(
+      localDataSource: getIt(),
+      remoteDataSource: getIt(),
+    ),
+  );
+  getIt.registerLazySingleton(() => GetCurrentLocationUseCase(getIt()));
+  getIt.registerLazySingleton(() => GetRouteUseCase(getIt()));
+  getIt.registerLazySingleton(() => WatchLocationUseCase(getIt()));
+  getIt.registerFactory(
+    () => NavigationBloc(
+      getCurrentLocationUseCase: getIt(),
+      getRouteUseCase: getIt(),
+      watchLocationUseCase: getIt(),
+    ),
+  );
+}
