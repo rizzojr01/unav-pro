@@ -1,12 +1,9 @@
-import 'package:equatable/equatable.dart';
+import '../../../../core/base/base_state.dart';
 import '../../domain/entities/location_entity.dart';
 import '../../domain/entities/route_entity.dart';
 
-abstract class NavigationState extends Equatable {
+abstract class NavigationState extends BaseState {
   const NavigationState();
-
-  @override
-  List<Object?> get props => [];
 }
 
 class NavigationInitial extends NavigationState {

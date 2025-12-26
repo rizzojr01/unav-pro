@@ -4,17 +4,7 @@ import '../../../../core/error/failures.dart';
 import '../entities/photo_entity.dart';
 import '../repositories/camera_repository.dart';
 
-class CapturePhotoUseCase implements UseCase<PhotoEntity, NoParams> {
-  final CameraRepository repository;
-
-  CapturePhotoUseCase(this.repository);
-
-  @override
-  Future<Either<Failure, PhotoEntity>> call(NoParams params) {
-    return repository.capturePhoto();
-  }
-}
-
+/// Use case for uploading a photo to the backend
 class UploadPhotoUseCase implements UseCase<bool, PhotoEntity> {
   final CameraRepository repository;
 

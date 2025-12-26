@@ -28,11 +28,13 @@ class DestinationRepositoryImpl implements DestinationRepository {
 
   @override
   Future<Either<Failure, DestinationEntity>> selectDestination(
-    DestinationEntity destination,
+    String destinationId,
   ) async {
     try {
-      // In a real app, you might want to save this to local storage or send to backend
-      return Right(destination);
+      // In a real app, you might want to fetch this from local storage or backend
+      // For now, we'll need to implement proper destination fetching logic
+      // This is a simplified implementation
+      return Left(CacheFailure('Destination not found in cache'));
     } catch (e) {
       return Left(CacheFailure('Failed to select destination: $e'));
     }

@@ -1,11 +1,8 @@
-import 'package:equatable/equatable.dart';
+import '../../../../core/base/base_state.dart';
 import '../../domain/entities/photo_entity.dart';
 
-abstract class CameraState extends Equatable {
+abstract class CameraState extends BaseState {
   const CameraState();
-
-  @override
-  List<Object?> get props => [];
 }
 
 class CameraInitial extends CameraState {

@@ -1,4 +1,5 @@
 import 'package:geolocator/geolocator.dart';
+import '../../../../core/base/base_datasource.dart';
 import '../../../../core/error/exceptions.dart';
 import '../models/location_model.dart';
 
@@ -7,10 +8,11 @@ abstract class NavigationLocalDataSource {
   Stream<LocationModel> watchLocation();
 }
 
-class NavigationLocalDataSourceImpl implements NavigationLocalDataSource {
+class NavigationLocalDataSourceImpl extends BaseLocalDataSource
+    implements NavigationLocalDataSource {
   @override
   Future<LocationModel> getCurrentLocation() async {
-    try {
+    return executeCall<LocationModel>(() async {
       // Check if location services are enabled
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
@@ -44,10 +46,7 @@ class NavigationLocalDataSourceImpl implements NavigationLocalDataSource {
         longitude: position.longitude,
         timestamp: DateTime.now(),
       );
-    } catch (e) {
-      if (e is PermissionException) rethrow;
-      throw AppException('Failed to get current location: $e');
-    }
+    }, errorMessage: 'Failed to get current location');
   }
 
   @override

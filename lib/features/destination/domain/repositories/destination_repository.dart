@@ -7,6 +7,6 @@ abstract class DestinationRepository {
     String query,
   );
   Future<Either<Failure, DestinationEntity>> selectDestination(
-    DestinationEntity destination,
+    String destinationId,
   );
 }

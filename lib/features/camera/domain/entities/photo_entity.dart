@@ -1,16 +1,19 @@
 import '../../../../core/base/base_entity.dart';
 
 class PhotoEntity extends BaseEntity {
-  final String id;
+  final String entityId;
   final String filePath;
   final DateTime timestamp;
 
   const PhotoEntity({
-    required this.id,
+    required this.entityId,
     required this.filePath,
     required this.timestamp,
   });
 
   @override
-  List<Object?> get props => [id, filePath, timestamp];
+  String? get id => entityId;
+
+  @override
+  List<Object?> get props => [entityId, filePath, timestamp];
 }

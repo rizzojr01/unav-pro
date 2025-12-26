@@ -2,7 +2,7 @@ import '../../domain/entities/destination_entity.dart';
 
 class DestinationModel extends DestinationEntity {
   const DestinationModel({
-    required super.id,
+    required super.entityId,
     required super.name,
     required super.latitude,
     required super.longitude,
@@ -11,7 +11,7 @@ class DestinationModel extends DestinationEntity {
 
   factory DestinationModel.fromJson(Map<String, dynamic> json) {
     return DestinationModel(
-      id: json['id'] as String,
+      entityId: json['id'] as String,
       name: json['name'] as String,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
@@ -21,7 +21,7 @@ class DestinationModel extends DestinationEntity {
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      'id': id!,
       'name': name,
       'latitude': latitude,
       'longitude': longitude,
@@ -31,7 +31,7 @@ class DestinationModel extends DestinationEntity {
 
   factory DestinationModel.fromEntity(DestinationEntity entity) {
     return DestinationModel(
-      id: entity.id,
+      entityId: entity.id!,
       name: entity.name,
       latitude: entity.latitude,
       longitude: entity.longitude,

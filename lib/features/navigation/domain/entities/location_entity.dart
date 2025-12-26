@@ -12,5 +12,9 @@ class LocationEntity extends BaseEntity {
   });
 
   @override
+  String? get id =>
+      '${latitude}_${longitude}_${timestamp.millisecondsSinceEpoch}';
+
+  @override
   List<Object?> get props => [latitude, longitude, timestamp];
 }

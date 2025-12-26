@@ -3,7 +3,7 @@ import 'location_model.dart';
 
 class RouteModel extends RouteEntity {
   const RouteModel({
-    required super.id,
+    required super.entityId,
     required super.origin,
     required super.destination,
     required super.waypoints,
@@ -13,7 +13,7 @@ class RouteModel extends RouteEntity {
 
   factory RouteModel.fromJson(Map<String, dynamic> json) {
     return RouteModel(
-      id: json['id'] as String,
+      entityId: json['id'] as String,
       origin: LocationModel.fromJson(json['origin'] as Map<String, dynamic>),
       destination: LocationModel.fromJson(
         json['destination'] as Map<String, dynamic>,
@@ -28,7 +28,7 @@ class RouteModel extends RouteEntity {
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      'id': id!,
       'origin': LocationModel.fromEntity(origin).toJson(),
       'destination': LocationModel.fromEntity(destination).toJson(),
       'waypoints': waypoints
@@ -41,7 +41,7 @@ class RouteModel extends RouteEntity {
 
   factory RouteModel.fromEntity(RouteEntity entity) {
     return RouteModel(
-      id: entity.id,
+      entityId: entity.id!,
       origin: entity.origin,
       destination: entity.destination,
       waypoints: entity.waypoints,

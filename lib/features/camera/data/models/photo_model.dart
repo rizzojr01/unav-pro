@@ -2,14 +2,14 @@ import '../../domain/entities/photo_entity.dart';
 
 class PhotoModel extends PhotoEntity {
   const PhotoModel({
-    required super.id,
+    required super.entityId,
     required super.filePath,
     required super.timestamp,
   });
 
   factory PhotoModel.fromJson(Map<String, dynamic> json) {
     return PhotoModel(
-      id: json['id'] as String,
+      entityId: json['id'] as String,
       filePath: json['filePath'] as String,
       timestamp: DateTime.parse(json['timestamp'] as String),
     );
@@ -17,7 +17,7 @@ class PhotoModel extends PhotoEntity {
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      'id': id!,
       'filePath': filePath,
       'timestamp': timestamp.toIso8601String(),
     };
@@ -25,7 +25,7 @@ class PhotoModel extends PhotoEntity {
 
   factory PhotoModel.fromEntity(PhotoEntity entity) {
     return PhotoModel(
-      id: entity.id,
+      entityId: entity.id!,
       filePath: entity.filePath,
       timestamp: entity.timestamp,
     );

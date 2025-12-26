@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/base/usecase.dart';
-import '../../domain/usecases/camera_usecases.dart';
+import '../../domain/usecases/capture_photo_usecase.dart';
+import '../../domain/usecases/upload_photo_usecase.dart';
 import 'camera_event.dart';
 import 'camera_state.dart';
 

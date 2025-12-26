@@ -2,7 +2,7 @@ import '../../../../core/base/base_entity.dart';
 import 'location_entity.dart';
 
 class RouteEntity extends BaseEntity {
-  final String id;
+  final String entityId;
   final LocationEntity origin;
   final LocationEntity destination;
   final List<LocationEntity> waypoints;
@@ -10,7 +10,7 @@ class RouteEntity extends BaseEntity {
   final int durationInSeconds;
 
   const RouteEntity({
-    required this.id,
+    required this.entityId,
     required this.origin,
     required this.destination,
     required this.waypoints,
@@ -19,8 +19,11 @@ class RouteEntity extends BaseEntity {
   });
 
   @override
+  String? get id => entityId;
+
+  @override
   List<Object?> get props => [
-    id,
+    entityId,
     origin,
     destination,
     waypoints,

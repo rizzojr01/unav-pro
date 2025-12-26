@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../domain/usecases/destination_usecases.dart';
+import '../../domain/usecases/search_destinations_usecase.dart';
+import '../../domain/usecases/select_destination_usecase.dart';
 import 'destination_event.dart';
 import 'destination_state.dart';
 
@@ -38,13 +39,10 @@ class DestinationBloc extends Bloc<DestinationEvent, DestinationState> {
     final destinations = (state as DestinationSearchSuccess).destinations;
     final destination = destinations.firstWhere(
       (d) => d.id == event.destinationId,
+      orElse: () => throw StateError('Destination not found'),
     );
 
-    final result = await selectDestinationUseCase(destination);
-
-    result.fold(
-      (failure) => emit(DestinationError(failure.message)),
-      (selectedDestination) => emit(DestinationSelected(selectedDestination)),
-    );
+    // Directly emit the selected destination since we already have it
+    emit(DestinationSelected(destination));
   }
 }

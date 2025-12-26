@@ -1,11 +1,8 @@
-import 'package:equatable/equatable.dart';
+import '../../../../core/base/base_state.dart';
 import '../../domain/entities/destination_entity.dart';
 
-abstract class DestinationState extends Equatable {
+abstract class DestinationState extends BaseState {
   const DestinationState();
-
-  @override
-  List<Object?> get props => [];
 }
 
 class DestinationInitial extends DestinationState {

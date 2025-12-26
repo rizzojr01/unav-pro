@@ -2,7 +2,9 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/base/usecase.dart';
 import '../../domain/entities/location_entity.dart';
-import '../../domain/usecases/navigation_usecases.dart';
+import '../../domain/usecases/get_current_location_usecase.dart';
+import '../../domain/usecases/get_route_usecase.dart';
+import '../../domain/usecases/watch_location_usecase.dart';
 import 'navigation_event.dart';
 import 'navigation_state.dart';
 

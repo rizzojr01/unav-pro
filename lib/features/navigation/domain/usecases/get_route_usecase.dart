@@ -5,24 +5,15 @@ import '../entities/location_entity.dart';
 import '../entities/route_entity.dart';
 import '../repositories/navigation_repository.dart';
 
-class GetCurrentLocationUseCase implements UseCase<LocationEntity, NoParams> {
-  final NavigationRepository repository;
-
-  GetCurrentLocationUseCase(this.repository);
-
-  @override
-  Future<Either<Failure, LocationEntity>> call(NoParams params) {
-    return repository.getCurrentLocation();
-  }
-}
-
+/// Parameters for getting a route
 class GetRouteParams {
   final LocationEntity origin;
   final LocationEntity destination;
 
-  GetRouteParams({required this.origin, required this.destination});
+  const GetRouteParams({required this.origin, required this.destination});
 }
 
+/// Use case for calculating route between two locations
 class GetRouteUseCase implements UseCase<RouteEntity, GetRouteParams> {
   final NavigationRepository repository;
 
@@ -31,15 +22,5 @@ class GetRouteUseCase implements UseCase<RouteEntity, GetRouteParams> {
   @override
   Future<Either<Failure, RouteEntity>> call(GetRouteParams params) {
     return repository.getRoute(params.origin, params.destination);
-  }
-}
-
-class WatchLocationUseCase {
-  final NavigationRepository repository;
-
-  WatchLocationUseCase(this.repository);
-
-  Stream<LocationEntity> call() {
-    return repository.watchLocation();
   }
 }
