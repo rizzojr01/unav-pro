@@ -21,15 +21,21 @@ class CustomCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       margin: margin ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: color ?? Theme.of(context).cardTheme.color,
+        color: color ?? (isDark ? AppColors.secondary : theme.cardTheme.color),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.primaryColor.withValues(alpha: 0.05)),
         boxShadow: hasShadow
             ? [
                 BoxShadow(
-                  color: AppColors.black.withValues(alpha: 0.05),
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.1)
+                      : Colors.black.withValues(alpha: 0.03),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),

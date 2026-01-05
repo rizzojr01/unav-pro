@@ -1,36 +1,37 @@
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'core/network/api_client.dart';
-import 'core/services/storage_service.dart';
-import 'core/utils/logger.dart';
-import 'core/constants/app_constants.dart';
+import 'package:smart_sense/core/network/api_client.dart';
+import 'package:smart_sense/core/services/storage_service.dart';
+import 'package:smart_sense/core/utils/logger.dart';
+import 'package:smart_sense/core/constants/app_constants.dart';
+import 'package:smart_sense/theme/theme_bloc.dart';
 
 // Camera
-import 'features/camera/data/datasources/camera_local_datasource.dart';
-import 'features/camera/data/datasources/camera_remote_datasource.dart';
-import 'features/camera/data/repositories/camera_repository_impl.dart';
-import 'features/camera/domain/repositories/camera_repository.dart';
-import 'features/camera/domain/usecases/capture_photo_usecase.dart';
-import 'features/camera/domain/usecases/upload_photo_usecase.dart';
-import 'features/camera/presentation/bloc/camera_bloc.dart';
+import 'package:smart_sense/features/camera/data/datasources/camera_local_datasource.dart';
+import 'package:smart_sense/features/camera/data/datasources/camera_remote_datasource.dart';
+import 'package:smart_sense/features/camera/data/repositories/camera_repository_impl.dart';
+import 'package:smart_sense/features/camera/domain/repositories/camera_repository.dart';
+import 'package:smart_sense/features/camera/domain/usecases/capture_photo_usecase.dart';
+import 'package:smart_sense/features/camera/domain/usecases/upload_photo_usecase.dart';
+import 'package:smart_sense/features/camera/presentation/bloc/camera_bloc.dart';
 
 // Destination
-import 'features/destination/data/datasources/destination_remote_datasource.dart';
-import 'features/destination/data/repositories/destination_repository_impl.dart';
-import 'features/destination/domain/repositories/destination_repository.dart';
-import 'features/destination/domain/usecases/search_destinations_usecase.dart';
-import 'features/destination/domain/usecases/select_destination_usecase.dart';
-import 'features/destination/presentation/bloc/destination_bloc.dart';
+import 'package:smart_sense/features/destination/data/datasources/destination_remote_datasource.dart';
+import 'package:smart_sense/features/destination/data/repositories/destination_repository_impl.dart';
+import 'package:smart_sense/features/destination/domain/repositories/destination_repository.dart';
+import 'package:smart_sense/features/destination/domain/usecases/search_destinations_usecase.dart';
+import 'package:smart_sense/features/destination/domain/usecases/select_destination_usecase.dart';
+import 'package:smart_sense/features/destination/presentation/bloc/destination_bloc.dart';
 
 // Navigation
-import 'features/navigation/data/datasources/navigation_local_datasource.dart';
-import 'features/navigation/data/datasources/navigation_remote_datasource.dart';
-import 'features/navigation/data/repositories/navigation_repository_impl.dart';
-import 'features/navigation/domain/repositories/navigation_repository.dart';
-import 'features/navigation/domain/usecases/get_current_location_usecase.dart';
-import 'features/navigation/domain/usecases/get_route_usecase.dart';
-import 'features/navigation/domain/usecases/watch_location_usecase.dart';
-import 'features/navigation/presentation/bloc/navigation_bloc.dart';
+import 'package:smart_sense/features/navigation/data/datasources/navigation_local_datasource.dart';
+import 'package:smart_sense/features/navigation/data/datasources/navigation_remote_datasource.dart';
+import 'package:smart_sense/features/navigation/data/repositories/navigation_repository_impl.dart';
+import 'package:smart_sense/features/navigation/domain/repositories/navigation_repository.dart';
+import 'package:smart_sense/features/navigation/domain/usecases/get_current_location_usecase.dart';
+import 'package:smart_sense/features/navigation/domain/usecases/get_route_usecase.dart';
+import 'package:smart_sense/features/navigation/domain/usecases/watch_location_usecase.dart';
+import 'package:smart_sense/features/navigation/presentation/bloc/navigation_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -104,4 +105,7 @@ Future<void> initializeDependencies() async {
       watchLocationUseCase: getIt(),
     ),
   );
+
+  // Theme
+  getIt.registerLazySingleton<ThemeBloc>(() => ThemeBloc(getIt()));
 }

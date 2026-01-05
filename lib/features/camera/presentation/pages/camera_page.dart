@@ -2,17 +2,21 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:camera/camera.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../theme/app_colors.dart';
-import '../../../../shared/widgets/custom_button.dart';
-import '../../../../shared/widgets/custom_card.dart';
+
 import '../../../../shared/widgets/custom_snackbar.dart';
-import '../../../../shared/widgets/loading_overlay.dart';
+import 'package:smart_sense/shared/widgets/loading_overlay.dart';
+import 'package:smart_sense/shared/widgets/step_indicator.dart';
+import 'package:smart_sense/features/destination/domain/entities/destination_entity.dart';
 import '../bloc/camera_bloc.dart';
 import '../bloc/camera_event.dart';
 import '../bloc/camera_state.dart';
 
 class CameraPage extends StatefulWidget {
-  const CameraPage({super.key});
+  final DestinationEntity? destination;
+
+  const CameraPage({super.key, this.destination});
 
   @override
   State<CameraPage> createState() => _CameraPageState();
@@ -27,17 +31,12 @@ class _CameraPageState extends State<CameraPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: BlocConsumer<CameraBloc, CameraState>(
         listener: (context, state) {
-          if (state is CameraPhotoUploaded) {
-            CustomSnackBar.show(
-              context,
-              message: 'Photo uploaded successfully!',
-              type: SnackBarType.success,
-            );
-            Navigator.pushNamed(context, '/location-detection');
-          } else if (state is CameraError) {
+          if (state is CameraError) {
             CustomSnackBar.show(
               context,
               message: state.message,
@@ -47,10 +46,8 @@ class _CameraPageState extends State<CameraPage> {
         },
         builder: (context, state) {
           return LoadingOverlay(
-            isLoading: state is CameraCapturing || state is CameraUploading,
-            message: state is CameraCapturing
-                ? 'Capturing photo...'
-                : 'Uploading photo...',
+            isLoading: state is CameraCapturing,
+            message: 'Capturing photo...',
             child: _buildBody(context, state),
           );
         },
@@ -64,11 +61,13 @@ class _CameraPageState extends State<CameraPage> {
     } else if (state is CameraReady) {
       return const _CameraReadyView();
     } else if (state is CameraPhotoCaptured) {
-      return _PhotoPreviewView(state: state);
+      return _PhotoPreviewView(state: state, destination: widget.destination);
     } else if (state is CameraError) {
       return _ErrorView(message: state.message);
+    } else if (state is CameraCapturing) {
+      return const _CameraReadyView();
     }
-    return const SizedBox.shrink();
+    return const _CameraReadyView();
   }
 }
 
@@ -77,24 +76,19 @@ class _InitializingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: AppColors.primaryGradient,
-        ),
-      ),
-      child: const Center(
+      color: theme.scaffoldBackgroundColor,
+      child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: AppColors.white),
-            SizedBox(height: 24),
+            CircularProgressIndicator(color: theme.primaryColor),
+            const SizedBox(height: 24),
             Text(
               'Initializing camera...',
               style: TextStyle(
-                color: AppColors.white,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
@@ -148,6 +142,8 @@ class _CameraReadyViewState extends State<_CameraReadyView> {
     }
   }
 
+  bool _showSample = false;
+
   @override
   void dispose() {
     _controller?.dispose();
@@ -156,83 +152,318 @@ class _CameraReadyViewState extends State<_CameraReadyView> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black,
-      child: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    final theme = Theme.of(context);
+    if (_isInitializing ||
+        _controller == null ||
+        !_controller!.value.isInitialized) {
+      return Container(
+        color: Colors.black,
+        child: Center(
+          child: CircularProgressIndicator(color: theme.primaryColor),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. Full Screen Camera Preview
+          CameraPreview(_controller!),
+
+          // 2. Header and Guidance Overlay
+          Column(
+            children: [
+              StepIndicator(
+                currentStep: 2,
+                title: 'Find me..',
+                onBack: () => context.pop(),
+              ),
+              const Expanded(child: _HorizontalGuidance()),
+            ],
+          ),
+
+          // 4. Footer Controls
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.only(bottom: 50, top: 40),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Colors.black, Colors.transparent],
+                ),
+              ),
+              child: Column(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppColors.white),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
                   const Text(
-                    'Capture Photo',
+                    'Keep floor and walls in view',
                     style: TextStyle(
                       color: AppColors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(width: 48),
-                ],
-              ),
-            ),
-            Expanded(
-              child: _isInitializing
-                  ? const Center(
-                      child: CircularProgressIndicator(color: AppColors.white),
-                    )
-                  : _controller == null || !_controller!.value.isInitialized
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.camera_alt_outlined,
-                            size: 80,
-                            color: AppColors.white,
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      IconButton(
+                        onPressed: () => context.pop(),
+                        icon: const Icon(
+                          Icons.close,
+                          color: AppColors.white,
+                          size: 32,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          context.read<CameraBloc>().add(
+                            const CapturePhotoEvent(),
+                          );
+                        },
+                        child: Container(
+                          width: 84,
+                          height: 84,
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.white,
+                              width: 4,
+                            ),
                           ),
-                          const SizedBox(height: 16),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: theme.primaryColor,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.camera_alt,
+                              color: theme.colorScheme.onPrimary,
+                              size: 36,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Column(
+                        children: [
+                          IconButton(
+                            onPressed: () =>
+                                setState(() => _showSample = !_showSample),
+                            icon: Icon(
+                              _showSample
+                                  ? Icons.visibility
+                                  : Icons.help_outline,
+                              color: theme.primaryColor,
+                              size: 32,
+                            ),
+                          ),
                           Text(
-                            'Camera not available',
+                            'SAMPLE',
                             style: TextStyle(
-                              color: AppColors.white.withValues(alpha: 0.7),
-                              fontSize: 16,
+                              color: theme.primaryColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
                       ),
-                    )
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: CameraPreview(_controller!),
-                    ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(32),
-              child: CustomButton(
-                text: 'Capture Photo',
-                onPressed:
-                    _controller != null && _controller!.value.isInitialized
-                    ? () {
-                        context.read<CameraBloc>().add(
-                          const CapturePhotoEvent(),
-                        );
-                      }
-                    : null,
-                backgroundColor: AppColors.white,
-                textColor: AppColors.primary,
-                width: double.infinity,
-                icon: Icons.camera,
+                    ],
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
+
+          // Sample Image Overlay
+          if (_showSample)
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => setState(() => _showSample = false),
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.8),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'IDEAL VIEW',
+                          style: TextStyle(
+                            color: theme.primaryColor,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 2,
+                            fontSize: 18,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Container(
+                          width: 300,
+                          height: 300,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(32),
+                            border: Border.all(
+                              color: theme.primaryColor,
+                              width: 2,
+                            ),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: Stack(
+                            children: [
+                              Image.asset(
+                                'assets/mock_data/good_photo_sample.png',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Container(
+                                      color: isDarkMode(context)
+                                          ? AppColors.secondary
+                                          : theme.primaryColor.withValues(
+                                              alpha: 0.05,
+                                            ),
+                                      child: Icon(
+                                        Icons.image,
+                                        color: theme.colorScheme.onSurface
+                                            .withValues(alpha: 0.2),
+                                        size: 80,
+                                      ),
+                                    ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                color: Colors.black45,
+                                child: const Text(
+                                  'Clear floor and walls visible',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'TAP ANYWHERE TO CLOSE',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.4,
+                            ),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  bool isDarkMode(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+}
+
+class _HorizontalGuidance extends StatelessWidget {
+  const _HorizontalGuidance();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Top 20% Overlay - CEILING
+        Expanded(
+          flex: 20,
+          child: _GuidanceSection(
+            label: 'CEILING',
+            color: Colors.white.withValues(alpha: 0.03),
+            showBottomDivider: true,
+          ),
         ),
+        // Middle 60% Overlay - PATH
+        Expanded(
+          flex: 60,
+          child: _GuidanceSection(
+            label: 'PATH',
+            color: Colors.transparent,
+            showBottomDivider: true,
+          ),
+        ),
+        // Bottom 20% Overlay - FLOOR
+        Expanded(
+          flex: 20,
+          child: _GuidanceSection(
+            label: 'FLOOR',
+            color: Colors.black.withValues(alpha: 0.08),
+            showBottomDivider: false,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GuidanceSection extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool showBottomDivider;
+
+  const _GuidanceSection({
+    required this.label,
+    required this.color,
+    this.showBottomDivider = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        border: showBottomDivider
+            ? Border(
+                bottom: BorderSide(
+                  color: theme.primaryColor.withValues(alpha: 0.5),
+                  width: 1,
+                  style: BorderStyle.solid,
+                ),
+              )
+            : null,
+      ),
+      child: Stack(
+        children: [
+          Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: AppColors.white.withValues(alpha: 0.2),
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 4,
+              ),
+            ),
+          ),
+          if (showBottomDivider)
+            Positioned(
+              bottom: 4,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Icon(
+                  Icons.keyboard_arrow_down,
+                  color: theme.primaryColor.withValues(alpha: 0.3),
+                  size: 16,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -240,116 +471,171 @@ class _CameraReadyViewState extends State<_CameraReadyView> {
 
 class _PhotoPreviewView extends StatelessWidget {
   final CameraPhotoCaptured state;
+  final DestinationEntity? destination;
 
-  const _PhotoPreviewView({required this.state});
+  const _PhotoPreviewView({required this.state, this.destination});
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Column(
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                const Expanded(
-                  child: Text(
-                    'Photo Preview',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(width: 48),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: CustomCard(
-                      hasShadow: true,
-                      padding: EdgeInsets.zero,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: File(state.photo.filePath).existsSync()
-                            ? Image.file(
-                                File(state.photo.filePath),
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                              )
-                            : const Center(
-                                child: Icon(
-                                  Icons.image_not_supported,
-                                  size: 80,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
+          // Background Image with placeholder fallback
+          File(state.photo.filePath).existsSync()
+              ? Image.file(File(state.photo.filePath), fit: BoxFit.cover)
+              : Container(
+                  color: isDark
+                      ? AppColors.secondary
+                      : theme.primaryColor.withValues(alpha: 0.05),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
-                          Icons.check_circle,
-                          color: AppColors.success,
-                          size: 24,
+                        Icon(
+                          Icons.image_not_supported_outlined,
+                          size: 80,
+                          color: theme.primaryColor.withValues(alpha: 0.2),
                         ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Text(
-                            'Photo captured successfully!',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.success,
-                            ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'PREVIEW NOT AVAILABLE',
+                          style: TextStyle(
+                            color: theme.primaryColor.withValues(alpha: 0.4),
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 2,
+                            fontSize: 12,
                           ),
                         ),
                       ],
                     ),
                   ),
+                ),
+
+          // Dark Gradient Overlay for readability
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black45,
+                  Colors.transparent,
+                  Colors.transparent,
+                  Colors.black87,
                 ],
+                stops: [0.0, 0.2, 0.6, 1.0],
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Row(
+
+          // Content
+          SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: CustomButton(
-                    text: 'Retake',
-                    onPressed: () {
-                      context.read<CameraBloc>().add(
-                        const InitializeCameraEvent(),
-                      );
-                    },
-                    isOutlined: true,
-                    icon: Icons.refresh,
+                // Header
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                    onPressed: () => context.pop(),
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: CustomButton(
-                    text: 'Continue',
-                    onPressed: () {
-                      context.read<CameraBloc>().add(const UploadPhotoEvent());
-                    },
-                    icon: Icons.arrow_forward,
+
+                const Spacer(),
+
+                // Footer Controls
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Is this photo clear?',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Ensure the image isn\'t blurry for best results.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Primary Action
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            context.read<CameraBloc>().add(
+                              const UploadPhotoEvent(),
+                            );
+                            // Navigate to navigation page directly with the destination
+                            if (destination != null) {
+                              context.push('/navigation', extra: destination);
+                            } else {
+                              context.push('/location-detection');
+                            }
+                          },
+                          style: theme.elevatedButtonTheme.style?.copyWith(
+                            padding: WidgetStateProperty.all(EdgeInsets.zero),
+                          ),
+                          child: const Text(
+                            'Confirm & Analyze',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Secondary Action
+                      TextButton(
+                        onPressed: () => context.read<CameraBloc>().add(
+                          const InitializeCameraEvent(),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 24,
+                          ),
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.refresh_rounded, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Retake Photo',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -368,54 +654,60 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(60),
+    final theme = Theme.of(context);
+    return Container(
+      color: theme.scaffoldBackgroundColor,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.error_outline_rounded,
+                  size: 48,
+                  color: AppColors.error,
+                ),
               ),
-              child: const Icon(
-                Icons.error_outline_rounded,
-                size: 60,
-                color: AppColors.error,
+              const SizedBox(height: 24),
+              Text(
+                'Camera Error',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
-            ),
-            const SizedBox(height: 32),
-            const Text(
-              'Oops! Something went wrong',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+              const SizedBox(height: 12),
+              Text(
+                message,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.textSecondary,
+              const SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: () {
+                  context.read<CameraBloc>().add(const InitializeCameraEvent());
+                },
+                style: theme.elevatedButtonTheme.style?.copyWith(
+                  minimumSize: WidgetStateProperty.all(
+                    const Size(double.infinity, 50),
+                  ),
+                ),
+                child: const Text('Try Again'),
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            CustomButton(
-              text: 'Try Again',
-              onPressed: () {
-                context.read<CameraBloc>().add(const InitializeCameraEvent());
-              },
-              width: double.infinity,
-              icon: Icons.refresh,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

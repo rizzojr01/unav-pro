@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
 
 class CustomTextField extends StatelessWidget {
   final String? hintText;
@@ -33,6 +32,8 @@ class CustomTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
@@ -41,15 +42,22 @@ class CustomTextField extends StatelessWidget {
       onChanged: onChanged,
       maxLines: maxLines,
       enabled: enabled,
+      style: TextStyle(color: theme.colorScheme.onSurface),
       decoration: InputDecoration(
         hintText: hintText,
         labelText: labelText,
         prefixIcon: prefixIcon != null
-            ? Icon(prefixIcon, color: AppColors.grey)
+            ? Icon(
+                prefixIcon,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              )
             : null,
         suffixIcon: suffixIcon != null
             ? IconButton(
-                icon: Icon(suffixIcon, color: AppColors.grey),
+                icon: Icon(
+                  suffixIcon,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                ),
                 onPressed: onSuffixIconTap,
               )
             : null,

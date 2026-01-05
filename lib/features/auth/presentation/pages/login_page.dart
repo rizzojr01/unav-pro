@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../theme/app_colors.dart';
-import '../../../../shared/widgets/custom_button.dart';
-import '../../../../shared/widgets/custom_text_field.dart';
-import '../../../../shared/widgets/custom_snackbar.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -48,50 +46,151 @@ class _LoginPageState extends State<LoginPage> {
         _isLoading = false;
       });
 
-      CustomSnackBar.show(
-        context,
-        message: 'Login successful!',
-        type: SnackBarType.success,
-      );
-
-      Navigator.of(context).pushReplacementNamed('/dashboard');
+      context.go('/dashboard');
     }
   }
 
   void _handleGuestLogin() {
-    Navigator.of(context).pushReplacementNamed('/dashboard');
+    context.go('/dashboard');
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 40),
-                  _buildHeader(),
-                  const SizedBox(height: 60),
-                  _buildEmailField(),
-                  const SizedBox(height: 20),
-                  _buildPasswordField(),
-                  const SizedBox(height: 12),
-                  _buildForgotPasswordButton(),
-                  const SizedBox(height: 32),
-                  _buildLoginButton(),
-                  const SizedBox(height: 16),
-                  _buildDivider(),
-                  const SizedBox(height: 16),
-                  _buildGuestButton(),
-                  const SizedBox(height: 24),
-                  _buildSignUpPrompt(),
-                ],
-              ),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 60),
+                buildHeader(context),
+
+                const SizedBox(height: 48),
+                buildTextField(
+                  context: context,
+                  controller: _emailController,
+                  label: 'Email',
+                  icon: Icons.email_outlined,
+                  hint: 'name@example.com',
+                  validator: (value) {
+                    if (value == null || value.isEmpty) return 'Required';
+                    if (!value.contains('@')) return 'Invalid email';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+                buildTextField(
+                  context: context,
+                  controller: _passwordController,
+                  label: 'Password',
+                  icon: Icons.lock_outline,
+                  hint: '••••••',
+                  isPassword: true,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) return 'Required';
+                    if (value.length < 6) return 'Min 6 chars';
+                    return null;
+                  },
+                ),
+
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {},
+                    child: Text(
+                      'Forgot Password?',
+                      style: TextStyle(
+                        color: theme.primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _handleLogin,
+                  style: theme.elevatedButtonTheme.style?.copyWith(
+                    shape: WidgetStateProperty.all(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: theme.colorScheme.onPrimary,
+                          ),
+                        )
+                      : const Text(
+                          'Sign In',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+                const SizedBox(height: 12),
+                buildDivider(context),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: _handleGuestLogin,
+                  style: theme.outlinedButtonTheme.style?.copyWith(
+                    foregroundColor: WidgetStateProperty.all(
+                      theme.colorScheme.onSurface,
+                    ),
+                    side: WidgetStateProperty.all(
+                      BorderSide(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.1,
+                        ),
+                      ),
+                    ),
+                    shape: WidgetStateProperty.all(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                  child: const Text(
+                    'Continue as Guest',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'New here? ',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {},
+                      child: Text(
+                        'Create Account',
+                        style: TextStyle(
+                          color: theme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
@@ -99,169 +198,129 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget buildHeader(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Column(
       children: [
         Container(
-          width: 80,
-          height: 80,
+          width: 100,
+          height: 100,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: AppColors.primaryGradient),
-            borderRadius: BorderRadius.circular(20),
+            color: isDark
+                ? AppColors.secondary
+                : theme.primaryColor.withValues(alpha: 0.05),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: theme.primaryColor.withValues(alpha: 0.1),
+            ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.3),
-                blurRadius: 20,
+                color: theme.primaryColor.withValues(alpha: 0.15),
+                blurRadius: 40,
                 offset: const Offset(0, 10),
               ),
             ],
           ),
-          child: const Icon(
-            Icons.camera_alt_rounded,
-            size: 40,
-            color: AppColors.white,
+          child: Icon(
+            Icons.lock_person_rounded,
+            size: 48,
+            color: theme.primaryColor,
           ),
         ),
-        const SizedBox(height: 24),
-        const Text(
+        const SizedBox(height: 32),
+        Text(
           'Welcome Back',
           style: TextStyle(
-            fontSize: 32,
+            fontSize: 28,
             fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
+            color: theme.colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Sign in to continue',
-          style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
+        Text(
+          'Sign in to access your dashboard',
+          style: TextStyle(
+            fontSize: 16,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildEmailField() {
-    return CustomTextField(
-      controller: _emailController,
-      labelText: 'Email',
-      hintText: 'Enter your email',
-      prefixIcon: Icons.email_outlined,
-      keyboardType: TextInputType.emailAddress,
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter your email';
-        }
-        if (!value.contains('@')) {
-          return 'Please enter a valid email';
-        }
-        return null;
-      },
-    );
-  }
-
-  Widget _buildPasswordField() {
-    return CustomTextField(
-      controller: _passwordController,
-      labelText: 'Password',
-      hintText: 'Enter your password',
-      prefixIcon: Icons.lock_outlined,
-      suffixIcon: _obscurePassword ? Icons.visibility_off : Icons.visibility,
-      onSuffixIconTap: _togglePasswordVisibility,
-      obscureText: _obscurePassword,
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter your password';
-        }
-        if (value.length < 6) {
-          return 'Password must be at least 6 characters';
-        }
-        return null;
-      },
-    );
-  }
-
-  Widget _buildForgotPasswordButton() {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: TextButton(
-        onPressed: () {
-          CustomSnackBar.show(
-            context,
-            message: 'Forgot password feature coming soon',
-            type: SnackBarType.info,
-          );
-        },
-        child: const Text(
-          'Forgot Password?',
+  Widget buildTextField({
+    required BuildContext context,
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required String hint,
+    bool isPassword = false,
+    String? Function(String?)? validator,
+  }) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
           style: TextStyle(
-            color: AppColors.primary,
-            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface,
+            fontWeight: FontWeight.w500,
           ),
         ),
-      ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          obscureText: isPassword && _obscurePassword,
+          style: TextStyle(color: theme.colorScheme.onSurface),
+          validator: validator,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: Icon(
+              icon,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+            ),
+            suffixIcon: isPassword
+                ? IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
+                    onPressed: _togglePasswordVisibility,
+                  )
+                : null,
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildLoginButton() {
-    return CustomButton(
-      text: 'Login',
-      onPressed: _handleLogin,
-      isLoading: _isLoading,
-      width: double.infinity,
-    );
-  }
-
-  Widget _buildDivider() {
-    return const Row(
+  Widget buildDivider(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
       children: [
-        Expanded(child: Divider()),
+        Expanded(
+          child: Divider(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+          ),
+        ),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'OR',
             style: TextStyle(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              fontSize: 12,
             ),
           ),
         ),
-        Expanded(child: Divider()),
-      ],
-    );
-  }
-
-  Widget _buildGuestButton() {
-    return CustomButton(
-      text: 'Continue as Guest',
-      onPressed: _handleGuestLogin,
-      isOutlined: true,
-      width: double.infinity,
-      icon: Icons.person_outline,
-    );
-  }
-
-  Widget _buildSignUpPrompt() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Text(
-          'Don\'t have an account? ',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-        TextButton(
-          onPressed: () {
-            CustomSnackBar.show(
-              context,
-              message: 'Sign up feature coming soon',
-              type: SnackBarType.info,
-            );
-          },
-          child: const Text(
-            'Sign Up',
-            style: TextStyle(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w700,
-            ),
+        Expanded(
+          child: Divider(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
           ),
         ),
       ],

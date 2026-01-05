@@ -25,18 +25,22 @@ class CustomButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     if (isOutlined) {
       return SizedBox(
         width: width,
         child: OutlinedButton(
           onPressed: isLoading ? null : onPressed,
-          style: OutlinedButton.styleFrom(
-            side: BorderSide(
-              color: backgroundColor ?? AppColors.primary,
-              width: 2,
+          style: theme.outlinedButtonTheme.style?.copyWith(
+            side: WidgetStateProperty.all(
+              BorderSide(
+                color: backgroundColor ?? theme.primaryColor,
+                width: 2,
+              ),
             ),
           ),
-          child: _buildChild(),
+          child: _buildChild(context),
         ),
       );
     }
@@ -45,22 +49,28 @@ class CustomButton extends StatelessWidget {
       width: width,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor ?? AppColors.primary,
+        style: theme.elevatedButtonTheme.style?.copyWith(
+          backgroundColor: backgroundColor != null
+              ? WidgetStateProperty.all(backgroundColor)
+              : null,
         ),
-        child: _buildChild(),
+        child: _buildChild(context),
       ),
     );
   }
 
-  Widget _buildChild() {
+  Widget _buildChild(BuildContext context) {
+    final theme = Theme.of(context);
+
     if (isLoading) {
-      return const SizedBox(
+      return SizedBox(
         height: 20,
         width: 20,
         child: CircularProgressIndicator(
           strokeWidth: 2,
-          valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
+          valueColor: AlwaysStoppedAnimation<Color>(
+            isOutlined ? theme.primaryColor : theme.colorScheme.onPrimary,
+          ),
         ),
       );
     }

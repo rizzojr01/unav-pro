@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'app.dart';
-import 'injection.dart';
+import 'package:smart_sense/app.dart';
+import 'package:smart_sense/injection.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

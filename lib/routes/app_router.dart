@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../features/splash/presentation/pages/splash_page.dart';
 import '../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../features/auth/presentation/pages/login_page.dart';
@@ -7,6 +8,7 @@ import '../features/camera/presentation/pages/camera_page.dart';
 import '../features/location/presentation/pages/location_detection_page.dart';
 import '../features/destination/presentation/pages/destination_page.dart';
 import '../features/navigation/presentation/pages/navigation_page.dart';
+import '../features/profile/presentation/pages/profile_page.dart';
 import '../features/destination/domain/entities/destination_entity.dart';
 
 class AppRouter {
@@ -18,50 +20,50 @@ class AppRouter {
   static const String locationDetection = '/location-detection';
   static const String destination = '/destination';
   static const String navigation = '/navigation';
+  static const String profile = '/profile';
 
-  static Route<dynamic> onGenerateRoute(RouteSettings settings) {
-    switch (settings.name) {
-      case splash:
-        return MaterialPageRoute(builder: (_) => const SplashPage());
-
-      case onboarding:
-        return MaterialPageRoute(builder: (_) => const OnboardingPage());
-
-      case login:
-        return MaterialPageRoute(builder: (_) => const LoginPage());
-
-      case dashboard:
-        return MaterialPageRoute(builder: (_) => const DashboardPage());
-
-      case camera:
-        return MaterialPageRoute(builder: (_) => const CameraPage());
-
-      case locationDetection:
-        return MaterialPageRoute(builder: (_) => const LocationDetectionPage());
-
-      case destination:
-        return MaterialPageRoute(builder: (_) => const DestinationPage());
-
-      case navigation:
-        final destination = settings.arguments as DestinationEntity?;
-        if (destination == null) {
-          return _errorRoute('Destination is required');
-        }
-        return MaterialPageRoute(
-          builder: (_) => NavigationPage(destination: destination),
-        );
-
-      default:
-        return _errorRoute('Route not found: ${settings.name}');
-    }
-  }
-
-  static Route<dynamic> _errorRoute(String message) {
-    return MaterialPageRoute(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('Error')),
-        body: Center(child: Text(message)),
+  static final GoRouter router = GoRouter(
+    initialLocation: splash,
+    routes: [
+      GoRoute(path: splash, builder: (context, state) => const SplashPage()),
+      GoRoute(
+        path: onboarding,
+        builder: (context, state) => const OnboardingPage(),
       ),
-    );
-  }
+      GoRoute(path: login, builder: (context, state) => const LoginPage()),
+      GoRoute(
+        path: dashboard,
+        builder: (context, state) => const DashboardPage(),
+      ),
+      GoRoute(
+        path: camera,
+        builder: (context, state) {
+          final destination = state.extra as DestinationEntity?;
+          return CameraPage(destination: destination);
+        },
+      ),
+      GoRoute(
+        path: locationDetection,
+        builder: (context, state) => const LocationDetectionPage(),
+      ),
+      GoRoute(
+        path: destination,
+        builder: (context, state) => const DestinationPage(),
+      ),
+      GoRoute(path: profile, builder: (context, state) => const ProfilePage()),
+      GoRoute(
+        path: navigation,
+        builder: (context, state) {
+          final destination = state.extra as DestinationEntity?;
+          if (destination == null) {
+            return Scaffold(
+              appBar: AppBar(title: const Text('Error')),
+              body: const Center(child: Text('Destination is required')),
+            );
+          }
+          return NavigationPage(destination: destination);
+        },
+      ),
+    ],
+  );
 }

@@ -1,9 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../theme/app_colors.dart';
-import '../../../../shared/widgets/custom_button.dart';
-import '../../../../shared/widgets/custom_card.dart';
 
 class LocationDetectionPage extends StatefulWidget {
   final String? photoPath;
@@ -14,18 +13,38 @@ class LocationDetectionPage extends StatefulWidget {
   State<LocationDetectionPage> createState() => _LocationDetectionPageState();
 }
 
-class _LocationDetectionPageState extends State<LocationDetectionPage> {
+class _LocationDetectionPageState extends State<LocationDetectionPage>
+    with SingleTickerProviderStateMixin {
   Map<String, dynamic>? _locationData;
   bool _isLoading = true;
   String? _errorMessage;
+  late AnimationController _controller;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
     super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.2,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
     _detectIndoorLocation();
   }
 
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   Future<void> _detectIndoorLocation() async {
+    // ... existing implementation remains mostly the same, just keeping the method signature for replacement block consistency
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -54,23 +73,30 @@ class _LocationDetectionPageState extends State<LocationDetectionPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        backgroundColor: AppColors.primary,
-        title: const Text(
-          'Location Detection',
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_new,
+            color: theme.colorScheme.onSurface,
+          ),
+          onPressed: () => context.pop(),
+        ),
+        title: Text(
+          _isLoading ? 'SCANNING' : 'LOCATION',
           style: TextStyle(
-            color: AppColors.white,
-            fontSize: 20,
+            color: theme.colorScheme.onSurface,
             fontWeight: FontWeight.bold,
+            letterSpacing: 2,
           ),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        centerTitle: true,
       ),
+      extendBodyBehindAppBar: true,
       body: _isLoading
           ? _buildLoadingView()
           : _errorMessage != null
@@ -80,263 +106,128 @@ class _LocationDetectionPageState extends State<LocationDetectionPage> {
   }
 
   Widget _buildLoadingView() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 24),
-          Text(
-            'Detecting your indoor location...',
-            style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Analyzing building position',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary.withValues(alpha: 0.7),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-  Widget _buildErrorView() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.location_off, size: 80, color: AppColors.error),
-          const SizedBox(height: 24),
-          Text(
-            _errorMessage!,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 32),
-          CustomButton(
-            text: 'Try Again',
-            onPressed: _detectIndoorLocation,
-            icon: Icons.refresh,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLocationView() {
-    final buildingName = _locationData!['buildingName'] as String;
-    final floor = _locationData!['floor'] as int;
-    final zone = _locationData!['zone'] as String;
-    final roomNumber = _locationData!['roomNumber'] as String;
-    final roomName = _locationData!['roomName'] as String;
-    final accuracy = _locationData!['accuracy'] as double;
-    final landmarks = List<String>.from(
-      _locationData!['nearbyLandmarks'] as List,
-    );
-
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: AppColors.successGradient,
-                ),
-                borderRadius: BorderRadius.circular(60),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.success.withValues(alpha: 0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.location_on,
-                size: 60,
-                color: AppColors.white,
-              ),
-            ),
-            const SizedBox(height: 32),
-            const Text(
-              'Here You Are!',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Indoor location detected successfully',
-              style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 40),
-            CustomCard(
-              hasShadow: true,
-              child: Column(
-                children: [
-                  _buildInfoHeader(Icons.business, 'Building', buildingName),
-                  const Divider(height: 32),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildInfoItem(Icons.layers, 'Floor', '$floor'),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 40,
-                        color: AppColors.greyLight,
-                      ),
-                      Expanded(
-                        child: _buildInfoItem(Icons.explore, 'Zone', zone),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 32),
-                  _buildInfoHeader(
-                    Icons.meeting_room,
-                    'Room',
-                    '$roomNumber - $roomName',
-                  ),
-                  const Divider(height: 32),
-                  _buildInfoItem(
-                    Icons.speed,
-                    'Accuracy',
-                    '±${accuracy.toStringAsFixed(1)}m',
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            CustomCard(
-              hasShadow: true,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: AppColors.info.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.pin_drop,
-                          color: AppColors.info,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Nearby Landmarks',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  ...landmarks.map(
-                    (landmark) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.check_circle,
-                            size: 18,
-                            color: AppColors.success,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            landmark,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-            CustomButton(
-              text: 'Navigate to Destination',
-              onPressed: () {
-                Navigator.of(context).pushNamed('/destination');
-              },
-              icon: Icons.navigation,
-              width: double.infinity,
-            ),
-            const SizedBox(height: 12),
-            CustomButton(
-              text: 'Back to Dashboard',
-              onPressed: () {
-                Navigator.of(
-                  context,
-                ).popUntil((route) => route.settings.name == '/dashboard');
-              },
-              isOutlined: true,
-              icon: Icons.home,
-              width: double.infinity,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoHeader(IconData icon, String label, String value) {
-    return Row(
+    return Stack(
+      fit: StackFit.expand,
       children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
+        // 1. Tech Grid Background
+        CustomPaint(
+          painter: _GridPainter(
+            color: theme.primaryColor.withValues(alpha: isDark ? 0.05 : 0.03),
           ),
-          child: Icon(icon, color: AppColors.primary, size: 24),
         ),
-        const SizedBox(width: 16),
-        Expanded(
+
+        // 2. Main Content
+        Center(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              AnimatedBuilder(
+                animation: _pulseAnimation,
+                builder: (context, child) {
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Expanding Radar Rings
+                      Container(
+                        width: 160 * _pulseAnimation.value,
+                        height: 160 * _pulseAnimation.value,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: theme.primaryColor.withValues(alpha: 0.1),
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        width: 120 * _pulseAnimation.value,
+                        height: 120 * _pulseAnimation.value,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: theme.primaryColor.withValues(alpha: 0.05),
+                          boxShadow: [
+                            BoxShadow(
+                              color: theme.primaryColor.withValues(alpha: 0.1),
+                              blurRadius: 30,
+                              spreadRadius: 5,
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Core Icon
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppColors.secondary
+                              : theme.primaryColor.withValues(alpha: 0.05),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: theme.primaryColor.withValues(alpha: 0.4),
+                            width: 2,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.location_searching_rounded,
+                          size: 36,
+                          color: theme.primaryColor,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 48),
               Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
+                'ANALYZING',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  color: theme.colorScheme.onSurface,
+                  letterSpacing: 8,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 12),
               Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                'PINPOINTING SPATIAL COORDINATES',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: theme.primaryColor.withValues(alpha: 0.7),
+                  letterSpacing: 2,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // 3. Bottom Progress Meta
+        Positioned(
+          bottom: 80,
+          left: 40,
+          right: 40,
+          child: Column(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
+                  valueColor: AlwaysStoppedAnimation<Color>(theme.primaryColor),
+                  minHeight: 2,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'SCANNING SPATIAL MARKERS',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  letterSpacing: 3,
                 ),
               ),
             ],
@@ -346,25 +237,316 @@ class _LocationDetectionPageState extends State<LocationDetectionPage> {
     );
   }
 
-  Widget _buildInfoItem(IconData icon, String label, String value) {
-    return Column(
-      children: [
-        Icon(icon, color: AppColors.primary, size: 24),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
+  Widget _buildErrorView() {
+    final theme = Theme.of(context);
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.error.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.location_off_outlined,
+              size: 48,
+              color: AppColors.error,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 24),
+          Text(
+            _errorMessage ?? 'Unknown Error',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton(
+            onPressed: _detectIndoorLocation,
+            style: theme.elevatedButtonTheme.style,
+            child: const Text('Try Again'),
+          ),
+        ],
+      ),
     );
   }
+
+  Widget _buildLocationView() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final buildingName = _locationData!['buildingName'] as String;
+    final floor = _locationData!['floor'] as int;
+    final zone = _locationData!['zone'] as String;
+    final roomNumber = _locationData!['roomNumber'] as String;
+    final roomName = _locationData!['roomName'] as String;
+
+    return SingleChildScrollView(
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+              // Success Header
+              Center(
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check,
+                        color: AppColors.success,
+                        size: 32,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Location Identified',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 40),
+
+              // Map / Context Card
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isDark
+                        ? [const Color(0xFF2C2C2C), AppColors.secondary]
+                        : [
+                            theme.primaryColor.withValues(alpha: 0.1),
+                            theme.primaryColor.withValues(alpha: 0.05),
+                          ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: theme.primaryColor.withValues(alpha: 0.1),
+                  ),
+                  boxShadow: isDark
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                        ]
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 15,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.business, color: theme.primaryColor, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      buildingName,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.black.withValues(alpha: 0.5)
+                            : theme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'Floor $floor • $zone',
+                        style: TextStyle(
+                          color: theme.primaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Details Grid
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildDetailTile(
+                      context,
+                      Icons.meeting_room_outlined,
+                      'Room',
+                      roomNumber,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildDetailTile(
+                      context,
+                      Icons.label_outline,
+                      'Name',
+                      roomName,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 40),
+
+              // Action Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => context.push('/destination'),
+                  style: theme.elevatedButtonTheme.style?.copyWith(
+                    padding: WidgetStateProperty.all(
+                      const EdgeInsets.symmetric(vertical: 20),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Where do you want to go?',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Icon(Icons.arrow_forward),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+              Center(
+                child: TextButton(
+                  onPressed: () {
+                    context.go('/dashboard');
+                  },
+                  child: Text(
+                    "Go to Dashboard",
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailTile(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+  ) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.secondary : theme.cardTheme.color,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.primaryColor.withValues(alpha: 0.1)),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icon,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+            size: 20,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            label,
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              color: theme.colorScheme.onSurface,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GridPainter extends CustomPainter {
+  final Color color;
+  _GridPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+
+    const spacing = 30.0;
+
+    for (var i = 0.0; i < size.width; i += spacing) {
+      canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
+    }
+
+    for (var i = 0.0; i < size.height; i += spacing) {
+      canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
