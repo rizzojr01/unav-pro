@@ -16,7 +16,7 @@ class DestinationRemoteDataSourceImpl extends BaseRemoteDataSource
     // TODO: Uncomment when backend is ready
     // return executeCall<List<DestinationModel>>(() async {
     //   final response = await get(
-    //     '/destinations/search',
+    //     ApiRoutes.searchDestinations,
     //     queryParameters: {'q': query},
     //   );
     //

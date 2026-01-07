@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_sense/core/network/api_client.dart';
 import 'package:smart_sense/core/services/storage_service.dart';
 import 'package:smart_sense/core/utils/logger.dart';
-import 'package:smart_sense/core/constants/app_constants.dart';
+import 'package:smart_sense/core/constants/api_routes.dart';
 import 'package:smart_sense/theme/theme_bloc.dart';
 
 // Camera
@@ -33,6 +33,22 @@ import 'package:smart_sense/features/navigation/domain/usecases/get_route_usecas
 import 'package:smart_sense/features/navigation/domain/usecases/watch_location_usecase.dart';
 import 'package:smart_sense/features/navigation/presentation/bloc/navigation_bloc.dart';
 
+// Auth
+import 'package:smart_sense/features/auth/data/datasources/auth_local_datasource.dart';
+import 'package:smart_sense/features/auth/data/datasources/auth_remote_datasource.dart';
+import 'package:smart_sense/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:smart_sense/features/auth/domain/repositories/auth_repository.dart';
+import 'package:smart_sense/features/auth/domain/usecases/login_usecase.dart';
+import 'package:smart_sense/features/auth/domain/usecases/signup_usecase.dart';
+import 'package:smart_sense/features/auth/domain/usecases/logout_usecase.dart';
+import 'package:smart_sense/features/auth/presentation/bloc/auth_bloc.dart';
+
+// Profile
+import 'package:smart_sense/features/profile/data/datasources/profile_remote_datasource.dart';
+import 'package:smart_sense/features/profile/data/repositories/profile_repository_impl.dart';
+import 'package:smart_sense/features/profile/domain/repositories/profile_repository.dart';
+import 'package:smart_sense/features/profile/domain/usecases/get_me_usecase.dart';
+
 final getIt = GetIt.instance;
 
 Future<void> initializeDependencies() async {
@@ -44,7 +60,43 @@ Future<void> initializeDependencies() async {
   getIt.registerLazySingleton<AppLogger>(() => AppLogger());
   getIt.registerLazySingleton<StorageService>(() => StorageService(getIt()));
   getIt.registerLazySingleton<ApiClient>(
-    () => ApiClient(baseUrl: AppConstants.baseUrl, logger: getIt()),
+    () => ApiClient(baseUrl: ApiRoutes.baseUrl, logger: getIt()),
+  );
+
+  // Auth Feature
+  getIt.registerLazySingleton<AuthLocalDataSource>(
+    () => AuthLocalDataSourceImpl(getIt()),
+  );
+  getIt.registerLazySingleton<AuthRemoteDataSource>(
+    () => AuthRemoteDataSourceImpl(getIt()),
+  );
+  getIt.registerLazySingleton<AuthRepository>(
+    () =>
+        AuthRepositoryImpl(remoteDataSource: getIt(), localDataSource: getIt()),
+  );
+  getIt.registerLazySingleton(() => LoginUseCase(getIt()));
+  getIt.registerLazySingleton(() => SignupUseCase(getIt()));
+  getIt.registerLazySingleton(() => LogoutUseCase(getIt()));
+
+  // Profile Feature
+  getIt.registerLazySingleton<ProfileRemoteDataSource>(
+    () => ProfileRemoteDataSourceImpl(getIt()),
+  );
+  getIt.registerLazySingleton<ProfileRepository>(
+    () => ProfileRepositoryImpl(
+      remoteDataSource: getIt(),
+      authLocalDataSource: getIt(),
+    ),
+  );
+  getIt.registerLazySingleton(() => GetMeUseCase(getIt()));
+
+  getIt.registerFactory(
+    () => AuthBloc(
+      loginUseCase: getIt(),
+      signupUseCase: getIt(),
+      getMeUseCase: getIt(),
+      logoutUseCase: getIt(),
+    ),
   );
 
   // Camera Feature

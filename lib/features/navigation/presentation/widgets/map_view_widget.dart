@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../theme/app_colors.dart';
+
 import '../../domain/entities/location_entity.dart';
 import '../../domain/entities/route_entity.dart';
 import 'dart:math' as math;
@@ -41,11 +41,14 @@ class _MapViewWidgetState extends State<MapViewWidget>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.secondaryDark,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.white.withValues(alpha: 0.05)),
+        border: Border.all(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
+        ),
       ),
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: ClipRRect(
@@ -56,9 +59,10 @@ class _MapViewWidgetState extends State<MapViewWidget>
               size: Size(constraints.maxWidth, constraints.maxHeight),
               painter: _MapPainter(
                 animationValue: widget.isNavigating ? _controller.value : 0.0,
-                primaryColor: AppColors.primary,
+                primaryColor: theme.primaryColor,
                 waypoints: widget.route.waypoints,
                 currentLocation: widget.currentLocation,
+                theme: theme,
               ),
             );
           },
@@ -73,19 +77,18 @@ class _MapPainter extends CustomPainter {
   final Color primaryColor;
   final List<LocationEntity> waypoints;
   final LocationEntity currentLocation;
+  final ThemeData theme;
 
   _MapPainter({
     required this.animationValue,
     required this.primaryColor,
     required this.waypoints,
     required this.currentLocation,
+    required this.theme,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
     // 1. Draw Tech Background Grid
     _drawGrid(canvas, size);
 
@@ -123,7 +126,7 @@ class _MapPainter extends CustomPainter {
 
   void _drawFloorPlan(Canvas canvas, Size size) {
     final wallPaint = Paint()
-      ..color = AppColors.white.withValues(alpha: 0.05)
+      ..color = theme.colorScheme.onSurface.withValues(alpha: 0.05)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
@@ -235,7 +238,7 @@ class _MapPainter extends CustomPainter {
 
     // Core
     canvas.drawCircle(destPos, 8, Paint()..color = primaryColor);
-    canvas.drawCircle(destPos, 4, Paint()..color = AppColors.secondaryDark);
+    canvas.drawCircle(destPos, 4, Paint()..color = theme.colorScheme.surface);
 
     _drawLabel(canvas, destPos, "DESTINATION");
   }
@@ -294,8 +297,8 @@ class _MapPainter extends CustomPainter {
     final textPainter = TextPainter(
       text: TextSpan(
         text: text,
-        style: const TextStyle(
-          color: AppColors.white,
+        style: TextStyle(
+          color: theme.colorScheme.onSurface,
           fontSize: 10,
           fontWeight: FontWeight.w900,
           letterSpacing: 1.5,

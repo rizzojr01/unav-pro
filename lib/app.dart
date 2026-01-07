@@ -7,6 +7,8 @@ import 'package:smart_sense/theme/theme_bloc.dart';
 import 'package:smart_sense/features/camera/presentation/bloc/camera_bloc.dart';
 import 'package:smart_sense/features/destination/presentation/bloc/destination_bloc.dart';
 import 'package:smart_sense/features/navigation/presentation/bloc/navigation_bloc.dart';
+import 'package:smart_sense/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:smart_sense/features/auth/presentation/bloc/auth_event.dart';
 
 class App extends StatelessWidget {
   const App({super.key});
@@ -16,6 +18,9 @@ class App extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => getIt<ThemeBloc>()..add(LoadTheme())),
+        BlocProvider(
+          create: (_) => getIt<AuthBloc>()..add(AuthCheckRequested()),
+        ),
         BlocProvider(create: (_) => getIt<CameraBloc>()),
         BlocProvider(create: (_) => getIt<DestinationBloc>()),
         BlocProvider(create: (_) => getIt<NavigationBloc>()),
@@ -25,8 +30,8 @@ class App extends StatelessWidget {
           return MaterialApp.router(
             title: 'Smart Sense',
             debugShowCheckedModeBanner: false,
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
+            theme: AppTheme.createTheme(state.palette, Brightness.light),
+            darkTheme: AppTheme.createTheme(state.palette, Brightness.dark),
             themeMode: state.themeMode,
             routerConfig: AppRouter.router,
           );

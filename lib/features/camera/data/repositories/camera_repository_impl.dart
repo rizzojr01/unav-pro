@@ -1,11 +1,9 @@
 import 'package:dartz/dartz.dart';
-import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/photo_entity.dart';
 import '../../domain/repositories/camera_repository.dart';
 import '../datasources/camera_local_datasource.dart';
 import '../datasources/camera_remote_datasource.dart';
-import '../models/photo_model.dart';
 
 class CameraRepositoryImpl implements CameraRepository {
   final CameraLocalDataSource localDataSource;

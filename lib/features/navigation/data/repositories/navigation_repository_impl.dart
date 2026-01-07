@@ -1,12 +1,10 @@
 import 'package:dartz/dartz.dart';
-import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/location_entity.dart';
 import '../../domain/entities/route_entity.dart';
 import '../../domain/repositories/navigation_repository.dart';
 import '../datasources/navigation_local_datasource.dart';
 import '../datasources/navigation_remote_datasource.dart';
-import '../models/location_model.dart';
 
 class NavigationRepositoryImpl implements NavigationRepository {
   final NavigationLocalDataSource localDataSource;

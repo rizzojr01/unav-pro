@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:smart_sense/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:smart_sense/features/auth/presentation/bloc/auth_event.dart';
+import 'package:smart_sense/features/auth/presentation/bloc/auth_state.dart';
 import '../../../../theme/app_colors.dart';
 import '../../../../theme/theme_bloc.dart';
+import '../../../../theme/widgets/color_customizer.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -10,101 +14,116 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      color: theme.scaffoldBackgroundColor,
-      child: CustomScrollView(
-        slivers: [
-          _buildSliverAppBar(context),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 24),
-                  _buildUserStats(context),
-                  const SizedBox(height: 32),
-                  _buildSectionTitle(context, 'ACCOUNT'),
-                  const SizedBox(height: 12),
-                  _buildSettingsGroup(context, [
-                    _SettingsItem(
-                      icon: Icons.person_outline_rounded,
-                      title: 'Personal Information',
-                      subtitle: 'Name, Email, Phone',
-                      onTap: () {},
-                    ),
-                    _SettingsItem(
-                      icon: Icons.history_rounded,
-                      title: 'Navigation History',
-                      subtitle: 'View your past trips',
-                      onTap: () {},
-                    ),
-                    _SettingsItem(
-                      icon: Icons.bookmark_border_rounded,
-                      title: 'Saved Places',
-                      subtitle: 'Work, Home, Favorites',
-                      onTap: () {},
-                    ),
-                  ]),
-                  const SizedBox(height: 32),
-                  _buildSectionTitle(context, 'APP SETTINGS'),
-                  const SizedBox(height: 12),
-                  _buildSettingsGroup(context, [
-                    _SettingsItem(
-                      icon: Icons.notifications_none_rounded,
-                      title: 'Notifications',
-                      subtitle: 'Alerts, Sounds, Vibration',
-                      onTap: () {},
-                    ),
-                    _SettingsItem(
-                      icon: Icons.shield_outlined,
-                      title: 'Privacy & Security',
-                      subtitle: 'Permissions, Biometrics',
-                      onTap: () {},
-                    ),
-                    _SettingsItem(
-                      icon: Icons.dark_mode_outlined,
-                      title: 'Appearance',
-                      subtitle: _getThemeSubtitle(context),
-                      onTap: () => _showThemeSelection(context),
-                    ),
-                    _SettingsItem(
-                      icon: Icons.translate_rounded,
-                      title: 'Language',
-                      subtitle: 'English (US)',
-                      onTap: () {},
-                    ),
-                  ]),
-                  const SizedBox(height: 32),
-                  _buildSectionTitle(context, 'SUPPORT'),
-                  const SizedBox(height: 12),
-                  _buildSettingsGroup(context, [
-                    _SettingsItem(
-                      icon: Icons.help_outline_rounded,
-                      title: 'Help Center',
-                      subtitle: 'FAQs, Contact Support',
-                      onTap: () {},
-                    ),
-                    _SettingsItem(
-                      icon: Icons.info_outline_rounded,
-                      title: 'About Smart Sense',
-                      subtitle: 'Version 2.0.4',
-                      onTap: () {},
-                    ),
-                  ]),
-                  const SizedBox(height: 40),
-                  _buildLogoutButton(context),
-                  const SizedBox(height: 60),
-                ],
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        final user = state is Authenticated ? state.user : null;
+        return Container(
+          color: theme.scaffoldBackgroundColor,
+          child: CustomScrollView(
+            slivers: [
+              _buildSliverAppBar(context, state, user?.nickname ?? 'Guest'),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 24),
+                      _buildUserStats(context),
+                      const SizedBox(height: 32),
+                      _buildSectionTitle(context, 'ACCOUNT'),
+                      const SizedBox(height: 12),
+                      _buildSettingsGroup(context, [
+                        _SettingsItem(
+                          icon: Icons.person_outline_rounded,
+                          title: 'Personal Information',
+                          subtitle: 'Name, Email, Phone',
+                          onTap: () {},
+                        ),
+                        _SettingsItem(
+                          icon: Icons.history_rounded,
+                          title: 'Navigation History',
+                          subtitle: 'View your past trips',
+                          onTap: () {},
+                        ),
+                        _SettingsItem(
+                          icon: Icons.bookmark_border_rounded,
+                          title: 'Saved Places',
+                          subtitle: 'Work, Home, Favorites',
+                          onTap: () {},
+                        ),
+                      ]),
+                      const SizedBox(height: 32),
+                      _buildSectionTitle(context, 'APP SETTINGS'),
+                      const SizedBox(height: 12),
+                      _buildSettingsGroup(context, [
+                        _SettingsItem(
+                          icon: Icons.notifications_none_rounded,
+                          title: 'Notifications',
+                          subtitle: 'Alerts, Sounds, Vibration',
+                          onTap: () {},
+                        ),
+                        _SettingsItem(
+                          icon: Icons.shield_outlined,
+                          title: 'Privacy & Security',
+                          subtitle: 'Permissions, Biometrics',
+                          onTap: () {},
+                        ),
+                        _SettingsItem(
+                          icon: Icons.palette_outlined,
+                          title: 'Design & Colors',
+                          subtitle: 'Personalize primary & background colors',
+                          onTap: () => _showColorCustomizer(context),
+                        ),
+                        _SettingsItem(
+                          icon: Icons.dark_mode_outlined,
+                          title: 'Appearance',
+                          subtitle: _getThemeSubtitle(context),
+                          onTap: () => _showThemeSelection(context),
+                        ),
+                        _SettingsItem(
+                          icon: Icons.translate_rounded,
+                          title: 'Language',
+                          subtitle: 'English (US)',
+                          onTap: () {},
+                        ),
+                      ]),
+                      const SizedBox(height: 32),
+                      _buildSectionTitle(context, 'SUPPORT'),
+                      const SizedBox(height: 12),
+                      _buildSettingsGroup(context, [
+                        _SettingsItem(
+                          icon: Icons.help_outline_rounded,
+                          title: 'Help Center',
+                          subtitle: 'FAQs, Contact Support',
+                          onTap: () {},
+                        ),
+                        _SettingsItem(
+                          icon: Icons.info_outline_rounded,
+                          title: 'About Smart Sense',
+                          subtitle: 'Version 2.0.4',
+                          onTap: () {},
+                        ),
+                      ]),
+                      const SizedBox(height: 40),
+                      _buildLogoutButton(context),
+                      const SizedBox(height: 60),
+                    ],
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildSliverAppBar(BuildContext context) {
+  Widget _buildSliverAppBar(
+    BuildContext context,
+    AuthState state,
+    String name,
+  ) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -130,7 +149,7 @@ class ProfilePage extends StatelessWidget {
                 _AvatarWidget(),
                 const SizedBox(height: 16),
                 Text(
-                  'ALEX RIZZO',
+                  name.toUpperCase(),
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
@@ -140,7 +159,9 @@ class ProfilePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Senior UX Designer',
+                  state is Authenticated
+                      ? state.user.email
+                      : 'No email available',
                   style: TextStyle(
                     fontSize: 14,
                     color: theme.primaryColor.withValues(alpha: 0.7),
@@ -163,7 +184,7 @@ class ProfilePage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.secondary : theme.cardTheme.color,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: theme.primaryColor.withValues(alpha: 0.05)),
         boxShadow: isDark
@@ -179,11 +200,11 @@ class ProfilePage extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _StatItem(label: 'TRIPS', value: '42'),
+          const _StatItem(label: 'TRIPS', value: '42'),
           _divider(context),
-          _StatItem(label: 'DISTANCE', value: '1.2 km'),
+          const _StatItem(label: 'DISTANCE', value: '1.2 km'),
           _divider(context),
-          _StatItem(label: 'FLOORS', value: '18'),
+          const _StatItem(label: 'FLOORS', value: '18'),
         ],
       ),
     );
@@ -217,7 +238,7 @@ class ProfilePage extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? AppColors.secondary : theme.cardTheme.color,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: theme.primaryColor.withValues(alpha: 0.05)),
         boxShadow: isDark
@@ -235,23 +256,33 @@ class ProfilePage extends StatelessWidget {
   }
 
   Widget _buildLogoutButton(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: TextButton(
-        onPressed: () => context.go('/login'),
-        style: TextButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: AppColors.error.withValues(alpha: 0.3)),
+    final theme = Theme.of(context);
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is Unauthenticated) {
+          context.go('/login');
+        }
+      },
+      child: SizedBox(
+        width: double.infinity,
+        child: TextButton(
+          onPressed: () => context.read<AuthBloc>().add(AuthLogoutRequested()),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: theme.colorScheme.error.withValues(alpha: 0.3),
+              ),
+            ),
           ),
-        ),
-        child: const Text(
-          'LOGOUT',
-          style: TextStyle(
-            color: AppColors.error,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2,
+          child: Text(
+            'LOGOUT',
+            style: TextStyle(
+              color: theme.colorScheme.error,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+            ),
           ),
         ),
       ),
@@ -276,6 +307,58 @@ class ProfilePage extends StatelessWidget {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => const _ThemeSelectionSheet(),
+    );
+  }
+
+  void _showColorCustomizer(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.all(24),
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Center(
+                child: Text(
+                  'DESIGN & COLORS',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              const ColorCustomizer(),
+              const SizedBox(height: 40),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -343,7 +426,7 @@ class _SettingsItem extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: isDark
-                    ? AppColors.secondaryDark.withValues(alpha: 0.5)
+                    ? theme.colorScheme.surface.withValues(alpha: 0.5)
                     : theme.primaryColor.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -410,7 +493,7 @@ class _AvatarWidget extends StatelessWidget {
           ),
           child: CircleAvatar(
             backgroundColor: isDark
-                ? AppColors.secondary
+                ? theme.colorScheme.surface
                 : theme.cardTheme.color,
             child: Icon(
               Icons.person_rounded,
@@ -476,7 +559,6 @@ class _ThemeSelectionSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -549,11 +631,10 @@ class _ThemeOption extends StatelessWidget {
     final currentMode = context.watch<ThemeBloc>().state.themeMode;
     final isSelected = currentMode == mode;
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return InkWell(
       onTap: () {
-        context.read<ThemeBloc>().add(ThemeChanged(mode));
+        context.read<ThemeBloc>().add(ThemeModeChanged(mode));
         Navigator.pop(context);
       },
       borderRadius: BorderRadius.circular(16),
@@ -562,7 +643,7 @@ class _ThemeOption extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? theme.primaryColor.withValues(alpha: 0.1)
-              : (isDark ? AppColors.secondary : theme.cardTheme.color),
+              : theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected

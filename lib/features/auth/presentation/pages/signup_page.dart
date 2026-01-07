@@ -2,25 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:smart_sense/theme/app_colors.dart';
-import 'package:smart_sense/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:smart_sense/features/auth/presentation/bloc/auth_event.dart';
-import 'package:smart_sense/features/auth/presentation/bloc/auth_state.dart';
+import '../bloc/auth_bloc.dart';
+import '../bloc/auth_event.dart';
+import '../bloc/auth_state.dart';
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+class SignupPage extends StatefulWidget {
+  const SignupPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<SignupPage> createState() => _SignupPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _SignupPageState extends State<SignupPage> {
   final _formKey = GlobalKey<FormState>();
+  final _nicknameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
   @override
   void dispose() {
+    _nicknameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -32,19 +34,16 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
-  void _handleLogin() {
+  void _handleSignup() {
     if (_formKey.currentState!.validate()) {
       context.read<AuthBloc>().add(
-        LoginSubmitted(
+        SignupSubmitted(
           email: _emailController.text,
+          nickname: _nicknameController.text,
           password: _passwordController.text,
         ),
       );
     }
-  }
-
-  void _handleGuestLogin() {
-    context.go('/dashboard');
   }
 
   @override
@@ -66,6 +65,17 @@ class _LoginPageState extends State<LoginPage> {
       },
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_new,
+              color: theme.colorScheme.onSurface,
+            ),
+            onPressed: () => context.pop(),
+          ),
+        ),
         body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -74,11 +84,20 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 60),
-                  buildHeader(context),
-
-                  const SizedBox(height: 48),
-                  buildTextField(
+                  const SizedBox(height: 20),
+                  _buildHeader(context),
+                  const SizedBox(height: 40),
+                  _buildTextField(
+                    context: context,
+                    controller: _nicknameController,
+                    label: 'Nickname',
+                    icon: Icons.person_outline,
+                    hint: 'Your display name',
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildTextField(
                     context: context,
                     controller: _emailController,
                     label: 'Email',
@@ -91,7 +110,7 @@ class _LoginPageState extends State<LoginPage> {
                     },
                   ),
                   const SizedBox(height: 20),
-                  buildTextField(
+                  _buildTextField(
                     context: context,
                     controller: _passwordController,
                     label: 'Password',
@@ -104,26 +123,12 @@ class _LoginPageState extends State<LoginPage> {
                       return null;
                     },
                   ),
-
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {},
-                      child: Text(
-                        'Forgot Password?',
-                        style: TextStyle(
-                          color: theme.primaryColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 32),
                   BlocBuilder<AuthBloc, AuthState>(
                     builder: (context, state) {
                       final isLoading = state is AuthLoading;
                       return ElevatedButton(
-                        onPressed: isLoading ? null : _handleLogin,
+                        onPressed: isLoading ? null : _handleSignup,
                         style: theme.elevatedButtonTheme.style?.copyWith(
                           shape: WidgetStateProperty.all(
                             RoundedRectangleBorder(
@@ -132,16 +137,16 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         child: isLoading
-                            ? SizedBox(
+                            ? const SizedBox(
                                 width: 24,
                                 height: 24,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: theme.colorScheme.onPrimary,
+                                  color: Colors.white,
                                 ),
                               )
                             : const Text(
-                                'Sign In',
+                                'Create Account',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -150,39 +155,12 @@ class _LoginPageState extends State<LoginPage> {
                       );
                     },
                   ),
-                  const SizedBox(height: 12),
-                  buildDivider(context),
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: _handleGuestLogin,
-                    style: theme.outlinedButtonTheme.style?.copyWith(
-                      foregroundColor: WidgetStateProperty.all(
-                        theme.colorScheme.onSurface,
-                      ),
-                      side: WidgetStateProperty.all(
-                        BorderSide(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.1,
-                          ),
-                        ),
-                      ),
-                      shape: WidgetStateProperty.all(
-                        RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                    child: const Text(
-                      'Continue as Guest',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'New here? ',
+                        'Already have an account? ',
                         style: TextStyle(
                           color: theme.colorScheme.onSurface.withValues(
                             alpha: 0.6,
@@ -190,9 +168,9 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       GestureDetector(
-                        onTap: () => context.push('/signup'),
+                        onTap: () => context.pop(),
                         child: Text(
-                          'Create Account',
+                          'Sign In',
                           style: TextStyle(
                             color: theme.primaryColor,
                             fontWeight: FontWeight.bold,
@@ -210,40 +188,12 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     return Column(
       children: [
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            color: isDark
-                ? AppColors.secondary
-                : theme.primaryColor.withValues(alpha: 0.05),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: theme.primaryColor.withValues(alpha: 0.1),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: theme.primaryColor.withValues(alpha: 0.15),
-                blurRadius: 40,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Icon(
-            Icons.lock_person_rounded,
-            size: 48,
-            color: theme.primaryColor,
-          ),
-        ),
-        const SizedBox(height: 32),
         Text(
-          'Welcome Back',
+          'Create Account',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
@@ -252,7 +202,7 @@ class _LoginPageState extends State<LoginPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Sign in to access your dashboard',
+          'Join us for a better navigation experience',
           style: TextStyle(
             fontSize: 16,
             color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -262,7 +212,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget buildTextField({
+  Widget _buildTextField({
     required BuildContext context,
     required TextEditingController controller,
     required String label,
@@ -305,34 +255,6 @@ class _LoginPageState extends State<LoginPage> {
                     onPressed: _togglePasswordVisibility,
                   )
                 : null,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget buildDivider(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Expanded(
-          child: Divider(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'OR',
-            style: TextStyle(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-              fontSize: 12,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Divider(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
           ),
         ),
       ],

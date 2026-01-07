@@ -1,4 +1,5 @@
 import '../../../../core/base/base_datasource.dart';
+import 'package:smart_sense/core/constants/api_routes.dart';
 import '../models/location_model.dart';
 import '../models/route_model.dart';
 
@@ -17,7 +18,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
   ) async {
     return executeCall<RouteModel>(() async {
       final response = await post(
-        '/navigation/route',
+        ApiRoutes.getRoute,
         data: {'origin': origin.toJson(), 'destination': destination.toJson()},
       );
 

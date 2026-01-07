@@ -25,7 +25,7 @@ class CameraRemoteDataSourceImpl extends BaseRemoteDataSource
     //     'timestamp': photo.timestamp.toIso8601String(),
     //   });
     //
-    //   await post('/photos/upload', data: formData);
+    //   await post(ApiRoutes.uploadPhoto, data: formData);
     //   return true;
     // }, errorMessage: 'Failed to upload photo');
 
