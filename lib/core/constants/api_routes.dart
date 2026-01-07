@@ -1,9 +1,8 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class ApiRoutes {
   // Base URL
-  static const String baseUrl = String.fromEnvironment(
-    'BASE_URL',
-    defaultValue: 'https://your-api.com/api',
-  );
+  static String get baseUrl => dotenv.get('BASE_URL');
 
   // Auth Endpoints
   static const String login = '/auth/login';
