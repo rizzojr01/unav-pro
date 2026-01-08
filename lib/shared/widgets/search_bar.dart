@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
 
 class CustomSearchBar extends StatelessWidget {
   final String hintText;
@@ -18,25 +17,26 @@ class CustomSearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
         height: 52,
         decoration: BoxDecoration(
-          color: isDark
-              ? AppColors.secondary
-              : theme.primaryColor.withValues(alpha: 0.05),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.5,
+          ),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: theme.primaryColor.withValues(alpha: 0.1)),
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+          ),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
             Icon(
               Icons.search,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              color: theme.colorScheme.onSurfaceVariant,
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -45,9 +45,7 @@ class CustomSearchBar extends StatelessWidget {
                   ? Text(
                       hintText,
                       style: TextStyle(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.4,
-                        ),
+                        color: theme.colorScheme.onSurfaceVariant,
                         fontSize: 15,
                       ),
                     )
@@ -60,9 +58,7 @@ class CustomSearchBar extends StatelessWidget {
                       decoration: InputDecoration(
                         hintText: hintText,
                         hintStyle: TextStyle(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.4,
-                          ),
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,

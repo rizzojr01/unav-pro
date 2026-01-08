@@ -1,77 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flex_color_scheme/flex_color_scheme.dart';
 
+/// Theme palette using FlexColorScheme
 class ThemePalette extends Equatable {
-  final Color primary;
-  final Color secondary;
-  final Color background;
-  final Color surface;
-  final Color error;
+  final FlexScheme scheme;
 
-  const ThemePalette({
-    required this.primary,
-    required this.secondary,
-    required this.background,
-    required this.surface,
-    required this.error,
-  });
+  const ThemePalette({required this.scheme});
 
   factory ThemePalette.defaultLight() {
-    return const ThemePalette(
-      primary: Color(0xFFB8E600),
-      secondary: Color(0xFF1E1E1E),
-      background: Color(0xFFF8F9FA),
-      surface: Color(0xFFFFFFFF),
-      error: Color(0xFFFF5252),
-    );
+    return const ThemePalette(scheme: FlexScheme.indigo);
   }
 
   factory ThemePalette.defaultDark() {
-    return const ThemePalette(
-      primary: Color(0xFFB8E600),
-      secondary: Color(0xFF1E1E1E),
-      background: Color(0xFF121212),
-      surface: Color(0xFF1E1E1E),
-      error: Color(0xFFFF5252),
-    );
+    return const ThemePalette(scheme: FlexScheme.indigo);
   }
 
-  ThemePalette copyWith({
-    Color? primary,
-    Color? secondary,
-    Color? background,
-    Color? surface,
-    Color? error,
-  }) {
-    return ThemePalette(
-      primary: primary ?? this.primary,
-      secondary: secondary ?? this.secondary,
-      background: background ?? this.background,
-      surface: surface ?? this.surface,
-      error: error ?? this.error,
-    );
+  ThemePalette copyWith({FlexScheme? scheme}) {
+    return ThemePalette(scheme: scheme ?? this.scheme);
   }
 
-  Map<String, int> toJson() {
-    return {
-      'primary': primary.toARGB32(),
-      'secondary': secondary.toARGB32(),
-      'background': background.toARGB32(),
-      'surface': surface.toARGB32(),
-      'error': error.toARGB32(),
-    };
+  Map<String, dynamic> toJson() {
+    return {'scheme': scheme.index};
   }
 
   factory ThemePalette.fromJson(Map<String, dynamic> json) {
-    return ThemePalette(
-      primary: Color(json['primary'] as int),
-      secondary: Color(json['secondary'] as int),
-      background: Color(json['background'] as int),
-      surface: Color(json['surface'] as int),
-      error: Color(json['error'] as int),
-    );
+    final schemeIndex = json['scheme'] as int;
+    // Ensure the index is valid
+    if (schemeIndex >= 0 && schemeIndex < FlexScheme.values.length) {
+      return ThemePalette(scheme: FlexScheme.values[schemeIndex]);
+    }
+    // Fallback to default if invalid
+    return ThemePalette.defaultLight();
   }
 
   @override
-  List<Object?> get props => [primary, secondary, background, surface, error];
+  List<Object?> get props => [scheme];
 }

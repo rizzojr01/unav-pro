@@ -1,120 +1,188 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'theme_palette.dart';
+import 'package:flex_color_scheme/flex_color_scheme.dart';
 
+/// App theme configuration using FlexColorScheme
 class AppTheme {
-  static ThemeData createTheme(ThemePalette palette, Brightness brightness) {
-    final bool isDark = brightness == Brightness.dark;
+  // Prevent instantiation
+  AppTheme._();
 
-    return ThemeData(
+  /// Create a light theme with the given scheme
+  static ThemeData light(FlexScheme scheme) {
+    return FlexThemeData.light(
+      scheme: scheme,
+      surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
+      blendLevel: 7,
+      subThemesData: const FlexSubThemesData(
+        blendOnLevel: 10,
+        blendOnColors: false,
+        useMaterial3Typography: true,
+        useM2StyleDividerInM3: true,
+        alignedDropdown: true,
+        useInputDecoratorThemeInDialogs: true,
+        elevatedButtonSchemeColor: SchemeColor.onPrimaryContainer,
+        elevatedButtonSecondarySchemeColor: SchemeColor.primaryContainer,
+        outlinedButtonOutlineSchemeColor: SchemeColor.primary,
+        toggleButtonsBorderSchemeColor: SchemeColor.primary,
+        segmentedButtonSchemeColor: SchemeColor.primary,
+        segmentedButtonBorderSchemeColor: SchemeColor.primary,
+        unselectedToggleIsColored: true,
+        sliderValueTinted: true,
+        inputDecoratorSchemeColor: SchemeColor.primary,
+        inputDecoratorBackgroundAlpha: 21,
+        inputDecoratorRadius: 12.0,
+        inputDecoratorUnfocusedHasBorder: true,
+        inputDecoratorPrefixIconSchemeColor: SchemeColor.primary,
+        fabUseShape: true,
+        fabAlwaysCircular: true,
+        fabSchemeColor: SchemeColor.tertiary,
+        chipSchemeColor: SchemeColor.primaryContainer,
+        chipSelectedSchemeColor: SchemeColor.primary,
+        chipDeleteIconSchemeColor: SchemeColor.onPrimaryContainer,
+        cardRadius: 16.0,
+        popupMenuRadius: 8.0,
+        popupMenuElevation: 4.0,
+        dialogRadius: 24.0,
+        timePickerDialogRadius: 24.0,
+        snackBarRadius: 8.0,
+        appBarScrolledUnderElevation: 0.0,
+        bottomSheetRadius: 24.0,
+        bottomSheetElevation: 2.0,
+        bottomNavigationBarElevation: 0.0,
+        navigationBarSelectedLabelSchemeColor: SchemeColor.primary,
+        navigationBarUnselectedLabelSchemeColor: SchemeColor.onSurface,
+        navigationBarSelectedIconSchemeColor: SchemeColor.primary,
+        navigationBarUnselectedIconSchemeColor: SchemeColor.onSurface,
+        navigationBarIndicatorSchemeColor: SchemeColor.primaryContainer,
+        navigationBarIndicatorOpacity: 1.00,
+        navigationBarBackgroundSchemeColor: SchemeColor.surface,
+        navigationBarElevation: 0.0,
+        navigationBarHeight: 62.0,
+        navigationRailSelectedLabelSchemeColor: SchemeColor.primary,
+        navigationRailUnselectedLabelSchemeColor: SchemeColor.onSurface,
+        navigationRailSelectedIconSchemeColor: SchemeColor.primary,
+        navigationRailUnselectedIconSchemeColor: SchemeColor.onSurface,
+        navigationRailIndicatorSchemeColor: SchemeColor.primaryContainer,
+        navigationRailIndicatorOpacity: 1.00,
+        navigationRailBackgroundSchemeColor: SchemeColor.surface,
+        navigationRailLabelType: NavigationRailLabelType.none,
+      ),
+      visualDensity: FlexColorScheme.comfortablePlatformDensity,
       useMaterial3: true,
-      brightness: brightness,
-      primaryColor: palette.primary,
-      scaffoldBackgroundColor: palette.background,
-      colorScheme: isDark
-          ? ColorScheme.dark(
-              primary: palette.primary,
-              onPrimary: _onColor(palette.primary),
-              secondary: palette.secondary,
-              onSecondary: Colors.white,
-              error: palette.error,
-              onError: Colors.white,
-              surface: palette.surface,
-              onSurface: Colors.white,
-            )
-          : ColorScheme.light(
-              primary: palette.primary,
-              onPrimary: _onColor(palette.primary),
-              secondary: palette.secondary,
-              onSecondary: Colors.white,
-              error: palette.error,
-              onError: Colors.white,
-              surface: palette.surface,
-              onSurface: const Color(0xFF1A1A1A),
-            ),
-
-      appBarTheme: AppBarTheme(
-        centerTitle: false,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: isDark ? Colors.white : const Color(0xFF1A1A1A),
-        systemOverlayStyle: isDark
-            ? SystemUiOverlayStyle.light
-            : SystemUiOverlayStyle.dark,
-        titleTextStyle: TextStyle(
-          color: isDark ? Colors.white : const Color(0xFF1A1A1A),
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-
-      cardTheme: CardThemeData(
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        color: palette.surface,
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      ),
-
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          elevation: 0,
-          backgroundColor: palette.primary,
-          foregroundColor: _onColor(palette.primary),
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-      ),
-
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: palette.primary,
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          side: BorderSide(color: palette.primary, width: 2),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-      ),
-
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: palette.surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: palette.primary, width: 2),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 16,
-        ),
-        hintStyle: TextStyle(
-          color: isDark ? Colors.white54 : Colors.black45,
-          fontSize: 14,
-        ),
-      ),
-
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: palette.primary,
-        foregroundColor: _onColor(palette.primary),
-        elevation: 4,
-        shape: const CircleBorder(),
-      ),
+      swapLegacyOnMaterial3: true,
     );
   }
 
-  static Color _onColor(Color color) {
-    return color.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+  /// Create a dark theme with the given scheme
+  static ThemeData dark(FlexScheme scheme) {
+    return FlexThemeData.dark(
+      scheme: scheme,
+      surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
+      blendLevel: 13,
+      subThemesData: const FlexSubThemesData(
+        blendOnLevel: 20,
+        useMaterial3Typography: true,
+        useM2StyleDividerInM3: true,
+        alignedDropdown: true,
+        useInputDecoratorThemeInDialogs: true,
+        elevatedButtonSchemeColor: SchemeColor.onPrimaryContainer,
+        elevatedButtonSecondarySchemeColor: SchemeColor.primaryContainer,
+        outlinedButtonOutlineSchemeColor: SchemeColor.primary,
+        toggleButtonsBorderSchemeColor: SchemeColor.primary,
+        segmentedButtonSchemeColor: SchemeColor.primary,
+        segmentedButtonBorderSchemeColor: SchemeColor.primary,
+        unselectedToggleIsColored: true,
+        sliderValueTinted: true,
+        inputDecoratorSchemeColor: SchemeColor.primary,
+        inputDecoratorBackgroundAlpha: 43,
+        inputDecoratorRadius: 12.0,
+        inputDecoratorUnfocusedHasBorder: true,
+        inputDecoratorPrefixIconSchemeColor: SchemeColor.primary,
+        fabUseShape: true,
+        fabAlwaysCircular: true,
+        fabSchemeColor: SchemeColor.tertiary,
+        chipSchemeColor: SchemeColor.primaryContainer,
+        chipSelectedSchemeColor: SchemeColor.primary,
+        chipDeleteIconSchemeColor: SchemeColor.onPrimaryContainer,
+        cardRadius: 16.0,
+        popupMenuRadius: 8.0,
+        popupMenuElevation: 4.0,
+        dialogRadius: 24.0,
+        timePickerDialogRadius: 24.0,
+        snackBarRadius: 8.0,
+        appBarScrolledUnderElevation: 0.0,
+        bottomSheetRadius: 24.0,
+        bottomSheetElevation: 2.0,
+        bottomNavigationBarElevation: 0.0,
+        navigationBarSelectedLabelSchemeColor: SchemeColor.primary,
+        navigationBarUnselectedLabelSchemeColor: SchemeColor.onSurface,
+        navigationBarSelectedIconSchemeColor: SchemeColor.primary,
+        navigationBarUnselectedIconSchemeColor: SchemeColor.onSurface,
+        navigationBarIndicatorSchemeColor: SchemeColor.primaryContainer,
+        navigationBarIndicatorOpacity: 1.00,
+        navigationBarBackgroundSchemeColor: SchemeColor.surface,
+        navigationBarElevation: 0.0,
+        navigationBarHeight: 62.0,
+        navigationRailSelectedLabelSchemeColor: SchemeColor.primary,
+        navigationRailUnselectedLabelSchemeColor: SchemeColor.onSurface,
+        navigationRailSelectedIconSchemeColor: SchemeColor.primary,
+        navigationRailUnselectedIconSchemeColor: SchemeColor.onSurface,
+        navigationRailIndicatorSchemeColor: SchemeColor.primaryContainer,
+        navigationRailIndicatorOpacity: 1.00,
+        navigationRailBackgroundSchemeColor: SchemeColor.surface,
+        navigationRailLabelType: NavigationRailLabelType.none,
+      ),
+      visualDensity: FlexColorScheme.comfortablePlatformDensity,
+      useMaterial3: true,
+      swapLegacyOnMaterial3: true,
+    );
+  }
+
+  /// Available color schemes for the app
+  static const List<FlexScheme> availableSchemes = [
+    FlexScheme.material,
+    FlexScheme.materialHc,
+    FlexScheme.blue,
+    FlexScheme.indigo,
+    FlexScheme.hippieBlue,
+    FlexScheme.aquaBlue,
+    FlexScheme.brandBlue,
+    FlexScheme.deepBlue,
+    FlexScheme.sakura,
+    FlexScheme.mandyRed,
+    FlexScheme.red,
+    FlexScheme.redWine,
+    FlexScheme.purpleBrown,
+    FlexScheme.green,
+    FlexScheme.money,
+    FlexScheme.jungle,
+    FlexScheme.greyLaw,
+    FlexScheme.wasabi,
+    FlexScheme.gold,
+    FlexScheme.mango,
+    FlexScheme.amber,
+    FlexScheme.vesuviusBurn,
+    FlexScheme.deepPurple,
+    FlexScheme.ebonyClay,
+    FlexScheme.barossa,
+    FlexScheme.shark,
+    FlexScheme.bigStone,
+    FlexScheme.damask,
+    FlexScheme.bahamaBlue,
+    FlexScheme.espresso,
+    FlexScheme.outerSpace,
+    FlexScheme.blueWhale,
+    FlexScheme.sanJuanBlue,
+    FlexScheme.rosewood,
+    FlexScheme.blumineBlue,
+  ];
+
+  /// Get scheme name for display
+  static String getSchemeName(FlexScheme scheme) {
+    return scheme.name
+        .replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(0)}')
+        .trim()
+        .split(' ')
+        .map((word) => word[0].toUpperCase() + word.substring(1))
+        .join(' ');
   }
 }

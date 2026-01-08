@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:smart_sense/theme/app_colors.dart';
 
 class StepIndicator extends StatelessWidget {
   final int currentStep;
@@ -21,17 +20,8 @@ class StepIndicator extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: isDark
-            ? AppColors.secondaryDark.withValues(alpha: 0.98)
-            : theme.scaffoldBackgroundColor.withValues(alpha: 0.98),
-        border: Border(
-          bottom: BorderSide(
-            color: isDark
-                ? AppColors.white.withValues(alpha: 0.05)
-                : theme.dividerColor,
-            width: 1,
-          ),
-        ),
+        color: theme.scaffoldBackgroundColor.withValues(alpha: 0.98),
+        border: Border(bottom: BorderSide(color: theme.dividerColor, width: 1)),
       ),
       child: SafeArea(
         bottom: false,
@@ -49,9 +39,7 @@ class StepIndicator extends StatelessWidget {
                       child: IconButton(
                         icon: Icon(
                           Icons.arrow_back_ios_new,
-                          color: isDark
-                              ? AppColors.white
-                              : theme.colorScheme.onSurface,
+                          color: theme.colorScheme.onSurface,
                           size: 18,
                         ),
                         onPressed: onBack,
@@ -61,9 +49,7 @@ class StepIndicator extends StatelessWidget {
                   Text(
                     title,
                     style: TextStyle(
-                      color: isDark
-                          ? AppColors.white
-                          : theme.colorScheme.onSurface,
+                      color: theme.colorScheme.onSurface,
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.3,
@@ -108,11 +94,7 @@ class StepIndicator extends StatelessWidget {
           width: 24,
           height: 24,
           decoration: BoxDecoration(
-            color: isActive
-                ? theme.primaryColor
-                : (isDark
-                      ? AppColors.secondary
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.05)),
+            color: isActive ? theme.primaryColor : theme.colorScheme.surface,
             shape: BoxShape.circle,
             boxShadow: (isActive && isDark)
                 ? [
@@ -175,11 +157,7 @@ class StepIndicator extends StatelessWidget {
       height: 1,
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       decoration: BoxDecoration(
-        color: isActive
-            ? theme.primaryColor
-            : (isDark
-                  ? AppColors.secondary
-                  : theme.colorScheme.onSurface.withValues(alpha: 0.05)),
+        color: isActive ? theme.primaryColor : theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(1),
       ),
     );

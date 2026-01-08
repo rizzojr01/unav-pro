@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:smart_sense/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:smart_sense/features/auth/presentation/bloc/auth_event.dart';
 import 'package:smart_sense/features/auth/presentation/bloc/auth_state.dart';
-import '../../../../theme/app_colors.dart';
+
 import '../../../../theme/theme_bloc.dart';
 import '../../../../theme/widgets/color_customizer.dart';
 
@@ -125,7 +125,6 @@ class ProfilePage extends StatelessWidget {
     String name,
   ) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return SliverAppBar(
       expandedHeight: 280,
@@ -138,7 +137,7 @@ class ProfilePage extends StatelessWidget {
           children: [
             // Grid Background
             _GridBackground(
-              color: theme.primaryColor.withValues(alpha: isDark ? 0.05 : 0.03),
+              color: theme.colorScheme.primary.withValues(alpha: 0.05),
             ),
 
             // Profile Content
@@ -164,7 +163,7 @@ class ProfilePage extends StatelessWidget {
                       : 'No email available',
                   style: TextStyle(
                     fontSize: 14,
-                    color: theme.primaryColor.withValues(alpha: 0.7),
+                    color: theme.colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1,
                   ),
@@ -186,16 +185,18 @@ class ProfilePage extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: theme.primaryColor.withValues(alpha: 0.05)),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withValues(
+              alpha: isDark ? 0.3 : 0.03,
+            ),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -215,7 +216,7 @@ class ProfilePage extends StatelessWidget {
     return Container(
       width: 1,
       height: 30,
-      color: theme.dividerColor.withValues(alpha: 0.1),
+      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
     );
   }
 
@@ -226,7 +227,7 @@ class ProfilePage extends StatelessWidget {
       style: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w900,
-        color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+        color: theme.colorScheme.onSurfaceVariant,
         letterSpacing: 3,
       ),
     );
@@ -240,16 +241,18 @@ class ProfilePage extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: theme.primaryColor.withValues(alpha: 0.05)),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withValues(
+              alpha: isDark ? 0.3 : 0.03,
+            ),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(children: children),
     );
@@ -379,7 +382,7 @@ class _StatItem extends StatelessWidget {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w900,
-            color: theme.primaryColor,
+            color: theme.colorScheme.primary,
           ),
         ),
         const SizedBox(height: 4),
@@ -388,7 +391,7 @@ class _StatItem extends StatelessWidget {
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+            color: theme.colorScheme.onSurfaceVariant,
             letterSpacing: 1,
           ),
         ),
@@ -413,7 +416,6 @@ class _SettingsItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return InkWell(
       onTap: onTap,
@@ -425,12 +427,10 @@ class _SettingsItem extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isDark
-                    ? theme.colorScheme.surface.withValues(alpha: 0.5)
-                    : theme.primaryColor.withValues(alpha: 0.05),
+                color: theme.colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: theme.primaryColor, size: 22),
+              child: Icon(icon, color: theme.colorScheme.primary, size: 22),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -450,7 +450,7 @@ class _SettingsItem extends StatelessWidget {
                     subtitle,
                     style: TextStyle(
                       fontSize: 12,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -458,7 +458,7 @@ class _SettingsItem extends StatelessWidget {
             ),
             Icon(
               Icons.arrow_forward_ios_rounded,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               size: 14,
             ),
           ],
@@ -472,7 +472,6 @@ class _AvatarWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Stack(
       alignment: Alignment.bottomRight,
@@ -482,30 +481,28 @@ class _AvatarWidget extends StatelessWidget {
           height: 100,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: theme.primaryColor, width: 2),
+            border: Border.all(color: theme.colorScheme.primary, width: 2),
             boxShadow: [
               BoxShadow(
-                color: theme.primaryColor.withValues(alpha: 0.2),
+                color: theme.colorScheme.primary.withValues(alpha: 0.2),
                 blurRadius: 20,
                 spreadRadius: 2,
               ),
             ],
           ),
           child: CircleAvatar(
-            backgroundColor: isDark
-                ? theme.colorScheme.surface
-                : theme.cardTheme.color,
+            backgroundColor: theme.colorScheme.surface,
             child: Icon(
               Icons.person_rounded,
               size: 60,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
             ),
           ),
         ),
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: theme.primaryColor,
+            color: theme.colorScheme.primary,
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -642,13 +639,13 @@ class _ThemeOption extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
           color: isSelected
-              ? theme.primaryColor.withValues(alpha: 0.1)
+              ? theme.colorScheme.primary.withValues(alpha: 0.1)
               : theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
-                ? theme.primaryColor.withValues(alpha: 0.5)
-                : theme.colorScheme.onSurface.withValues(alpha: 0.05),
+                ? theme.colorScheme.primary.withValues(alpha: 0.5)
+                : theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
           ),
         ),
         child: Row(
@@ -656,8 +653,8 @@ class _ThemeOption extends StatelessWidget {
             Icon(
               icon,
               color: isSelected
-                  ? theme.primaryColor
-                  : theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -673,7 +670,7 @@ class _ThemeOption extends StatelessWidget {
             if (isSelected)
               Icon(
                 Icons.check_circle_rounded,
-                color: theme.primaryColor,
+                color: theme.colorScheme.primary,
                 size: 20,
               ),
           ],

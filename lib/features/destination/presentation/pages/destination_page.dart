@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:smart_sense/theme/app_colors.dart';
 import 'package:smart_sense/shared/widgets/step_indicator.dart';
 import 'package:smart_sense/shared/widgets/search_bar.dart';
 
@@ -111,7 +110,6 @@ class _DestinationPageState extends State<DestinationPage> {
 
   Widget buildCategories(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -135,23 +133,23 @@ class _DestinationPageState extends State<DestinationPage> {
                 ),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? theme.primaryColor
-                      : (isDark
-                            ? AppColors.secondary.withValues(alpha: 0.5)
-                            : theme.primaryColor.withValues(alpha: 0.05)),
+                      ? theme.colorScheme.primaryContainer
+                      : theme.colorScheme.surface,
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
                     color: isSelected
-                        ? theme.primaryColor
-                        : theme.primaryColor.withValues(alpha: 0.1),
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outlineVariant.withValues(
+                            alpha: 0.3,
+                          ),
                   ),
                 ),
                 child: Text(
                   category,
                   style: TextStyle(
                     color: isSelected
-                        ? theme.colorScheme.onPrimary
-                        : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        ? theme.colorScheme.onPrimaryContainer
+                        : theme.colorScheme.onSurfaceVariant,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                     fontSize: 14,
                   ),
@@ -178,13 +176,13 @@ class _EmptyStateView extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: theme.primaryColor.withValues(alpha: 0.1),
+              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.search_rounded,
               size: 48,
-              color: theme.primaryColor,
+              color: theme.colorScheme.primary,
             ),
           ),
           const SizedBox(height: 24),
@@ -201,7 +199,7 @@ class _EmptyStateView extends StatelessWidget {
             'Enter a location to start navigating',
             style: TextStyle(
               fontSize: 14,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -216,7 +214,9 @@ class _LoadingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Center(child: CircularProgressIndicator(color: theme.primaryColor));
+    return Center(
+      child: CircularProgressIndicator(color: theme.colorScheme.primary),
+    );
   }
 }
 
@@ -233,13 +233,13 @@ class _NoResultsView extends StatelessWidget {
           Icon(
             Icons.search_off,
             size: 64,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
           Text(
             'No results found',
             style: TextStyle(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              color: theme.colorScheme.onSurfaceVariant,
               fontSize: 16,
             ),
           ),
@@ -295,25 +295,22 @@ class _DestinationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: isDark
-            ? AppColors.secondary.withValues(alpha: 0.5)
-            : theme.cardTheme.color,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: theme.primaryColor.withValues(alpha: 0.05)),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: InkWell(
         onTap: () {
@@ -333,20 +330,20 @@ class _DestinationTile extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      theme.primaryColor.withValues(alpha: 0.2),
-                      theme.primaryColor.withValues(alpha: 0.05),
+                      theme.colorScheme.primary.withValues(alpha: 0.2),
+                      theme.colorScheme.primary.withValues(alpha: 0.05),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                    color: theme.primaryColor.withValues(alpha: 0.1),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
                   ),
                 ),
                 child: Icon(
                   Icons.location_on_rounded,
-                  color: theme.primaryColor,
+                  color: theme.colorScheme.primary,
                   size: 28,
                 ),
               ),
@@ -370,9 +367,7 @@ class _DestinationTile extends StatelessWidget {
                         Icon(
                           Icons.business_rounded,
                           size: 14,
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.5,
-                          ),
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: 4),
                         Expanded(
@@ -381,9 +376,7 @@ class _DestinationTile extends StatelessWidget {
                                 'Innovation Center • Floor 3',
                             style: TextStyle(
                               fontSize: 13,
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.5,
-                              ),
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -400,12 +393,12 @@ class _DestinationTile extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: theme.primaryColor.withValues(alpha: 0.05),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.05),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.arrow_forward_ios_rounded,
-                  color: theme.primaryColor,
+                  color: theme.colorScheme.primary,
                   size: 14,
                 ),
               ),
@@ -432,21 +425,15 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+            Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
             const SizedBox(height: 16),
             Text(
               message,
-              style: TextStyle(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
+              style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: onRetry,
-              style: theme.elevatedButtonTheme.style,
-              child: const Text('Try Again'),
-            ),
+            ElevatedButton(onPressed: onRetry, child: const Text('Try Again')),
           ],
         ),
       ),

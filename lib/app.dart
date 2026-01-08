@@ -30,8 +30,8 @@ class App extends StatelessWidget {
           return MaterialApp.router(
             title: 'Smart Sense',
             debugShowCheckedModeBanner: false,
-            theme: AppTheme.createTheme(state.palette, Brightness.light),
-            darkTheme: AppTheme.createTheme(state.palette, Brightness.dark),
+            theme: AppTheme.light(state.palette.scheme),
+            darkTheme: AppTheme.dark(state.palette.scheme),
             themeMode: state.themeMode,
             routerConfig: AppRouter.router,
           );

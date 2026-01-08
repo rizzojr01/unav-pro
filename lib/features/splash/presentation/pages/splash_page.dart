@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../theme/app_colors.dart';
+import 'package:smart_sense/shared/widgets/premium_icon_container.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -40,7 +40,7 @@ class _SplashPageState extends State<SplashPage>
 
     _pulseAnimation = Tween<double>(
       begin: 1.0,
-      end: 1.2,
+      end: 1.1,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     Future.delayed(const Duration(seconds: 3), () {
@@ -59,7 +59,6 @@ class _SplashPageState extends State<SplashPage>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -69,7 +68,7 @@ class _SplashPageState extends State<SplashPage>
           // 1. Subtle Background Grid
           CustomPaint(
             painter: _GridPainter(
-              color: theme.primaryColor.withValues(alpha: isDark ? 0.05 : 0.03),
+              color: theme.colorScheme.primary.withValues(alpha: 0.05),
             ),
           ),
 
@@ -89,54 +88,42 @@ class _SplashPageState extends State<SplashPage>
                         Stack(
                           alignment: Alignment.center,
                           children: [
-                            // Glow Effect
+                            // Outer Glow Effect
                             Container(
-                              width: 140 * _pulseAnimation.value,
-                              height: 140 * _pulseAnimation.value,
+                              width: 160 * _pulseAnimation.value,
+                              height: 160 * _pulseAnimation.value,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: theme.primaryColor.withValues(
+                                color: theme.colorScheme.primary.withValues(
+                                  alpha: 0.05,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              width: 130 * _pulseAnimation.value,
+                              height: 130 * _pulseAnimation.value,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: theme.colorScheme.primary.withValues(
                                   alpha: 0.1,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: theme.primaryColor.withValues(
-                                      alpha: isDark ? 0.2 : 0.1,
+                                    color: theme.colorScheme.primary.withValues(
+                                      alpha: 0.15,
                                     ),
                                     blurRadius: 40,
-                                    spreadRadius: 10,
+                                    spreadRadius: 5,
                                   ),
                                 ],
                               ),
                             ),
-                            // Logo Icon
-                            Container(
-                              width: 100,
-                              height: 100,
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? AppColors.secondary
-                                    : AppColors.white,
-                                borderRadius: BorderRadius.circular(28),
-                                border: Border.all(
-                                  color: theme.primaryColor.withValues(
-                                    alpha: 0.2,
-                                  ),
-                                  width: 1,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.1),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                Icons.center_focus_strong_rounded,
-                                size: 50,
-                                color: theme.primaryColor,
-                              ),
+                            // Premium Logo Icon
+                            PremiumIconContainer(
+                              icon: Icons.center_focus_strong_rounded,
+                              size: 100,
+                              iconSize: 56,
+                              borderRadius: BorderRadius.circular(32),
                             ),
                           ],
                         ),
@@ -158,7 +145,9 @@ class _SplashPageState extends State<SplashPage>
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
-                            color: theme.primaryColor.withValues(alpha: 0.7),
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.7,
+                            ),
                             letterSpacing: 2,
                           ),
                         ),
@@ -180,9 +169,11 @@ class _SplashPageState extends State<SplashPage>
                 ClipRRect(
                   borderRadius: BorderRadius.circular(2),
                   child: LinearProgressIndicator(
-                    backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
+                    backgroundColor: theme.colorScheme.primary.withValues(
+                      alpha: 0.1,
+                    ),
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      theme.primaryColor,
+                      theme.colorScheme.primary,
                     ),
                     minHeight: 2,
                   ),
@@ -193,7 +184,7 @@ class _SplashPageState extends State<SplashPage>
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    color: theme.colorScheme.onSurfaceVariant,
                     letterSpacing: 2,
                   ),
                 ),

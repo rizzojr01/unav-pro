@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
 
 enum SnackBarType { success, error, warning, info }
 
@@ -10,39 +9,45 @@ class CustomSnackBar {
     SnackBarType type = SnackBarType.info,
     Duration duration = const Duration(seconds: 3),
   }) {
+    final theme = Theme.of(context);
     Color backgroundColor;
     IconData icon;
 
     switch (type) {
       case SnackBarType.success:
-        backgroundColor = AppColors.success;
+        backgroundColor = theme.colorScheme.tertiary;
         icon = Icons.check_circle;
         break;
       case SnackBarType.error:
-        backgroundColor = AppColors.error;
+        backgroundColor = theme.colorScheme.error;
         icon = Icons.error;
         break;
       case SnackBarType.warning:
-        backgroundColor = AppColors.warning;
+        backgroundColor = theme.colorScheme.tertiaryContainer;
         icon = Icons.warning;
         break;
       case SnackBarType.info:
-        backgroundColor = AppColors.info;
+        backgroundColor = theme.colorScheme.primary;
         icon = Icons.info;
         break;
     }
+
+    // Determine text color based on background luminance
+    final onColor = backgroundColor.computeLuminance() > 0.5
+        ? theme.colorScheme.onSurface
+        : theme.colorScheme.surface;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            Icon(icon, color: AppColors.white),
+            Icon(icon, color: onColor),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(
-                  color: AppColors.white,
+                style: TextStyle(
+                  color: onColor,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),

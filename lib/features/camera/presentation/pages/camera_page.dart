@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:camera/camera.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../theme/app_colors.dart';
 
 import '../../../../shared/widgets/custom_snackbar.dart';
 import 'package:smart_sense/shared/widgets/loading_overlay.dart';
@@ -83,12 +82,12 @@ class _InitializingView extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: theme.primaryColor),
+            CircularProgressIndicator(color: theme.colorScheme.primary),
             const SizedBox(height: 24),
             Text(
               'Initializing camera...',
               style: TextStyle(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                color: theme.colorScheme.onSurfaceVariant,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
@@ -159,7 +158,7 @@ class _CameraReadyViewState extends State<_CameraReadyView> {
       return Container(
         color: Colors.black,
         child: Center(
-          child: CircularProgressIndicator(color: theme.primaryColor),
+          child: CircularProgressIndicator(color: theme.colorScheme.primary),
         ),
       );
     }
@@ -203,7 +202,7 @@ class _CameraReadyViewState extends State<_CameraReadyView> {
                   const Text(
                     'Keep floor and walls in view',
                     style: TextStyle(
-                      color: AppColors.white,
+                      color: Colors.white,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -216,7 +215,7 @@ class _CameraReadyViewState extends State<_CameraReadyView> {
                         onPressed: () => context.pop(),
                         icon: const Icon(
                           Icons.close,
-                          color: AppColors.white,
+                          color: Colors.white,
                           size: 32,
                         ),
                       ),
@@ -232,14 +231,11 @@ class _CameraReadyViewState extends State<_CameraReadyView> {
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.white,
-                              width: 4,
-                            ),
+                            border: Border.all(color: Colors.white, width: 4),
                           ),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: theme.primaryColor,
+                              color: theme.colorScheme.primary,
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
@@ -259,14 +255,14 @@ class _CameraReadyViewState extends State<_CameraReadyView> {
                               _showSample
                                   ? Icons.visibility
                                   : Icons.help_outline,
-                              color: theme.primaryColor,
+                              color: theme.colorScheme.primary,
                               size: 32,
                             ),
                           ),
                           Text(
                             'SAMPLE',
                             style: TextStyle(
-                              color: theme.primaryColor,
+                              color: theme.colorScheme.primary,
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                             ),
@@ -294,7 +290,7 @@ class _CameraReadyViewState extends State<_CameraReadyView> {
                         Text(
                           'IDEAL VIEW',
                           style: TextStyle(
-                            color: theme.primaryColor,
+                            color: theme.colorScheme.primary,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 2,
                             fontSize: 18,
@@ -307,7 +303,7 @@ class _CameraReadyViewState extends State<_CameraReadyView> {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(32),
                             border: Border.all(
-                              color: theme.primaryColor,
+                              color: theme.colorScheme.primary,
                               width: 2,
                             ),
                           ),
@@ -319,14 +315,12 @@ class _CameraReadyViewState extends State<_CameraReadyView> {
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) =>
                                     Container(
-                                      color: isDarkMode(context)
-                                          ? AppColors.secondary
-                                          : theme.primaryColor.withValues(
-                                              alpha: 0.05,
-                                            ),
+                                      color: theme.colorScheme.surface,
                                       child: Icon(
                                         Icons.image,
-                                        color: theme.colorScheme.onSurface
+                                        color: theme
+                                            .colorScheme
+                                            .onSurfaceVariant
                                             .withValues(alpha: 0.2),
                                         size: 80,
                                       ),
@@ -350,9 +344,8 @@ class _CameraReadyViewState extends State<_CameraReadyView> {
                         Text(
                           'TAP ANYWHERE TO CLOSE',
                           style: TextStyle(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.4,
-                            ),
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.6),
                             fontSize: 12,
                           ),
                         ),
@@ -366,9 +359,6 @@ class _CameraReadyViewState extends State<_CameraReadyView> {
       ),
     );
   }
-
-  bool isDarkMode(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark;
 }
 
 class _HorizontalGuidance extends StatelessWidget {
@@ -430,7 +420,7 @@ class _GuidanceSection extends StatelessWidget {
         border: showBottomDivider
             ? Border(
                 bottom: BorderSide(
-                  color: theme.primaryColor.withValues(alpha: 0.5),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.5),
                   width: 1,
                   style: BorderStyle.solid,
                 ),
@@ -442,8 +432,8 @@ class _GuidanceSection extends StatelessWidget {
           Center(
             child: Text(
               label,
-              style: TextStyle(
-                color: AppColors.white.withValues(alpha: 0.2),
+              style: const TextStyle(
+                color: Colors.white24,
                 fontSize: 12,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 4,
@@ -458,7 +448,7 @@ class _GuidanceSection extends StatelessWidget {
               child: Center(
                 child: Icon(
                   Icons.keyboard_arrow_down,
-                  color: theme.primaryColor.withValues(alpha: 0.3),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.3),
                   size: 16,
                 ),
               ),
@@ -478,7 +468,6 @@ class _PhotoPreviewView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -489,9 +478,7 @@ class _PhotoPreviewView extends StatelessWidget {
           File(state.photo.filePath).existsSync()
               ? Image.file(File(state.photo.filePath), fit: BoxFit.cover)
               : Container(
-                  color: isDark
-                      ? AppColors.secondary
-                      : theme.primaryColor.withValues(alpha: 0.05),
+                  color: theme.colorScheme.surface,
                   child: Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -499,13 +486,17 @@ class _PhotoPreviewView extends StatelessWidget {
                         Icon(
                           Icons.image_not_supported_outlined,
                           size: 80,
-                          color: theme.primaryColor.withValues(alpha: 0.2),
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: 0.2,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'PREVIEW NOT AVAILABLE',
                           style: TextStyle(
-                            color: theme.primaryColor.withValues(alpha: 0.4),
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.4,
+                            ),
                             fontWeight: FontWeight.w900,
                             letterSpacing: 2,
                             fontSize: 12,
@@ -570,10 +561,7 @@ class _PhotoPreviewView extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         'Ensure the image isn\'t blurry for best results.',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
-                          fontSize: 16,
-                        ),
+                        style: TextStyle(color: Colors.white70, fontSize: 16),
                       ),
                       const SizedBox(height: 32),
 
@@ -593,9 +581,6 @@ class _PhotoPreviewView extends StatelessWidget {
                               context.push('/location-detection');
                             }
                           },
-                          style: theme.elevatedButtonTheme.style?.copyWith(
-                            padding: WidgetStateProperty.all(EdgeInsets.zero),
-                          ),
                           child: const Text(
                             'Confirm & Analyze',
                             style: TextStyle(
@@ -667,13 +652,13 @@ class _ErrorView extends StatelessWidget {
                 width: 100,
                 height: 100,
                 decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.1),
+                  color: theme.colorScheme.error.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.error_outline_rounded,
                   size: 48,
-                  color: AppColors.error,
+                  color: theme.colorScheme.error,
                 ),
               ),
               const SizedBox(height: 24),
@@ -690,7 +675,7 @@ class _ErrorView extends StatelessWidget {
                 message,
                 style: TextStyle(
                   fontSize: 14,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -699,10 +684,8 @@ class _ErrorView extends StatelessWidget {
                 onPressed: () {
                   context.read<CameraBloc>().add(const InitializeCameraEvent());
                 },
-                style: theme.elevatedButtonTheme.style?.copyWith(
-                  minimumSize: WidgetStateProperty.all(
-                    const Size(double.infinity, 50),
-                  ),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
                 ),
                 child: const Text('Try Again'),
               ),

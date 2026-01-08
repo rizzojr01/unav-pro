@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../theme/app_colors.dart';
 
 class LocationDetectionPage extends StatefulWidget {
   final String? photoPath;
@@ -44,7 +43,6 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
   }
 
   Future<void> _detectIndoorLocation() async {
-    // ... existing implementation remains mostly the same, just keeping the method signature for replacement block consistency
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -107,7 +105,6 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
 
   Widget _buildLoadingView() {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Stack(
       fit: StackFit.expand,
@@ -115,7 +112,7 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
         // 1. Tech Grid Background
         CustomPaint(
           painter: _GridPainter(
-            color: theme.primaryColor.withValues(alpha: isDark ? 0.05 : 0.03),
+            color: theme.colorScheme.primary.withValues(alpha: 0.05),
           ),
         ),
 
@@ -137,7 +134,9 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: theme.primaryColor.withValues(alpha: 0.1),
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.1,
+                            ),
                             width: 2,
                           ),
                         ),
@@ -147,10 +146,14 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
                         height: 120 * _pulseAnimation.value,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: theme.primaryColor.withValues(alpha: 0.05),
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: 0.05,
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: theme.primaryColor.withValues(alpha: 0.1),
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: 0.1,
+                              ),
                               blurRadius: 30,
                               spreadRadius: 5,
                             ),
@@ -162,19 +165,19 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
                         width: 80,
                         height: 80,
                         decoration: BoxDecoration(
-                          color: isDark
-                              ? AppColors.secondary
-                              : theme.primaryColor.withValues(alpha: 0.05),
+                          color: theme.colorScheme.surface,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: theme.primaryColor.withValues(alpha: 0.4),
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.4,
+                            ),
                             width: 2,
                           ),
                         ),
                         child: Icon(
                           Icons.location_searching_rounded,
                           size: 36,
-                          color: theme.primaryColor,
+                          color: theme.colorScheme.primary,
                         ),
                       ),
                     ],
@@ -197,7 +200,7 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
-                  color: theme.primaryColor.withValues(alpha: 0.7),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.7),
                   letterSpacing: 2,
                 ),
               ),
@@ -215,8 +218,12 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
-                  backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
-                  valueColor: AlwaysStoppedAnimation<Color>(theme.primaryColor),
+                  backgroundColor: theme.colorScheme.primary.withValues(
+                    alpha: 0.1,
+                  ),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    theme.colorScheme.primary,
+                  ),
                   minHeight: 2,
                 ),
               ),
@@ -226,7 +233,7 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  color: theme.colorScheme.onSurfaceVariant,
                   letterSpacing: 3,
                 ),
               ),
@@ -246,13 +253,13 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppColors.error.withValues(alpha: 0.1),
+              color: theme.colorScheme.error.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.location_off_outlined,
               size: 48,
-              color: AppColors.error,
+              color: theme.colorScheme.error,
             ),
           ),
           const SizedBox(height: 24),
@@ -268,7 +275,6 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
           const SizedBox(height: 32),
           ElevatedButton(
             onPressed: _detectIndoorLocation,
-            style: theme.elevatedButtonTheme.style,
             child: const Text('Try Again'),
           ),
         ],
@@ -300,12 +306,14 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppColors.success.withValues(alpha: 0.1),
+                        color: theme.colorScheme.tertiary.withValues(
+                          alpha: 0.1,
+                        ),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.check,
-                        color: AppColors.success,
+                        color: theme.colorScheme.tertiary,
                         size: 32,
                       ),
                     ),
@@ -329,38 +337,38 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: isDark
-                        ? [const Color(0xFF2C2C2C), AppColors.secondary]
-                        : [
-                            theme.primaryColor.withValues(alpha: 0.1),
-                            theme.primaryColor.withValues(alpha: 0.05),
-                          ],
+                    colors: [
+                      theme.colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.8,
+                      ),
+                      theme.colorScheme.surface,
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: theme.primaryColor.withValues(alpha: 0.1),
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.3,
+                    ),
                   ),
-                  boxShadow: isDark
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ]
-                      : [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 15,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.colorScheme.shadow.withValues(
+                        alpha: isDark ? 0.3 : 0.04,
+                      ),
+                      blurRadius: isDark ? 20 : 15,
+                      offset: isDark ? const Offset(0, 10) : const Offset(0, 6),
+                    ),
+                  ],
                 ),
                 child: Column(
                   children: [
-                    Icon(Icons.business, color: theme.primaryColor, size: 48),
+                    Icon(
+                      Icons.business,
+                      color: theme.colorScheme.primary,
+                      size: 48,
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       buildingName,
@@ -378,15 +386,15 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: isDark
-                            ? AppColors.black.withValues(alpha: 0.5)
-                            : theme.primaryColor.withValues(alpha: 0.1),
+                        color: theme.colorScheme.primaryContainer.withValues(
+                          alpha: 0.3,
+                        ),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         'Floor $floor • $zone',
                         style: TextStyle(
-                          color: theme.primaryColor,
+                          color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -427,9 +435,10 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () => context.push('/destination'),
-                  style: theme.elevatedButtonTheme.style?.copyWith(
-                    padding: WidgetStateProperty.all(
-                      const EdgeInsets.symmetric(vertical: 20),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
                     ),
                   ),
                   child: const Row(
@@ -457,9 +466,7 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
                   },
                   child: Text(
                     "Go to Dashboard",
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                   ),
                 ),
               ),
@@ -477,37 +484,32 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
     String value,
   ) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.secondary : theme.cardTheme.color,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.primaryColor.withValues(alpha: 0.1)),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-            size: 20,
-          ),
+          Icon(icon, color: theme.colorScheme.onSurfaceVariant, size: 20),
           const SizedBox(height: 12),
           Text(
             label,
             style: TextStyle(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              color: theme.colorScheme.onSurfaceVariant,
               fontSize: 12,
             ),
           ),

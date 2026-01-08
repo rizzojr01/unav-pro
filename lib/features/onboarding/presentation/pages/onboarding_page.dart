@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../theme/app_colors.dart';
+import 'package:smart_sense/shared/widgets/premium_icon_container.dart';
+import 'package:smart_sense/shared/widgets/custom_button.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -70,7 +71,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       body: SafeArea(
         child: Column(
           children: [
-            buildSkipButton(context),
+            _buildSkipButton(context),
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
@@ -81,8 +82,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 },
               ),
             ),
-            buildIndicators(context),
-            buildActionButton(context),
+            _buildIndicators(context),
+            _buildActionButton(context),
             const SizedBox(height: 40),
           ],
         ),
@@ -90,7 +91,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  Widget buildSkipButton(BuildContext context) {
+  Widget _buildSkipButton(BuildContext context) {
     final theme = Theme.of(context);
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 200),
@@ -108,7 +109,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               style: TextStyle(
                 fontSize: 16,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -117,7 +118,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  Widget buildIndicators(BuildContext context) {
+  Widget _buildIndicators(BuildContext context) {
     final theme = Theme.of(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -130,8 +131,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
           height: 8,
           decoration: BoxDecoration(
             color: _currentPage == index
-                ? theme.primaryColor
-                : theme.primaryColor.withValues(alpha: 0.1),
+                ? theme.colorScheme.primary
+                : theme.colorScheme.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(4),
           ),
         ),
@@ -139,37 +140,15 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  Widget buildActionButton(BuildContext context) {
-    final theme = Theme.of(context);
+  Widget _buildActionButton(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
-      child: SizedBox(
-        width: double.infinity,
-        height: 56,
-        child: ElevatedButton(
-          onPressed: _goToNextPage,
-          style: theme.elevatedButtonTheme.style?.copyWith(
-            shape: WidgetStateProperty.all(
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                _currentPage == _items.length - 1 ? 'Get Started' : 'Next',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (_currentPage != _items.length - 1) ...[
-                const SizedBox(width: 8),
-                const Icon(Icons.arrow_forward_rounded, size: 20),
-              ],
-            ],
-          ),
-        ),
+      padding: const EdgeInsets.fromLTRB(32, 40, 32, 0),
+      child: CustomButton(
+        text: _currentPage == _items.length - 1 ? 'Get Started' : 'Next',
+        onPressed: _goToNextPage,
+        icon: _currentPage == _items.length - 1
+            ? null
+            : Icons.arrow_forward_rounded,
       ),
     );
   }
@@ -190,40 +169,47 @@ class _OnboardingPageContent extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 220,
-            height: 220,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isDark
-                  ? AppColors.secondary
-                  : theme.primaryColor.withValues(alpha: 0.05),
-              border: Border.all(
-                color: theme.primaryColor.withValues(
-                  alpha: isDark ? 0.05 : 0.1,
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              // Layered Glow Rings
+              Container(
+                width: 260,
+                height: 260,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: theme.colorScheme.primary.withValues(
+                    alpha: isDark ? 0.02 : 0.04,
+                  ),
                 ),
               ),
-              boxShadow: isDark
-                  ? null
-                  : [
-                      BoxShadow(
-                        color: theme.primaryColor.withValues(alpha: 0.1),
-                        blurRadius: 40,
-                        spreadRadius: 0,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-            ),
-            child: Icon(item.icon, size: 80, color: theme.primaryColor),
+              Container(
+                width: 220,
+                height: 220,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: theme.colorScheme.primary.withValues(
+                    alpha: isDark ? 0.04 : 0.06,
+                  ),
+                ),
+              ),
+              // Premium Icon in Circle Mode
+              PremiumIconContainer(
+                icon: item.icon,
+                size: 180,
+                iconSize: 84,
+                isCircle: true,
+              ),
+            ],
           ),
           const SizedBox(height: 60),
           Text(
             item.title,
             style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
+              fontSize: 32,
+              fontWeight: FontWeight.w900,
               color: theme.colorScheme.onSurface,
-              letterSpacing: -0.5,
+              letterSpacing: -1,
             ),
             textAlign: TextAlign.center,
           ),
@@ -233,7 +219,8 @@ class _OnboardingPageContent extends StatelessWidget {
             style: TextStyle(
               fontSize: 16,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              height: 1.5,
+              height: 1.6,
+              letterSpacing: 0.1,
             ),
             textAlign: TextAlign.center,
           ),

@@ -47,7 +47,7 @@ class _MapViewWidgetState extends State<MapViewWidget>
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
         ),
       ),
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -59,7 +59,7 @@ class _MapViewWidgetState extends State<MapViewWidget>
               size: Size(constraints.maxWidth, constraints.maxHeight),
               painter: _MapPainter(
                 animationValue: widget.isNavigating ? _controller.value : 0.0,
-                primaryColor: theme.primaryColor,
+                primaryColor: theme.colorScheme.primary,
                 waypoints: widget.route.waypoints,
                 currentLocation: widget.currentLocation,
                 theme: theme,
@@ -223,7 +223,11 @@ class _MapPainter extends CustomPainter {
 
   void _drawMarkers(Canvas canvas, List<Offset> points, Size size) {
     // Start Marker
-    canvas.drawCircle(points.first, 8, Paint()..color = Colors.blue);
+    canvas.drawCircle(
+      points.first,
+      8,
+      Paint()..color = theme.colorScheme.tertiary,
+    );
 
     // Destination Marker with Pulse
     final destPos = points.last;

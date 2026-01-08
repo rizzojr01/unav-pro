@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:smart_sense/theme/app_colors.dart';
+
 import 'package:smart_sense/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:smart_sense/features/auth/presentation/bloc/auth_event.dart';
 import 'package:smart_sense/features/auth/presentation/bloc/auth_state.dart';
+import 'package:smart_sense/shared/widgets/premium_icon_container.dart';
+import 'package:smart_sense/shared/widgets/custom_button.dart';
+import 'package:smart_sense/shared/widgets/custom_text_field.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -59,7 +62,7 @@ class _LoginPageState extends State<LoginPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message),
-              backgroundColor: AppColors.error,
+              backgroundColor: theme.colorScheme.error,
             ),
           );
         }
@@ -75,29 +78,29 @@ class _LoginPageState extends State<LoginPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 60),
-                  buildHeader(context),
+                  _buildHeader(context),
 
                   const SizedBox(height: 48),
-                  buildTextField(
-                    context: context,
+                  CustomTextField(
                     controller: _emailController,
-                    label: 'Email',
-                    icon: Icons.email_outlined,
-                    hint: 'name@example.com',
+                    labelText: 'Email Address',
+                    hintText: 'name@example.com',
+                    prefixIcon: Icons.email_rounded,
                     validator: (value) {
                       if (value == null || value.isEmpty) return 'Required';
                       if (!value.contains('@')) return 'Invalid email';
                       return null;
                     },
                   ),
-                  const SizedBox(height: 20),
-                  buildTextField(
-                    context: context,
+                  const SizedBox(height: 24),
+                  CustomTextField(
                     controller: _passwordController,
-                    label: 'Password',
-                    icon: Icons.lock_outline,
-                    hint: '••••••',
+                    labelText: 'Password',
+                    hintText: '••••••••',
+                    prefixIcon: Icons.key_rounded,
                     isPassword: true,
+                    obscureText: _obscurePassword,
+                    onSuffixIconTap: _togglePasswordVisibility,
                     validator: (value) {
                       if (value == null || value.isEmpty) return 'Required';
                       if (value.length < 6) return 'Min 6 chars';
@@ -112,69 +115,33 @@ class _LoginPageState extends State<LoginPage> {
                       child: Text(
                         'Forgot Password?',
                         style: TextStyle(
-                          color: theme.primaryColor,
-                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   BlocBuilder<AuthBloc, AuthState>(
                     builder: (context, state) {
                       final isLoading = state is AuthLoading;
-                      return ElevatedButton(
-                        onPressed: isLoading ? null : _handleLogin,
-                        style: theme.elevatedButtonTheme.style?.copyWith(
-                          shape: WidgetStateProperty.all(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        ),
-                        child: isLoading
-                            ? SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: theme.colorScheme.onPrimary,
-                                ),
-                              )
-                            : const Text(
-                                'Sign In',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                      return CustomButton(
+                        text: 'Sign In',
+                        onPressed: _handleLogin,
+                        isLoading: isLoading,
                       );
                     },
                   ),
-                  const SizedBox(height: 12),
-                  buildDivider(context),
-                  const SizedBox(height: 12),
-                  OutlinedButton(
+                  const SizedBox(height: 16),
+                  _buildDivider(context),
+                  const SizedBox(height: 16),
+                  CustomButton(
+                    text: 'Continue as Guest',
                     onPressed: _handleGuestLogin,
-                    style: theme.outlinedButtonTheme.style?.copyWith(
-                      foregroundColor: WidgetStateProperty.all(
-                        theme.colorScheme.onSurface,
-                      ),
-                      side: WidgetStateProperty.all(
-                        BorderSide(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.1,
-                          ),
-                        ),
-                      ),
-                      shape: WidgetStateProperty.all(
-                        RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                    child: const Text(
-                      'Continue as Guest',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    isOutlined: true,
+                    backgroundColor: theme.colorScheme.onSurface.withValues(
+                      alpha: 0.6,
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -187,6 +154,7 @@ class _LoginPageState extends State<LoginPage> {
                           color: theme.colorScheme.onSurface.withValues(
                             alpha: 0.6,
                           ),
+                          fontSize: 15,
                         ),
                       ),
                       GestureDetector(
@@ -194,13 +162,15 @@ class _LoginPageState extends State<LoginPage> {
                         child: Text(
                           'Create Account',
                           style: TextStyle(
-                            color: theme.primaryColor,
+                            color: theme.colorScheme.primary,
                             fontWeight: FontWeight.bold,
+                            fontSize: 15,
                           ),
                         ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
@@ -210,44 +180,25 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Column(
       children: [
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            color: isDark
-                ? AppColors.secondary
-                : theme.primaryColor.withValues(alpha: 0.05),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: theme.primaryColor.withValues(alpha: 0.1),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: theme.primaryColor.withValues(alpha: 0.15),
-                blurRadius: 40,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Icon(
-            Icons.lock_person_rounded,
-            size: 48,
-            color: theme.primaryColor,
-          ),
+        PremiumIconContainer(
+          icon: Icons.lock_person_rounded,
+          size: 100,
+          iconSize: 48,
+          borderRadius: BorderRadius.circular(32),
         ),
         const SizedBox(height: 32),
         Text(
           'Welcome Back',
           style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
+            fontSize: 32,
+            fontWeight: FontWeight.w900,
             color: theme.colorScheme.onSurface,
+            letterSpacing: -1,
           ),
         ),
         const SizedBox(height: 8),
@@ -256,68 +207,21 @@ class _LoginPageState extends State<LoginPage> {
           style: TextStyle(
             fontSize: 16,
             color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            letterSpacing: 0.2,
           ),
         ),
       ],
     );
   }
 
-  Widget buildTextField({
-    required BuildContext context,
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    required String hint,
-    bool isPassword = false,
-    String? Function(String?)? validator,
-  }) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: theme.colorScheme.onSurface,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          obscureText: isPassword && _obscurePassword,
-          style: TextStyle(color: theme.colorScheme.onSurface),
-          validator: validator,
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: Icon(
-              icon,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-            ),
-            suffixIcon: isPassword
-                ? IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                    ),
-                    onPressed: _togglePasswordVisibility,
-                  )
-                : null,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget buildDivider(BuildContext context) {
+  Widget _buildDivider(BuildContext context) {
     final theme = Theme.of(context);
     return Row(
       children: [
         Expanded(
           child: Divider(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+            thickness: 1,
           ),
         ),
         Padding(
@@ -327,12 +231,15 @@ class _LoginPageState extends State<LoginPage> {
             style: TextStyle(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
               fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1,
             ),
           ),
         ),
         Expanded(
           child: Divider(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+            thickness: 1,
           ),
         ),
       ],

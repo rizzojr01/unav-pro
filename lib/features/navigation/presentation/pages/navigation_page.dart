@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../theme/app_colors.dart';
+
 import '../../../../shared/widgets/custom_snackbar.dart';
 import '../../../destination/domain/entities/destination_entity.dart';
 import '../bloc/navigation_bloc.dart';
@@ -110,7 +110,6 @@ class _LoadingViewState extends State<_LoadingView>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -120,7 +119,7 @@ class _LoadingViewState extends State<_LoadingView>
           // 1. Tech Grid Background
           CustomPaint(
             painter: _GridPainter(
-              color: theme.primaryColor.withValues(alpha: isDark ? 0.05 : 0.03),
+              color: theme.colorScheme.primary.withValues(alpha: 0.05),
             ),
           ),
 
@@ -141,10 +140,12 @@ class _LoadingViewState extends State<_LoadingView>
                           height: 120 * _pulseAnimation.value,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: theme.primaryColor.withValues(alpha: 0.1),
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.1,
+                            ),
                             boxShadow: [
                               BoxShadow(
-                                color: theme.primaryColor.withValues(
+                                color: theme.colorScheme.primary.withValues(
                                   alpha: 0.15,
                                 ),
                                 blurRadius: 30,
@@ -158,19 +159,19 @@ class _LoadingViewState extends State<_LoadingView>
                           width: 80,
                           height: 80,
                           decoration: BoxDecoration(
-                            color: isDark
-                                ? AppColors.secondary
-                                : theme.primaryColor.withValues(alpha: 0.05),
+                            color: theme.colorScheme.surface,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: theme.primaryColor.withValues(alpha: 0.3),
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: 0.3,
+                              ),
                               width: 2,
                             ),
                           ),
                           child: Icon(
                             Icons.explore_rounded,
                             size: 40,
-                            color: theme.primaryColor,
+                            color: theme.colorScheme.primary,
                           ),
                         ),
                       ],
@@ -193,7 +194,7 @@ class _LoadingViewState extends State<_LoadingView>
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: theme.primaryColor.withValues(alpha: 0.7),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.7),
                     letterSpacing: 1.5,
                   ),
                 ),
@@ -211,9 +212,11 @@ class _LoadingViewState extends State<_LoadingView>
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
-                    backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
+                    backgroundColor: theme.colorScheme.primary.withValues(
+                      alpha: 0.1,
+                    ),
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      theme.primaryColor,
+                      theme.colorScheme.primary,
                     ),
                     minHeight: 3,
                   ),
@@ -224,7 +227,7 @@ class _LoadingViewState extends State<_LoadingView>
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    color: theme.colorScheme.onSurfaceVariant,
                     letterSpacing: 2,
                   ),
                 ),
@@ -296,11 +299,6 @@ class _NavigationReadyView extends StatelessWidget {
                     const StartNavigationEvent(),
                   );
                 },
-                style: theme.elevatedButtonTheme.style?.copyWith(
-                  padding: WidgetStateProperty.all(
-                    const EdgeInsets.symmetric(vertical: 20),
-                  ),
-                ),
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -334,18 +332,20 @@ class _NavigationReadyView extends StatelessWidget {
       margin: const EdgeInsets.all(24),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.secondary : theme.cardTheme.color,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: theme.primaryColor.withValues(alpha: 0.1)),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withValues(
+              alpha: isDark ? 0.3 : 0.04,
+            ),
+            blurRadius: isDark ? 20 : 10,
+            offset: isDark ? const Offset(0, 10) : const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -354,20 +354,20 @@ class _NavigationReadyView extends StatelessWidget {
               icon: Icons.straighten_rounded,
               label: 'DISTANCE',
               value: '$distanceM m',
-              iconColor: Colors.blue,
+              iconColor: theme.colorScheme.primary,
             ),
           ),
           Container(
             width: 1,
             height: 40,
-            color: theme.dividerColor.withValues(alpha: 0.1),
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
           ),
           Expanded(
             child: _InfoItem(
               icon: Icons.timer_rounded,
               label: 'EST. TIME',
               value: '$durationMin min',
-              iconColor: theme.primaryColor,
+              iconColor: theme.colorScheme.secondary,
             ),
           ),
         ],
@@ -415,8 +415,8 @@ class _NavigationInProgressView extends StatelessWidget {
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.error,
-                  foregroundColor: AppColors.white,
+                  backgroundColor: theme.colorScheme.error,
+                  foregroundColor: theme.colorScheme.onError,
                   padding: const EdgeInsets.symmetric(vertical: 20),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -458,18 +458,20 @@ class _NavigationInProgressView extends StatelessWidget {
       margin: const EdgeInsets.all(24),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.secondary : theme.cardTheme.color,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: theme.primaryColor.withValues(alpha: 0.1)),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withValues(
+              alpha: isDark ? 0.3 : 0.04,
+            ),
+            blurRadius: isDark ? 20 : 10,
+            offset: isDark ? const Offset(0, 10) : const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -478,20 +480,20 @@ class _NavigationInProgressView extends StatelessWidget {
               icon: Icons.straighten_rounded,
               label: 'REMAINING',
               value: '$distanceM m',
-              iconColor: Colors.blue,
+              iconColor: theme.colorScheme.primary,
             ),
           ),
           Container(
             width: 1,
             height: 40,
-            color: theme.dividerColor.withValues(alpha: 0.1),
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
           ),
           Expanded(
             child: _InfoItem(
               icon: Icons.access_time_filled_rounded,
               label: 'ETA',
               value: '$durationMin min',
-              iconColor: theme.primaryColor,
+              iconColor: theme.colorScheme.secondary,
             ),
           ),
         ],
@@ -525,7 +527,7 @@ class _InfoItem extends StatelessWidget {
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            color: theme.colorScheme.onSurfaceVariant,
             letterSpacing: 1.5,
           ),
         ),
@@ -568,13 +570,13 @@ class _ErrorView extends StatelessWidget {
                       width: 100,
                       height: 100,
                       decoration: BoxDecoration(
-                        color: AppColors.error.withValues(alpha: 0.1),
+                        color: theme.colorScheme.error.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.warning_amber_rounded,
                         size: 48,
-                        color: AppColors.error,
+                        color: theme.colorScheme.error,
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -593,7 +595,7 @@ class _ErrorView extends StatelessWidget {
                       message.toUpperCase(),
                       style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.error.withValues(alpha: 0.7),
+                        color: theme.colorScheme.error,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 1,
                       ),
@@ -608,7 +610,6 @@ class _ErrorView extends StatelessWidget {
                             InitializeNavigationEvent(destination),
                           );
                         },
-                        style: theme.elevatedButtonTheme.style,
                         child: const Text(
                           'RETRY CONNECTION',
                           style: TextStyle(

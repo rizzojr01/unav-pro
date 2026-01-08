@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../theme/app_colors.dart';
+
 import '../../../profile/presentation/pages/profile_page.dart';
 import '../../../../shared/widgets/search_bar.dart';
 import '../../../../shared/widgets/quick_action_card.dart';
@@ -19,7 +19,6 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -37,7 +36,7 @@ class _DashboardPageState extends State<DashboardPage> {
           onPressed: () {
             context.push('/destination');
           },
-          backgroundColor: theme.primaryColor,
+          backgroundColor: theme.colorScheme.primary,
           elevation: 4,
           shape: const CircleBorder(),
           child: Column(
@@ -65,8 +64,8 @@ class _DashboardPageState extends State<DashboardPage> {
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
         notchMargin: 10.0,
-        color: isDark ? AppColors.secondary : theme.cardTheme.color,
-        elevation: isDark ? 0 : 4,
+        color: theme.colorScheme.surface,
+        elevation: theme.brightness == Brightness.dark ? 0 : 4,
         child: SizedBox(
           height: 60,
           child: Row(
@@ -98,8 +97,8 @@ class _DashboardPageState extends State<DashboardPage> {
         child: Icon(
           icon,
           color: isSelected
-              ? theme.primaryColor
-              : theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              ? theme.colorScheme.primary
+              : theme.colorScheme.onSurfaceVariant,
           size: 28,
         ),
       ),
@@ -143,14 +142,14 @@ class _DashboardPageState extends State<DashboardPage> {
               'Hello!',
               style: TextStyle(
                 fontSize: 16,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                color: theme.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
               ),
             ),
             CircleAvatar(
               radius: 20,
-              backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
-              child: Icon(Icons.person, color: theme.primaryColor),
+              backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+              child: Icon(Icons.person, color: theme.colorScheme.primary),
             ),
           ],
         ),
@@ -198,7 +197,7 @@ class _DashboardPageState extends State<DashboardPage> {
               'See All',
               style: TextStyle(
                 fontSize: 14,
-                color: theme.primaryColor,
+                color: theme.colorScheme.primary,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -208,6 +207,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildQuickActionsGrid(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       children: [
         Row(
@@ -216,7 +216,7 @@ class _DashboardPageState extends State<DashboardPage> {
               child: CustomQuickActionCard(
                 icon: Icons.meeting_room_rounded,
                 title: 'Conference Room',
-                color: AppColors.info,
+                color: theme.colorScheme.primary,
                 onTap: () => context.push('/destination'),
               ),
             ),
@@ -225,7 +225,7 @@ class _DashboardPageState extends State<DashboardPage> {
               child: CustomQuickActionCard(
                 icon: Icons.restaurant_rounded,
                 title: 'Main Cafeteria',
-                color: AppColors.warning,
+                color: theme.colorScheme.secondary,
                 onTap: () => context.push('/destination'),
               ),
             ),
@@ -238,7 +238,7 @@ class _DashboardPageState extends State<DashboardPage> {
               child: CustomQuickActionCard(
                 icon: Icons.wc_rounded,
                 title: 'Restrooms',
-                color: AppColors.error,
+                color: theme.colorScheme.tertiary,
                 onTap: () => context.push('/destination'),
               ),
             ),
@@ -247,7 +247,9 @@ class _DashboardPageState extends State<DashboardPage> {
               child: CustomQuickActionCard(
                 icon: Icons.business_center_rounded,
                 title: 'Lobby',
-                color: AppColors.success,
+                color: theme.colorScheme.primaryContainer.withValues(
+                  alpha: 0.8,
+                ),
                 onTap: () => context.push('/destination'),
               ),
             ),
