@@ -16,15 +16,3 @@ class InitializeNavigationEvent extends NavigationEvent {
   @override
   List<Object?> get props => [destination];
 }
-
-class StartNavigationEvent extends NavigationEvent {
-  const StartNavigationEvent();
-}
-
-class StopNavigationEvent extends NavigationEvent {
-  const StopNavigationEvent();
-}
-
-class UpdateLocationEvent extends NavigationEvent {
-  const UpdateLocationEvent();
-}

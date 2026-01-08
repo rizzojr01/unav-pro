@@ -28,9 +28,7 @@ import 'package:smart_sense/features/navigation/data/datasources/navigation_loca
 import 'package:smart_sense/features/navigation/data/datasources/navigation_remote_datasource.dart';
 import 'package:smart_sense/features/navigation/data/repositories/navigation_repository_impl.dart';
 import 'package:smart_sense/features/navigation/domain/repositories/navigation_repository.dart';
-import 'package:smart_sense/features/navigation/domain/usecases/get_current_location_usecase.dart';
 import 'package:smart_sense/features/navigation/domain/usecases/get_route_usecase.dart';
-import 'package:smart_sense/features/navigation/domain/usecases/watch_location_usecase.dart';
 import 'package:smart_sense/features/navigation/presentation/bloc/navigation_bloc.dart';
 
 // Auth
@@ -147,16 +145,8 @@ Future<void> initializeDependencies() async {
       remoteDataSource: getIt(),
     ),
   );
-  getIt.registerLazySingleton(() => GetCurrentLocationUseCase(getIt()));
   getIt.registerLazySingleton(() => GetRouteUseCase(getIt()));
-  getIt.registerLazySingleton(() => WatchLocationUseCase(getIt()));
-  getIt.registerFactory(
-    () => NavigationBloc(
-      getCurrentLocationUseCase: getIt(),
-      getRouteUseCase: getIt(),
-      watchLocationUseCase: getIt(),
-    ),
-  );
+  getIt.registerFactory(() => NavigationBloc(getRouteUseCase: getIt()));
 
   // Theme
   getIt.registerLazySingleton<ThemeBloc>(() => ThemeBloc(getIt()));

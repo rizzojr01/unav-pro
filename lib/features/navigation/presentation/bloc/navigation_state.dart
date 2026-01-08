@@ -24,19 +24,6 @@ class NavigationReady extends NavigationState {
   List<Object?> get props => [currentLocation, route];
 }
 
-class NavigationInProgress extends NavigationState {
-  final LocationEntity currentLocation;
-  final RouteEntity route;
-
-  const NavigationInProgress({
-    required this.currentLocation,
-    required this.route,
-  });
-
-  @override
-  List<Object?> get props => [currentLocation, route];
-}
-
 class NavigationCompleted extends NavigationState {
   const NavigationCompleted();
 }

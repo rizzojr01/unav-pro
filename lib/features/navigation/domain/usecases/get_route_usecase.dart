@@ -7,10 +7,10 @@ import '../repositories/navigation_repository.dart';
 
 /// Parameters for getting a route
 class GetRouteParams {
-  final LocationEntity origin;
+  final LocationEntity? origin;
   final LocationEntity destination;
 
-  const GetRouteParams({required this.origin, required this.destination});
+  const GetRouteParams({this.origin, required this.destination});
 }
 
 /// Use case for calculating route between two locations

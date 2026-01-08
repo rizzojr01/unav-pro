@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../bloc/auth_bloc.dart';
-import '../bloc/auth_event.dart';
-import '../bloc/auth_state.dart';
+import 'package:smart_sense/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:smart_sense/features/auth/presentation/bloc/auth_event.dart';
+import 'package:smart_sense/features/auth/presentation/bloc/auth_state.dart';
+import 'package:smart_sense/routes/app_router.dart';
+import 'package:smart_sense/shared/widgets/premium_icon_container.dart';
+import 'package:smart_sense/shared/widgets/custom_button.dart';
+import 'package:smart_sense/shared/widgets/custom_text_field.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -53,70 +57,63 @@ class _SignupPageState extends State<SignupPage> {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is Authenticated) {
-          context.go('/dashboard');
+          context.go(AppRouter.dashboard);
         } else if (state is AuthFailure) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message),
               backgroundColor: theme.colorScheme.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
         }
       },
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: Icon(
-              Icons.arrow_back_ios_new,
-              color: theme.colorScheme.onSurface,
-            ),
-            onPressed: () => context.pop(),
-          ),
-        ),
+
         body: SafeArea(
-          child: SingleChildScrollView(
+          child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 48),
                   _buildHeader(context),
-                  const SizedBox(height: 40),
-                  _buildTextField(
-                    context: context,
+                  const SizedBox(height: 32),
+                  CustomTextField(
                     controller: _nicknameController,
-                    label: 'Nickname',
-                    icon: Icons.person_outline,
-                    hint: 'Your display name',
+                    labelText: 'Nickname',
+                    hintText: 'Your display name',
+                    prefixIcon: Icons.person_rounded,
                     validator: (value) =>
                         value == null || value.isEmpty ? 'Required' : null,
                   ),
-                  const SizedBox(height: 20),
-                  _buildTextField(
-                    context: context,
+                  const SizedBox(height: 16),
+                  CustomTextField(
                     controller: _emailController,
-                    label: 'Email',
-                    icon: Icons.email_outlined,
-                    hint: 'name@example.com',
+                    labelText: 'Email Address',
+                    hintText: 'name@example.com',
+                    prefixIcon: Icons.email_rounded,
                     validator: (value) {
                       if (value == null || value.isEmpty) return 'Required';
                       if (!value.contains('@')) return 'Invalid email';
                       return null;
                     },
                   ),
-                  const SizedBox(height: 20),
-                  _buildTextField(
-                    context: context,
+                  const SizedBox(height: 16),
+                  CustomTextField(
                     controller: _passwordController,
-                    label: 'Password',
-                    icon: Icons.lock_outline,
-                    hint: '••••••',
+                    labelText: 'Password',
+                    hintText: '••••••••',
+                    prefixIcon: Icons.key_rounded,
                     isPassword: true,
+                    obscureText: _obscurePassword,
+                    onSuffixIconTap: _togglePasswordVisibility,
                     validator: (value) {
                       if (value == null || value.isEmpty) return 'Required';
                       if (value.length < 6) return 'Min 6 chars';
@@ -127,35 +124,14 @@ class _SignupPageState extends State<SignupPage> {
                   BlocBuilder<AuthBloc, AuthState>(
                     builder: (context, state) {
                       final isLoading = state is AuthLoading;
-                      return ElevatedButton(
-                        onPressed: isLoading ? null : _handleSignup,
-                        style: theme.elevatedButtonTheme.style?.copyWith(
-                          shape: WidgetStateProperty.all(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        ),
-                        child: isLoading
-                            ? SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: theme.colorScheme.onPrimary,
-                                ),
-                              )
-                            : const Text(
-                                'Create Account',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                      return CustomButton(
+                        text: 'Create Account',
+                        onPressed: _handleSignup,
+                        isLoading: isLoading,
                       );
                     },
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -165,6 +141,7 @@ class _SignupPageState extends State<SignupPage> {
                           color: theme.colorScheme.onSurface.withValues(
                             alpha: 0.6,
                           ),
+                          fontSize: 15,
                         ),
                       ),
                       GestureDetector(
@@ -172,8 +149,9 @@ class _SignupPageState extends State<SignupPage> {
                         child: Text(
                           'Sign In',
                           style: TextStyle(
-                            color: theme.primaryColor,
+                            color: theme.colorScheme.primary,
                             fontWeight: FontWeight.bold,
+                            fontSize: 15,
                           ),
                         ),
                       ),
@@ -192,70 +170,31 @@ class _SignupPageState extends State<SignupPage> {
     final theme = Theme.of(context);
     return Column(
       children: [
+        PremiumIconContainer(
+          icon: Icons.person_add_rounded,
+          size: 110,
+          iconSize: 52,
+          isCircle: true,
+        ),
+        const SizedBox(height: 24),
         Text(
-          'Create Account',
+          'Join Smart Sense',
           style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
+            fontSize: 32,
+            fontWeight: FontWeight.w900,
             color: theme.colorScheme.onSurface,
+            letterSpacing: -1,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Join us for a better navigation experience',
+          'Experience the future of indoor navigation',
           style: TextStyle(
             fontSize: 16,
             color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            letterSpacing: 0.2,
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTextField({
-    required BuildContext context,
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    required String hint,
-    bool isPassword = false,
-    String? Function(String?)? validator,
-  }) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: theme.colorScheme.onSurface,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          obscureText: isPassword && _obscurePassword,
-          style: TextStyle(color: theme.colorScheme.onSurface),
-          validator: validator,
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: Icon(
-              icon,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-            ),
-            suffixIcon: isPassword
-                ? IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                    ),
-                    onPressed: _togglePasswordVisibility,
-                  )
-                : null,
-          ),
+          textAlign: TextAlign.center,
         ),
       ],
     );

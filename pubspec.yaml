@@ -57,4 +57,5 @@ flutter:
   assets:
     - .env
     - assets/mock_data/
+    - assets/images/
 

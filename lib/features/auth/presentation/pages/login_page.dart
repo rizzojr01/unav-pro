@@ -70,17 +70,17 @@ class _LoginPageState extends State<LoginPage> {
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         body: SafeArea(
-          child: SingleChildScrollView(
+          child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 60),
+                  const SizedBox(height: 48),
                   _buildHeader(context),
 
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 32),
                   CustomTextField(
                     controller: _emailController,
                     labelText: 'Email Address',
@@ -92,7 +92,7 @@ class _LoginPageState extends State<LoginPage> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   CustomTextField(
                     controller: _passwordController,
                     labelText: 'Password',
@@ -122,7 +122,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   BlocBuilder<AuthBloc, AuthState>(
                     builder: (context, state) {
                       final isLoading = state is AuthLoading;
@@ -144,7 +144,7 @@ class _LoginPageState extends State<LoginPage> {
                       alpha: 0.6,
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -170,7 +170,6 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 40),
                 ],
               ),
             ),
@@ -187,11 +186,11 @@ class _LoginPageState extends State<LoginPage> {
       children: [
         PremiumIconContainer(
           icon: Icons.lock_person_rounded,
-          size: 100,
-          iconSize: 48,
-          borderRadius: BorderRadius.circular(32),
+          size: 110,
+          iconSize: 52,
+          isCircle: true,
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 24),
         Text(
           'Welcome Back',
           style: TextStyle(

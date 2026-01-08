@@ -4,8 +4,8 @@ class DestinationModel extends DestinationEntity {
   const DestinationModel({
     required super.entityId,
     required super.name,
-    required super.latitude,
-    required super.longitude,
+    required super.x,
+    required super.y,
     super.address,
   });
 
@@ -13,28 +13,22 @@ class DestinationModel extends DestinationEntity {
     return DestinationModel(
       entityId: json['id'] as String,
       name: json['name'] as String,
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
+      x: (json['x'] as num).toDouble(),
+      y: (json['y'] as num).toDouble(),
       address: json['address'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id!,
-      'name': name,
-      'latitude': latitude,
-      'longitude': longitude,
-      'address': address,
-    };
+    return {'id': id!, 'name': name, 'x': x, 'y': y, 'address': address};
   }
 
   factory DestinationModel.fromEntity(DestinationEntity entity) {
     return DestinationModel(
       entityId: entity.id!,
       name: entity.name,
-      latitude: entity.latitude,
-      longitude: entity.longitude,
+      x: entity.x,
+      y: entity.y,
       address: entity.address,
     );
   }

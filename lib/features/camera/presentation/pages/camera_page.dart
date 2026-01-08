@@ -8,6 +8,8 @@ import '../../../../shared/widgets/custom_snackbar.dart';
 import 'package:smart_sense/shared/widgets/loading_overlay.dart';
 import 'package:smart_sense/shared/widgets/step_indicator.dart';
 import 'package:smart_sense/features/destination/domain/entities/destination_entity.dart';
+import 'package:smart_sense/shared/widgets/custom_loading_view.dart';
+import 'package:smart_sense/shared/widgets/custom_error_view.dart';
 import '../bloc/camera_bloc.dart';
 import '../bloc/camera_event.dart';
 import '../bloc/camera_state.dart';
@@ -56,46 +58,21 @@ class _CameraPageState extends State<CameraPage> {
 
   Widget _buildBody(BuildContext context, CameraState state) {
     if (state is CameraInitial) {
-      return const _InitializingView();
+      return const CustomLoadingView(message: 'Initializing camera...');
     } else if (state is CameraReady) {
       return const _CameraReadyView();
     } else if (state is CameraPhotoCaptured) {
       return _PhotoPreviewView(state: state, destination: widget.destination);
     } else if (state is CameraError) {
-      return _ErrorView(message: state.message);
+      return CustomErrorView(
+        message: state.message,
+        onRetry: () =>
+            context.read<CameraBloc>().add(const InitializeCameraEvent()),
+      );
     } else if (state is CameraCapturing) {
       return const _CameraReadyView();
     }
     return const _CameraReadyView();
-  }
-}
-
-class _InitializingView extends StatelessWidget {
-  const _InitializingView();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      color: theme.scaffoldBackgroundColor,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: theme.colorScheme.primary),
-            const SizedBox(height: 24),
-            Text(
-              'Initializing camera...',
-              style: TextStyle(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 
@@ -627,71 +604,6 @@ class _PhotoPreviewView extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ErrorView extends StatelessWidget {
-  final String message;
-
-  const _ErrorView({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      color: theme.scaffoldBackgroundColor,
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.error.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.error_outline_rounded,
-                  size: 48,
-                  color: theme.colorScheme.error,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Camera Error',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                message,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: () {
-                  context.read<CameraBloc>().add(const InitializeCameraEvent());
-                },
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                child: const Text('Try Again'),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:smart_sense/shared/widgets/step_indicator.dart';
 import 'package:smart_sense/shared/widgets/search_bar.dart';
+import 'package:smart_sense/shared/widgets/custom_loading_view.dart';
+import 'package:smart_sense/shared/widgets/custom_error_view.dart';
 
 import '../bloc/destination_bloc.dart';
 import '../bloc/destination_event.dart';
@@ -87,14 +89,14 @@ class _DestinationPageState extends State<DestinationPage> {
                 if (state is DestinationInitial) {
                   return const _EmptyStateView();
                 } else if (state is DestinationSearching) {
-                  return const _LoadingView();
+                  return const CustomLoadingView();
                 } else if (state is DestinationSearchSuccess) {
                   if (state.destinations.isEmpty) {
                     return const _NoResultsView();
                   }
                   return _DestinationListView(destinations: state.destinations);
                 } else if (state is DestinationError) {
-                  return _ErrorView(
+                  return CustomErrorView(
                     message: state.message,
                     onRetry: _handleSearch,
                   );
@@ -204,18 +206,6 @@ class _EmptyStateView extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _LoadingView extends StatelessWidget {
-  const _LoadingView();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: CircularProgressIndicator(color: theme.colorScheme.primary),
     );
   }
 }
@@ -404,37 +394,6 @@ class _DestinationTile extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorView extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-
-  const _ErrorView({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(onPressed: onRetry, child: const Text('Try Again')),
-          ],
         ),
       ),
     );

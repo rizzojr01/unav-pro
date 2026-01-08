@@ -1,11 +1,13 @@
 import '../../../../core/base/base_entity.dart';
 import 'location_entity.dart';
+import 'navigation_step_entity.dart';
 
 class RouteEntity extends BaseEntity {
   final String entityId;
   final LocationEntity origin;
   final LocationEntity destination;
   final List<LocationEntity> waypoints;
+  final List<NavigationStepEntity> steps;
   final double distanceInMeters;
   final int durationInSeconds;
 
@@ -14,6 +16,7 @@ class RouteEntity extends BaseEntity {
     required this.origin,
     required this.destination,
     required this.waypoints,
+    required this.steps,
     required this.distanceInMeters,
     required this.durationInSeconds,
   });
@@ -27,6 +30,7 @@ class RouteEntity extends BaseEntity {
     origin,
     destination,
     waypoints,
+    steps,
     distanceInMeters,
     durationInSeconds,
   ];
