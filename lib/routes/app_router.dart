@@ -11,6 +11,7 @@ import '../features/destination/presentation/pages/destination_page.dart';
 import '../features/navigation/presentation/pages/navigation_page.dart';
 import '../features/profile/presentation/pages/profile_page.dart';
 import '../features/destination/domain/entities/destination_entity.dart';
+import '../features/destination/presentation/pages/floor_map_page.dart';
 
 class AppRouter {
   static const String splash = '/';
@@ -23,6 +24,7 @@ class AppRouter {
   static const String destination = '/destination';
   static const String navigation = '/navigation';
   static const String profile = '/profile';
+  static const String floorMap = '/floor-map';
 
   static final GoRouter router = GoRouter(
     initialLocation: splash,
@@ -54,6 +56,10 @@ class AppRouter {
         builder: (context, state) => const DestinationPage(),
       ),
       GoRoute(path: profile, builder: (context, state) => const ProfilePage()),
+      GoRoute(
+        path: floorMap,
+        builder: (context, state) => const FloorMapPage(),
+      ),
       GoRoute(
         path: navigation,
         builder: (context, state) {

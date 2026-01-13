@@ -105,7 +105,34 @@ class _DestinationPageState extends State<DestinationPage> {
               },
             ),
           ),
+          _buildLocateMeButton(context),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLocateMeButton(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: ElevatedButton.icon(
+        onPressed: () {
+          context.push('/floor-map');
+        },
+        icon: Icon(
+          Icons.my_location_rounded,
+          color: theme.colorScheme.onPrimary,
+        ),
+        label: const Text('Locate Me on Map'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: theme.colorScheme.primary,
+          foregroundColor: theme.colorScheme.onPrimary,
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 2,
+        ),
       ),
     );
   }
