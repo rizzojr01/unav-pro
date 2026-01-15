@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../features/splash/presentation/pages/splash_page.dart';
 import '../features/onboarding/presentation/pages/onboarding_page.dart';
@@ -11,6 +12,9 @@ import '../features/destination/presentation/pages/destination_page.dart';
 import '../features/navigation/presentation/pages/navigation_page.dart';
 import '../features/profile/presentation/pages/profile_page.dart';
 import '../features/destination/domain/entities/destination_entity.dart';
+import '../features/locate_me/presentation/pages/locate_me_camera_page.dart';
+import '../features/locate_me/presentation/bloc/locate_me_bloc.dart';
+import '../injection.dart';
 
 class AppRouter {
   static const String splash = '/';
@@ -23,6 +27,7 @@ class AppRouter {
   static const String destination = '/destination';
   static const String navigation = '/navigation';
   static const String profile = '/profile';
+  static const String locateMe = '/locate-me';
 
   static final GoRouter router = GoRouter(
     initialLocation: splash,
@@ -65,6 +70,15 @@ class AppRouter {
             );
           }
           return NavigationPage(destination: destination);
+        },
+      ),
+      GoRoute(
+        path: locateMe,
+        builder: (context, state) {
+          return BlocProvider(
+            create: (context) => getIt<LocateMeBloc>(),
+            child: const LocateMeCameraPage(),
+          );
         },
       ),
     ],

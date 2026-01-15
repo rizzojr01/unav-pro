@@ -2,7 +2,7 @@ import '../../domain/entities/destination_entity.dart';
 
 class DestinationModel extends DestinationEntity {
   const DestinationModel({
-    required super.entityId,
+    required super.destinationId,
     required super.name,
     required super.x,
     required super.y,
@@ -10,11 +10,15 @@ class DestinationModel extends DestinationEntity {
   });
 
   factory DestinationModel.fromJson(Map<String, dynamic> json) {
+    // Support both x/y and latitude/longitude field names
+    final xValue = json['x'] ?? json['latitude'] ?? 0;
+    final yValue = json['y'] ?? json['longitude'] ?? 0;
+
     return DestinationModel(
-      entityId: json['id'] as String,
+      destinationId: json['id'] as String,
       name: json['name'] as String,
-      x: (json['x'] as num).toDouble(),
-      y: (json['y'] as num).toDouble(),
+      x: (xValue as num).toDouble(),
+      y: (yValue as num).toDouble(),
       address: json['address'] as String?,
     );
   }
@@ -25,11 +29,18 @@ class DestinationModel extends DestinationEntity {
 
   factory DestinationModel.fromEntity(DestinationEntity entity) {
     return DestinationModel(
-      entityId: entity.id!,
+      destinationId: entity.id!,
       name: entity.name,
       x: entity.x,
       y: entity.y,
       address: entity.address,
     );
+  }
+
+  static List<DestinationModel> fromJsonList(Map<String, dynamic> json) {
+    final destinations = json['destinations'] as List<dynamic>;
+    return destinations
+        .map((e) => DestinationModel.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 }

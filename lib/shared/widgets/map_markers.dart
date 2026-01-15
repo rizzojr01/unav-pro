@@ -1,0 +1,181 @@
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
+
+/// User position marker with navigation arrow that rotates based on orientation
+class UserPositionMarker extends StatelessWidget {
+  final double size;
+  final double orientationDegrees;
+  final Color? primaryColor;
+  final Color? iconColor;
+  final bool showPulse;
+
+  const UserPositionMarker({
+    super.key,
+    this.size = 24.0,
+    this.orientationDegrees = 0.0,
+    this.primaryColor,
+    this.iconColor,
+    this.showPulse = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bgColor = primaryColor ?? theme.colorScheme.primary;
+    final fgColor = iconColor ?? theme.colorScheme.onPrimary;
+
+    // Convert degrees to radians for rotation
+    final rotationRadians = orientationDegrees * (math.pi / 180);
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Outer pulse ring
+          if (showPulse)
+            Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: bgColor.withOpacity(0.2),
+              ),
+            ),
+
+          // Main marker body
+          Container(
+            width: size * 0.75,
+            height: size * 0.75,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: bgColor,
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.25),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Transform.rotate(
+              angle: rotationRadians,
+              child: Icon(Icons.navigation, size: size * 0.4, color: fgColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Destination marker with flag icon - simple pin style
+class DestinationFlagMarker extends StatelessWidget {
+  final double size;
+  final Color? flagColor;
+  final Color? iconColor;
+  final String? label;
+  final VoidCallback? onTap;
+
+  const DestinationFlagMarker({
+    super.key,
+    this.size = 24.0,
+    this.flagColor,
+    this.iconColor,
+    this.label,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bgColor = flagColor ?? theme.colorScheme.error;
+    final fgColor = iconColor ?? Colors.white;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: bgColor,
+          border: Border.all(color: Colors.white, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.25),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Icon(Icons.flag_rounded, size: size * 0.5, color: fgColor),
+      ),
+    );
+  }
+}
+
+/// Simple destination marker (circular with icon) for POIs on locate me map
+class DestinationMarker extends StatelessWidget {
+  final double size;
+  final Color? backgroundColor;
+  final Color? iconColor;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  const DestinationMarker({
+    super.key,
+    this.size = 28.0,
+    this.backgroundColor,
+    this.iconColor,
+    this.icon = Icons.place,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bgColor = backgroundColor ?? theme.colorScheme.error;
+    final fgColor = iconColor ?? theme.colorScheme.onError;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: bgColor,
+          boxShadow: [
+            BoxShadow(
+              color: bgColor.withOpacity(0.3),
+              blurRadius: 4,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        child: Icon(icon, color: fgColor, size: size * 0.6),
+      ),
+    );
+  }
+
+  /// Get appropriate icon based on destination name
+  static IconData getIconForDestination(String name) {
+    final lowerName = name.toLowerCase();
+    if (lowerName.contains('elevator')) return Icons.elevator;
+    if (lowerName.contains('restroom') || lowerName.contains('bathroom')) {
+      return Icons.wc;
+    }
+    if (lowerName.contains('pantry') || lowerName.contains('kitchen')) {
+      return Icons.kitchen;
+    }
+    if (lowerName.contains('office')) return Icons.business;
+    if (lowerName.contains('reception')) return Icons.desk;
+    if (lowerName.contains('board') || lowerName.contains('meeting')) {
+      return Icons.meeting_room;
+    }
+    return Icons.place;
+  }
+}

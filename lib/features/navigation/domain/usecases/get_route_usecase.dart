@@ -1,16 +1,26 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/base/usecase.dart';
 import '../../../../core/error/failures.dart';
-import '../entities/location_entity.dart';
 import '../entities/route_entity.dart';
 import '../repositories/navigation_repository.dart';
 
 /// Parameters for getting a route
 class GetRouteParams {
-  final LocationEntity? origin;
-  final LocationEntity destination;
+  final String destinationId;
+  final String place;
+  final String building;
+  final String floor;
+  final String sessionId;
+  final bool useSampleImage;
 
-  const GetRouteParams({this.origin, required this.destination});
+  const GetRouteParams({
+    required this.destinationId,
+    required this.place,
+    required this.building,
+    required this.floor,
+    required this.sessionId,
+    required this.useSampleImage,
+  });
 }
 
 /// Use case for calculating route between two locations
@@ -21,6 +31,13 @@ class GetRouteUseCase implements UseCase<RouteEntity, GetRouteParams> {
 
   @override
   Future<Either<Failure, RouteEntity>> call(GetRouteParams params) {
-    return repository.getRoute(params.origin, params.destination);
+    return repository.getRoute(
+      destinationId: params.destinationId,
+      place: params.place,
+      building: params.building,
+      floor: params.floor,
+      sessionId: params.sessionId,
+      useSampleImage: params.useSampleImage,
+    );
   }
 }

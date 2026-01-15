@@ -1,14 +1,14 @@
 import '../../../../core/base/base_entity.dart';
 
 class DestinationEntity extends BaseEntity {
-  final String entityId;
+  final String destinationId;
   final String name;
   final double x;
   final double y;
   final String? address;
 
   const DestinationEntity({
-    required this.entityId,
+    required this.destinationId,
     required this.name,
     required this.x,
     required this.y,
@@ -16,8 +16,8 @@ class DestinationEntity extends BaseEntity {
   });
 
   @override
-  String? get id => entityId;
+  String? get id => destinationId;
 
   @override
-  List<Object?> get props => [entityId, name, x, y, address];
+  List<Object?> get props => [destinationId, name, x, y, address];
 }

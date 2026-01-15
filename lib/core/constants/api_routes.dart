@@ -16,7 +16,13 @@ class ApiRoutes {
   static const String searchDestinations = '/destinations/search';
 
   // Navigation Endpoints
-  static const String getRoute = '/navigation/route';
+  static const String getRoute = '/generate-instructions';
+
+  // Locate Me Endpoints
+  static const String getFloor = '/get_floor';
+  static const String localizeUser = '/localize_user';
+  static const String getDestinationsList = '/get_destinations_list';
+  static const String getPlaceDetails = '/get_place_details';
 
   // Headers
   static const String authHeader = 'Authorization';

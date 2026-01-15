@@ -197,10 +197,29 @@ class _CameraReadyViewState extends State<_CameraReadyView> {
                         ),
                       ),
                       GestureDetector(
-                        onTap: () {
-                          context.read<CameraBloc>().add(
-                            const CapturePhotoEvent(),
-                          );
+                        onTap: () async {
+                          if (_controller != null &&
+                              _controller!.value.isInitialized) {
+                            try {
+                              final image = await _controller!.takePicture();
+                              if (context.mounted) {
+                                context.read<CameraBloc>().add(
+                                  CapturePhotoEvent(filePath: image.path),
+                                );
+                              }
+                            } catch (e) {
+                              // Fallback to bloc handling without path
+                              if (context.mounted) {
+                                context.read<CameraBloc>().add(
+                                  const CapturePhotoEvent(),
+                                );
+                              }
+                            }
+                          } else {
+                            context.read<CameraBloc>().add(
+                              const CapturePhotoEvent(),
+                            );
+                          }
                         },
                         child: Container(
                           width: 84,

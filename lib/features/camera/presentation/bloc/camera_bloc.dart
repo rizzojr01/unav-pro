@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/base/usecase.dart';
+import '../../domain/entities/photo_entity.dart';
 import '../../domain/usecases/capture_photo_usecase.dart';
 import '../../domain/usecases/upload_photo_usecase.dart';
 import 'camera_event.dart';
@@ -31,6 +32,18 @@ class CameraBloc extends Bloc<CameraEvent, CameraState> {
   ) async {
     emit(const CameraCapturing());
 
+    // If a file path is provided from the UI camera controller, use it directly
+    if (event.filePath != null && event.filePath!.isNotEmpty) {
+      final photo = PhotoEntity(
+        entityId: 'photo-${DateTime.now().millisecondsSinceEpoch}',
+        filePath: event.filePath!,
+        timestamp: DateTime.now(),
+      );
+      emit(CameraPhotoCaptured(photo));
+      return;
+    }
+
+    // Fallback to use case (mock or separate camera initialization)
     final result = await capturePhotoUseCase(const NoParams());
 
     result.fold(

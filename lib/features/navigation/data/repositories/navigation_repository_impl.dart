@@ -1,9 +1,6 @@
-import 'dart:convert';
 import 'package:dartz/dartz.dart';
-import 'package:flutter/services.dart';
+import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
-import '../models/route_model.dart';
-import '../../domain/entities/location_entity.dart';
 import '../../domain/entities/route_entity.dart';
 import '../../domain/repositories/navigation_repository.dart';
 import '../datasources/navigation_local_datasource.dart';
@@ -19,25 +16,35 @@ class NavigationRepositoryImpl implements NavigationRepository {
   });
 
   @override
-  Future<Either<Failure, RouteEntity>> getRoute(
-    LocationEntity? origin,
-    LocationEntity destination,
-  ) async {
+  Future<Either<Failure, RouteEntity>> getRoute({
+    required String destinationId,
+    required String place,
+    required String building,
+    required String floor,
+    required String sessionId,
+    required bool useSampleImage,
+  }) async {
     try {
-      // Load dummy route from assets
-      final String response = await rootBundle.loadString(
-        'assets/mock_data/route.json',
+      final routeModel = await remoteDataSource.getRoute(
+        destinationId: destinationId,
+        place: place,
+        building: building,
+        floor: floor,
+        sessionId: sessionId,
+        useSampleImage: useSampleImage,
       );
-      final data = await json.decode(response);
-
-      // Artificial delay to simulate network
-      await Future.delayed(const Duration(milliseconds: 800));
-
-      final routeModel = RouteModel.fromJson(data as Map<String, dynamic>);
 
       return Right(routeModel);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } on AppException catch (e) {
+      return Left(ServerFailure(e.message));
     } catch (e) {
-      return Left(ServerFailure('Failed to load dummy route: $e'));
+      // For regular Exception, extract message
+      final message = e.toString().replaceFirst('Exception: ', '');
+      return Left(ServerFailure(message));
     }
   }
 }

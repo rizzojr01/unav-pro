@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:smart_sense/core/constants/app_text.dart';
 import 'package:smart_sense/shared/widgets/premium_icon_container.dart';
 import 'package:smart_sense/shared/widgets/custom_button.dart';
 
@@ -17,21 +18,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final List<OnboardingItem> _items = [
     OnboardingItem(
       icon: Icons.center_focus_strong_rounded,
-      title: 'Scan & Localize',
-      description:
-          'Scan your surroundings with your camera to instantly pinpoint your precise indoor location.',
+      title: AppText.onboardingTitle1,
+      description: AppText.onboardingDesc1,
     ),
     OnboardingItem(
       icon: Icons.map_outlined,
-      title: 'Select Destination',
-      description:
-          'Browse our detailed indoor maps and select exactly where you want to go.',
+      title: AppText.onboardingTitle2,
+      description: AppText.onboardingDesc2,
     ),
     OnboardingItem(
       icon: Icons.turn_right_rounded,
-      title: 'Precision Navigation',
-      description:
-          'Follow the intuitive path to your destination with real-time, step-by-step guidance.',
+      title: AppText.onboardingTitle3,
+      description: AppText.onboardingDesc3,
     ),
   ];
 
@@ -105,7 +103,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ? null
                 : _skipOnboarding,
             child: Text(
-              'Skip',
+              AppText.onboardingSkip,
               style: TextStyle(
                 fontSize: 16,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -144,7 +142,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(32, 40, 32, 0),
       child: CustomButton(
-        text: _currentPage == _items.length - 1 ? 'Get Started' : 'Next',
+        text: _currentPage == _items.length - 1
+            ? AppText.onboardingGetStarted
+            : AppText.onboardingNext,
         onPressed: _goToNextPage,
         icon: _currentPage == _items.length - 1
             ? null

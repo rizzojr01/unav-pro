@@ -5,6 +5,12 @@ import 'package:smart_sense/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:smart_sense/features/auth/presentation/bloc/auth_event.dart';
 import 'package:smart_sense/features/auth/presentation/bloc/auth_state.dart';
 
+import '../../../../injection.dart';
+import '../../../../shared/presentation/bloc/location_settings_bloc.dart';
+import '../../../../shared/presentation/bloc/location_settings_event.dart';
+import '../../../../shared/presentation/bloc/location_settings_state.dart';
+import '../../../../shared/services/debug_config_service.dart';
+import '../../../../shared/services/location_config_service.dart';
 import '../../../../theme/theme_bloc.dart';
 import '../../../../theme/widgets/color_customizer.dart';
 
@@ -58,6 +64,12 @@ class ProfilePage extends StatelessWidget {
                       const SizedBox(height: 12),
                       _buildSettingsGroup(context, [
                         _SettingsItem(
+                          icon: Icons.location_on_outlined,
+                          title: 'Location Settings',
+                          subtitle: _getLocationSubtitle(),
+                          onTap: () => _showLocationSettings(context),
+                        ),
+                        _SettingsItem(
                           icon: Icons.notifications_none_rounded,
                           title: 'Notifications',
                           subtitle: 'Alerts, Sounds, Vibration',
@@ -105,6 +117,10 @@ class ProfilePage extends StatelessWidget {
                           onTap: () {},
                         ),
                       ]),
+                      const SizedBox(height: 32),
+                      _buildSectionTitle(context, 'DEBUG OPTIONS'),
+                      const SizedBox(height: 12),
+                      _buildDebugSection(context),
                       const SizedBox(height: 40),
                       _buildLogoutButton(context),
                       const SizedBox(height: 60),
@@ -302,6 +318,170 @@ class ProfilePage extends StatelessWidget {
       case ThemeMode.system:
         return 'System Default';
     }
+  }
+
+  String _getLocationSubtitle() {
+    final locationConfig = getIt<LocationConfigService>();
+    return '${locationConfig.building}, ${locationConfig.floor}';
+  }
+
+  Widget _buildDebugSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final debugConfig = getIt<DebugConfigService>();
+
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: theme.colorScheme.shadow.withValues(
+                  alpha: isDark ? 0.3 : 0.03,
+                ),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Use Sample Image Toggle
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primaryContainer.withValues(
+                          alpha: 0.3,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.bug_report_outlined,
+                        color: theme.colorScheme.primary,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Use Sample Image',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Skip camera, use test image for localization',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: debugConfig.useSampleImage,
+                      onChanged: (value) async {
+                        await debugConfig.setUseSampleImage(value);
+                        setState(() {});
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                value
+                                    ? 'Sample image enabled - camera will be skipped'
+                                    : 'Sample image disabled - camera will be used',
+                              ),
+                              backgroundColor: theme.colorScheme.primary,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      activeColor: theme.colorScheme.primary,
+                    ),
+                  ],
+                ),
+              ),
+              Divider(
+                height: 1,
+                indent: 68,
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+              // Info text
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.tertiaryContainer.withValues(
+                      alpha: 0.3,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 18,
+                        color: theme.colorScheme.tertiary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'When enabled, Locate Me will use a pre-configured sample image instead of capturing from camera.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurfaceVariant,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showLocationSettings(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => BlocProvider(
+        create: (context) =>
+            getIt<LocationSettingsBloc>()
+              ..add(const LoadLocationSettingsEvent()),
+        child: const _LocationSettingsSheet(),
+      ),
+    );
   }
 
   void _showThemeSelection(BuildContext context) {
@@ -676,6 +856,258 @@ class _ThemeOption extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _LocationSettingsSheet extends StatelessWidget {
+  const _LocationSettingsSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.85,
+      builder: (context, scrollController) => Container(
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: BlocBuilder<LocationSettingsBloc, LocationSettingsState>(
+          builder: (context, state) {
+            return ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.all(24),
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Center(
+                  child: Text(
+                    'LOCATION SETTINGS',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2,
+                      fontSize: 14,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: Text(
+                    'Select your current location',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                if (state is LocationSettingsLoading)
+                  const Center(child: CircularProgressIndicator())
+                else if (state is LocationSettingsError)
+                  Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          color: theme.colorScheme.error,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Failed to load locations',
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () => context
+                              .read<LocationSettingsBloc>()
+                              .add(const LoadLocationSettingsEvent()),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (state is LocationSettingsLoaded)
+                  _buildLocationForm(context, state)
+                else
+                  const SizedBox(),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocationForm(
+    BuildContext context,
+    LocationSettingsLoaded state,
+  ) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Place Dropdown
+        _buildDropdownSection(
+          context: context,
+          label: 'PLACE',
+          value: state.selectedPlace,
+          items: state.places.map((p) => p.name).toList(),
+          onChanged: (value) {
+            if (value != null) {
+              context.read<LocationSettingsBloc>().add(SelectPlaceEvent(value));
+            }
+          },
+        ),
+        const SizedBox(height: 24),
+
+        // Building Dropdown
+        _buildDropdownSection(
+          context: context,
+          label: 'BUILDING',
+          value: state.selectedBuilding,
+          items:
+              state.currentPlace?.buildings.map((b) => b.name).toList() ?? [],
+          onChanged: (value) {
+            if (value != null) {
+              context.read<LocationSettingsBloc>().add(
+                SelectBuildingEvent(value),
+              );
+            }
+          },
+        ),
+        const SizedBox(height: 24),
+
+        // Floor Dropdown
+        _buildDropdownSection(
+          context: context,
+          label: 'FLOOR',
+          value: state.selectedFloor,
+          items:
+              state.currentBuilding?.floors.map((f) => f.name).toList() ?? [],
+          onChanged: (value) {
+            if (value != null) {
+              context.read<LocationSettingsBloc>().add(SelectFloorEvent(value));
+            }
+          },
+        ),
+        const SizedBox(height: 40),
+
+        // Save Button
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () {
+              context.read<LocationSettingsBloc>().add(
+                const SaveLocationSettingsEvent(),
+              );
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Location settings saved'),
+                  backgroundColor: theme.colorScheme.primary,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Text(
+              'SAVE SETTINGS',
+              style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownSection({
+    required BuildContext context,
+    required String label,
+    required String value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            color: theme.colorScheme.onSurfaceVariant,
+            letterSpacing: 2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: items.contains(value)
+                  ? value
+                  : (items.isNotEmpty ? items.first : null),
+              isExpanded: true,
+              borderRadius: BorderRadius.circular(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              dropdownColor: theme.colorScheme.surface,
+              icon: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              items: items
+                  .map(
+                    (item) => DropdownMenuItem<String>(
+                      value: item,
+                      child: Text(
+                        item.replaceAll('_', ' '),
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -11,17 +11,27 @@ class NavigationInitial extends NavigationState {
 }
 
 class NavigationLoading extends NavigationState {
-  const NavigationLoading();
+  final String? message;
+
+  const NavigationLoading({this.message});
+
+  @override
+  List<Object?> get props => [message];
 }
 
 class NavigationReady extends NavigationState {
   final LocationEntity currentLocation;
   final RouteEntity route;
+  final String? floorPlanBase64;
 
-  const NavigationReady({required this.currentLocation, required this.route});
+  const NavigationReady({
+    required this.currentLocation,
+    required this.route,
+    this.floorPlanBase64,
+  });
 
   @override
-  List<Object?> get props => [currentLocation, route];
+  List<Object?> get props => [currentLocation, route, floorPlanBase64];
 }
 
 class NavigationCompleted extends NavigationState {

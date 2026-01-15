@@ -42,6 +42,7 @@ class _NavigationPageState extends State<NavigationPage> {
               destination: widget.destination,
               currentLocation: state.currentLocation,
               route: state.route,
+              floorPlanBase64: state.floorPlanBase64,
             );
           } else if (state is NavigationError) {
             return CustomErrorView(
@@ -51,6 +52,7 @@ class _NavigationPageState extends State<NavigationPage> {
                   InitializeNavigationEvent(widget.destination),
                 );
               },
+              onExit: () => context.pop(),
             );
           }
           return const SizedBox.shrink();
@@ -64,11 +66,13 @@ class _NavigationMapView extends StatelessWidget {
   final DestinationEntity destination;
   final dynamic currentLocation;
   final dynamic route;
+  final String? floorPlanBase64;
 
   const _NavigationMapView({
     required this.destination,
     required this.currentLocation,
     required this.route,
+    this.floorPlanBase64,
   });
 
   @override
@@ -81,7 +85,16 @@ class _NavigationMapView extends StatelessWidget {
           onBack: () => context.pop(),
         ),
         Expanded(
-          child: MapViewWidget(currentLocation: currentLocation, route: route),
+          child: MapViewWidget(
+            currentLocation: currentLocation,
+            route: route,
+            floorPlanBase64: floorPlanBase64,
+            onRetry: () {
+              context.read<NavigationBloc>().add(
+                InitializeNavigationEvent(destination),
+              );
+            },
+          ),
         ),
       ],
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:smart_sense/core/constants/app_text.dart';
 import 'package:smart_sense/injection.dart';
 import 'package:smart_sense/routes/app_router.dart';
 import 'package:smart_sense/theme/app_theme.dart';
@@ -28,7 +29,7 @@ class App extends StatelessWidget {
       child: BlocBuilder<ThemeBloc, ThemeState>(
         builder: (context, state) {
           return MaterialApp.router(
-            title: 'Smart Sense',
+            title: AppText.appName,
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light(state.palette.scheme),
             darkTheme: AppTheme.dark(state.palette.scheme),
