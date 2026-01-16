@@ -118,7 +118,7 @@ class ProfilePage extends StatelessWidget {
                         ),
                       ]),
                       const SizedBox(height: 32),
-                      _buildSectionTitle(context, 'DEBUG OPTIONS'),
+                      _buildSectionTitle(context, 'DEVELOPER OPTIONS'),
                       const SizedBox(height: 12),
                       _buildDebugSection(context),
                       const SizedBox(height: 40),
