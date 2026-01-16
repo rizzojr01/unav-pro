@@ -157,7 +157,7 @@ class _FloorMapPageState extends State<FloorMapPage> {
           if (state is FloorMapMarkerPlaced) {
             // Create a destination entity with the coordinates
             final destination = DestinationEntity(
-              entityId: 'user_location_${DateTime.now().millisecondsSinceEpoch}',
+              destinationId: 'user_location_${DateTime.now().millisecondsSinceEpoch}',
               name: 'My Location',
               x: state.x,
               y: state.y,
