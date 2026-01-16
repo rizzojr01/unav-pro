@@ -1,11 +1,14 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/error/failures.dart';
-import '../entities/location_entity.dart';
 import '../entities/route_entity.dart';
 
 abstract class NavigationRepository {
-  Future<Either<Failure, RouteEntity>> getRoute(
-    LocationEntity? origin,
-    LocationEntity destination,
-  );
+  Future<Either<Failure, RouteEntity>> getRoute({
+    required String destinationId,
+    required String place,
+    required String building,
+    required String floor,
+    required String sessionId,
+    required bool useSampleImage,
+  });
 }

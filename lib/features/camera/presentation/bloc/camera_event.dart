@@ -12,7 +12,12 @@ class InitializeCameraEvent extends CameraEvent {
 }
 
 class CapturePhotoEvent extends CameraEvent {
-  const CapturePhotoEvent();
+  final String? filePath;
+
+  const CapturePhotoEvent({this.filePath});
+
+  @override
+  List<Object?> get props => [filePath];
 }
 
 class UploadPhotoEvent extends CameraEvent {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:smart_sense/shared/widgets/premium_icon_container.dart';
+import 'package:smart_sense/core/constants/app_text.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -118,19 +118,22 @@ class _SplashPageState extends State<SplashPage>
                                 ],
                               ),
                             ),
-                            // Premium Logo Icon
-                            PremiumIconContainer(
-                              icon: Icons.center_focus_strong_rounded,
-                              size: 100,
-                              iconSize: 56,
-                              borderRadius: BorderRadius.circular(32),
+                            // Premium Logo Icon - App Icon Image
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(24),
+                              child: Image.asset(
+                                'assets/images/app_icon.png',
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                              ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 48),
                         // App Name
                         Text(
-                          'SMART SENSE',
+                          AppText.appNameUppercase,
                           style: TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.w900,
@@ -141,7 +144,7 @@ class _SplashPageState extends State<SplashPage>
                         const SizedBox(height: 12),
                         // Tagline
                         Text(
-                          'INDOOR NAVIGATION ASSISTANT',
+                          AppText.appTaglineUppercase,
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,

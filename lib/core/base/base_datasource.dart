@@ -107,8 +107,25 @@ abstract class BaseRemoteDataSource {
         return NetworkException('Request timeout');
       case DioExceptionType.badResponse:
         final statusCode = e.response?.statusCode ?? 500;
-        final message = e.response?.data['message'] ?? errorMessage;
-        return ServerException(message, statusCode);
+        final data = e.response?.data;
+
+        // Check for navigation-style error response with instructions
+        if (data is Map<String, dynamic>) {
+          final navigationSteps = data['navigation_steps'] as List<dynamic>?;
+          if (navigationSteps != null && navigationSteps.isEmpty) {
+            final instructions = data['instructions'] as List<dynamic>?;
+            if (instructions != null && instructions.isNotEmpty) {
+              return ServerException(instructions.first.toString(), statusCode);
+            }
+          }
+          // Check for regular error message
+          final message = data['message'] ?? data['error'];
+          if (message != null) {
+            return ServerException(message.toString(), statusCode);
+          }
+        }
+
+        return ServerException(errorMessage, statusCode);
       case DioExceptionType.connectionError:
         return NetworkException('Connection error');
       case DioExceptionType.cancel:

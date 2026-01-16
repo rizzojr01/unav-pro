@@ -24,11 +24,12 @@ class DestinationSearchSuccess extends DestinationState {
 
 class DestinationSelected extends DestinationState {
   final DestinationEntity destination;
+  final List<DestinationEntity>? destinations;
 
-  const DestinationSelected(this.destination);
+  const DestinationSelected(this.destination, {this.destinations});
 
   @override
-  List<Object?> get props => [destination];
+  List<Object?> get props => [destination, destinations];
 }
 
 class DestinationError extends DestinationState {

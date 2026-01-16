@@ -24,3 +24,7 @@ class SelectDestinationEvent extends DestinationEvent {
   @override
   List<Object?> get props => [destinationId];
 }
+
+class RestoreDestinationsEvent extends DestinationEvent {
+  const RestoreDestinationsEvent();
+}

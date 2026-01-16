@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:smart_sense/injection.dart';
+import 'package:smart_sense/shared/services/location_config_service.dart';
 import 'package:smart_sense/shared/widgets/step_indicator.dart';
 import 'package:smart_sense/shared/widgets/search_bar.dart';
 import 'package:smart_sense/shared/widgets/custom_loading_view.dart';
@@ -32,9 +34,15 @@ class _DestinationPageState extends State<DestinationPage> {
   @override
   void initState() {
     super.initState();
-    // Load all destinations by default
+    // Restore destinations when page is shown
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DestinationBloc>().add(const SearchDestinationsEvent(''));
+      final bloc = context.read<DestinationBloc>();
+      final state = bloc.state;
+
+      // If current state doesn't have destinations list, restore/fetch them
+      if (state is! DestinationSearchSuccess) {
+        bloc.add(const RestoreDestinationsEvent());
+      }
     });
   }
 
@@ -80,9 +88,20 @@ class _DestinationPageState extends State<DestinationPage> {
           buildCategories(context),
           Expanded(
             child: BlocConsumer<DestinationBloc, DestinationState>(
+              listenWhen: (previous, current) {
+                // Only listen for DestinationSelected if previous wasn't already selected
+                // This prevents re-triggering navigation when coming back
+                return current is DestinationSelected &&
+                    previous is! DestinationSelected;
+              },
               listener: (context, state) {
                 if (state is DestinationSelected) {
-                  context.push('/camera', extra: state.destination);
+                  context.push('/camera', extra: state.destination).then((_) {
+                    // When returning from camera, restore the destinations list
+                    context.read<DestinationBloc>().add(
+                      const RestoreDestinationsEvent(),
+                    );
+                  });
                 }
               },
               builder: (context, state) {
@@ -95,6 +114,15 @@ class _DestinationPageState extends State<DestinationPage> {
                     return const _NoResultsView();
                   }
                   return _DestinationListView(destinations: state.destinations);
+                } else if (state is DestinationSelected) {
+                  // Show destinations while navigating or when coming back
+                  if (state.destinations != null &&
+                      state.destinations!.isNotEmpty) {
+                    return _DestinationListView(
+                      destinations: state.destinations!,
+                    );
+                  }
+                  return const CustomLoadingView();
                 } else if (state is DestinationError) {
                   return CustomErrorView(
                     message: state.message,
@@ -274,6 +302,10 @@ class _DestinationListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final locationConfigService = getIt<LocationConfigService>();
+    final building = locationConfigService.building;
+    final floor = locationConfigService.floor;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -295,7 +327,11 @@ class _DestinationListView extends StatelessWidget {
             itemCount: destinations.length,
             itemBuilder: (context, index) {
               final destination = destinations[index];
-              return _DestinationTile(destination: destination);
+              return _DestinationTile(
+                destination: destination,
+                building: building,
+                floor: floor,
+              );
             },
           ),
         ),
@@ -306,8 +342,33 @@ class _DestinationListView extends StatelessWidget {
 
 class _DestinationTile extends StatelessWidget {
   final dynamic destination;
+  final String building;
+  final String floor;
 
-  const _DestinationTile({required this.destination});
+  const _DestinationTile({
+    required this.destination,
+    required this.building,
+    required this.floor,
+  });
+
+  /// Format building name from snake_case or PascalCase to readable format
+  String _formatBuildingName(String building) {
+    return building
+        .replaceAll('_', ' ')
+        .replaceAllMapped(
+          RegExp(r'([a-z])([A-Z])'),
+          (match) => '${match.group(1)} ${match.group(2)}',
+        );
+  }
+
+  /// Format floor name from "6_floor" format to "Floor 6"
+  String _formatFloorName(String floor) {
+    final floorNumber = floor.replaceAll(RegExp(r'[^0-9]'), '');
+    if (floorNumber.isNotEmpty) {
+      return 'Floor $floorNumber';
+    }
+    return floor.replaceAll('_', ' ');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -390,7 +451,7 @@ class _DestinationTile extends StatelessWidget {
                         Expanded(
                           child: Text(
                             destination.address ??
-                                'Innovation Center • Floor 3',
+                                '${_formatBuildingName(building)} • ${_formatFloorName(floor)}',
                             style: TextStyle(
                               fontSize: 13,
                               color: theme.colorScheme.onSurfaceVariant,
