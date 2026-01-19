@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -21,6 +22,8 @@ class LocateMeFloorPlanPage extends StatefulWidget {
 class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
   final TransformationController _transformationController =
       TransformationController();
+  double _mapRotation = 0.0;
+  bool _hasInitializedView = false;
 
   @override
   void dispose() {
@@ -30,6 +33,74 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
 
   void _resetView() {
     _transformationController.value = Matrix4.identity();
+    setState(() {
+      _mapRotation = 0.0;
+    });
+  }
+
+  /// Initialize map with auto-zoom centered on user position
+  void _initializeMapView(
+    Size containerSize,
+    Size imageSize,
+    dynamic userPosition,
+  ) {
+    if (_hasInitializedView) return;
+    _hasInitializedView = true;
+
+    // Calculate initial zoom level (2.0x zoom)
+    const initialScale = 2.0;
+
+    // Calculate the displayed image size
+    final imageAspectRatio = imageSize.width / imageSize.height;
+    final containerAspectRatio = containerSize.width / containerSize.height;
+
+    double displayWidth;
+    double displayHeight;
+
+    if (imageAspectRatio > containerAspectRatio) {
+      displayWidth = containerSize.width;
+      displayHeight = containerSize.width / imageAspectRatio;
+    } else {
+      displayHeight = containerSize.height;
+      displayWidth = containerSize.height * imageAspectRatio;
+    }
+
+    // Calculate scale factors
+    final scaleX = displayWidth / imageSize.width;
+    final scaleY = displayHeight / imageSize.height;
+
+    // Calculate user position in display coordinates
+    final userX = userPosition.x * scaleX;
+    final userY = userPosition.y * scaleY;
+
+    // Center offset
+    final centerOffsetX = (containerSize.width - displayWidth) / 2;
+    final centerOffsetY = (containerSize.height - displayHeight) / 2;
+
+    // User position in container coordinates
+    final userContainerX = userX + centerOffsetX;
+    final userContainerY = userY + centerOffsetY;
+
+    // Calculate translation to center on user
+    final translateX = containerSize.width / 2 - userContainerX * initialScale;
+    final translateY = containerSize.height / 2 - userContainerY * initialScale;
+
+    // Apply initial transform
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _transformationController.value = Matrix4.identity()
+          ..translate(translateX, translateY)
+          ..scale(initialScale);
+
+        // Rotate map so user's forward direction is up
+        // Convert user angle (radians) to map rotation
+        // User angle 0 = facing right, we want 0 to be facing up
+        // So we rotate the map by -(angle - π/2)
+        setState(() {
+          _mapRotation = -(userPosition.angle - math.pi / 2);
+        });
+      }
+    });
   }
 
   void _showDestinationBottomSheet(
@@ -143,8 +214,12 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
       destinations: state.destinations,
       theme: theme,
       transformationController: _transformationController,
+      mapRotation: _mapRotation,
       onDestinationTap: (destination) =>
           _showDestinationBottomSheet(context, destination),
+      onImageSizeLoaded: (containerSize, imageSize) {
+        _initializeMapView(containerSize, imageSize, state.userPosition);
+      },
     );
   }
 }
@@ -156,7 +231,9 @@ class _FloorPlanWithMarkers extends StatefulWidget {
   final List<DestinationEntity> destinations;
   final ThemeData theme;
   final TransformationController transformationController;
+  final double mapRotation;
   final Function(DestinationEntity) onDestinationTap;
+  final Function(Size containerSize, Size imageSize)? onImageSizeLoaded;
 
   const _FloorPlanWithMarkers({
     required this.imageBytes,
@@ -164,7 +241,9 @@ class _FloorPlanWithMarkers extends StatefulWidget {
     required this.destinations,
     required this.theme,
     required this.transformationController,
+    required this.mapRotation,
     required this.onDestinationTap,
+    this.onImageSizeLoaded,
   });
 
   @override
@@ -173,6 +252,8 @@ class _FloorPlanWithMarkers extends StatefulWidget {
 
 class _FloorPlanWithMarkersState extends State<_FloorPlanWithMarkers> {
   Size? _imageSize;
+  Size? _containerSize;
+  bool _hasNotifiedImageSize = false;
 
   @override
   void initState() {
@@ -193,9 +274,19 @@ class _FloorPlanWithMarkersState extends State<_FloorPlanWithMarkers> {
                   info.image.height.toDouble(),
                 );
               });
+              _notifyImageSizeIfReady();
             }
           }),
         );
+  }
+
+  void _notifyImageSizeIfReady() {
+    if (!_hasNotifiedImageSize &&
+        _imageSize != null &&
+        _containerSize != null) {
+      _hasNotifiedImageSize = true;
+      widget.onImageSizeLoaded?.call(_containerSize!, _imageSize!);
+    }
   }
 
   @override
@@ -206,6 +297,10 @@ class _FloorPlanWithMarkersState extends State<_FloorPlanWithMarkers> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Store container size for initialization callback
+        _containerSize = Size(constraints.maxWidth, constraints.maxHeight);
+        _notifyImageSizeIfReady();
+
         // Calculate the displayed image size maintaining aspect ratio
         final imageAspectRatio = _imageSize!.width / _imageSize!.height;
         final containerAspectRatio =
@@ -232,42 +327,54 @@ class _FloorPlanWithMarkersState extends State<_FloorPlanWithMarkers> {
         final centerOffsetX = (constraints.maxWidth - displayWidth) / 2;
         final centerOffsetY = (constraints.maxHeight - displayHeight) / 2;
 
+        // Calculate user position for rotation origin
+        final userPosX = widget.userPosition.x * scaleX;
+        final userPosY = widget.userPosition.y * scaleY;
+
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            // Floor plan with InteractiveViewer
+            // Floor plan with InteractiveViewer and rotation
             InteractiveViewer(
               transformationController: widget.transformationController,
               minScale: 0.5,
               maxScale: 5.0,
               boundaryMargin: const EdgeInsets.all(100),
               child: Center(
-                child: SizedBox(
-                  width: displayWidth,
-                  height: displayHeight,
-                  child: Image.memory(
-                    widget.imageBytes,
-                    fit: BoxFit.fill,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: widget.theme.colorScheme.surfaceContainerHighest,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.map_outlined,
-                                size: 80,
-                                color:
-                                    widget.theme.colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(height: 16),
-                              const Text('Floor plan not available'),
-                            ],
+                child: Transform(
+                  alignment: FractionalOffset(
+                    userPosX / displayWidth,
+                    userPosY / displayHeight,
+                  ),
+                  transform: Matrix4.identity()..rotateZ(widget.mapRotation),
+                  child: SizedBox(
+                    width: displayWidth,
+                    height: displayHeight,
+                    child: Image.memory(
+                      widget.imageBytes,
+                      fit: BoxFit.fill,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color:
+                              widget.theme.colorScheme.surfaceContainerHighest,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.map_outlined,
+                                  size: 80,
+                                  color:
+                                      widget.theme.colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(height: 16),
+                                const Text('Floor plan not available'),
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),

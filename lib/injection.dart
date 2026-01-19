@@ -207,6 +207,7 @@ Future<void> initializeDependencies() async {
       locationConfigService: getIt(),
       floorPlanCacheService: getIt(),
       debugConfigService: getIt(),
+      destinationsCacheService: getIt(),
     ),
   );
 

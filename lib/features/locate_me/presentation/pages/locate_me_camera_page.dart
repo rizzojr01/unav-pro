@@ -3,8 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:camera/camera.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../injection.dart';
-import '../../../../shared/services/debug_config_service.dart';
 import '../../../../shared/widgets/custom_snackbar.dart';
 import '../../../../shared/widgets/custom_loading_view.dart';
 import '../bloc/locate_me_bloc.dart';
@@ -27,26 +25,7 @@ class _LocateMeCameraPageState extends State<LocateMeCameraPage> {
   @override
   void initState() {
     super.initState();
-    _checkDebugModeAndInitialize();
-  }
-
-  Future<void> _checkDebugModeAndInitialize() async {
-    final debugConfig = getIt<DebugConfigService>();
-
-    // If sample image is enabled in debug options, skip camera and use sample directly
-    if (debugConfig.useSampleImage) {
-      // Small delay to ensure bloc is ready
-      await Future.delayed(const Duration(milliseconds: 100));
-      if (mounted) {
-        context.read<LocateMeBloc>().add(
-          const StartLocalizationWithSampleEvent(),
-        );
-      }
-      return;
-    }
-
-    // Otherwise, initialize camera normally
-    await _initializeCamera();
+    _initializeCamera();
   }
 
   Future<void> _initializeCamera() async {
@@ -82,7 +61,7 @@ class _LocateMeCameraPageState extends State<LocateMeCameraPage> {
 
   Future<void> _captureAndLocalize() async {
     if (_controller == null || !_controller!.value.isInitialized) {
-      // Use sample image if camera not available
+      // Use sample image only if camera not available
       context.read<LocateMeBloc>().add(
         const StartLocalizationWithSampleEvent(),
       );
@@ -90,6 +69,7 @@ class _LocateMeCameraPageState extends State<LocateMeCameraPage> {
     }
 
     try {
+      // Always take a picture and send to backend
       final image = await _controller!.takePicture();
       if (mounted) {
         context.read<LocateMeBloc>().add(
@@ -97,7 +77,7 @@ class _LocateMeCameraPageState extends State<LocateMeCameraPage> {
         );
       }
     } catch (e) {
-      // Fallback to sample image
+      // Fallback to sample image only on error
       if (mounted) {
         context.read<LocateMeBloc>().add(
           const StartLocalizationWithSampleEvent(),
@@ -141,9 +121,8 @@ class _LocateMeCameraPageState extends State<LocateMeCameraPage> {
   }
 
   Widget _buildCameraView(BuildContext context, ThemeData theme) {
-    if (_isInitializing ||
-        _controller == null ||
-        !_controller!.value.isInitialized) {
+    // Show loading while initializing camera
+    if (_isInitializing) {
       return Scaffold(
         backgroundColor: Colors.black,
         body: Center(
@@ -155,6 +134,36 @@ class _LocateMeCameraPageState extends State<LocateMeCameraPage> {
               const Text(
                 'Initializing camera...',
                 style: TextStyle(color: Colors.white70),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Show error if camera not available
+    if (_controller == null || !_controller!.value.isInitialized) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.camera_alt_outlined, size: 64, color: Colors.white54),
+              const SizedBox(height: 16),
+              const Text(
+                'Camera not available',
+                style: TextStyle(color: Colors.white70, fontSize: 18),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Please check camera permissions',
+                style: TextStyle(color: Colors.white54),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => context.pop(),
+                child: const Text('Go Back'),
               ),
             ],
           ),

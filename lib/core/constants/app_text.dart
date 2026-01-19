@@ -3,7 +3,7 @@ class AppText {
   AppText._();
 
   // ============ App ============
-  static const String appName = 'Space Sense';
+  static const String appName = 'SpaceSense';
   static const String appNameUppercase = 'SPACE SENSE';
   static const String appTagline = 'Indoor Navigation Assistant';
   static const String appTaglineUppercase = 'INDOOR NAVIGATION ASSISTANT';

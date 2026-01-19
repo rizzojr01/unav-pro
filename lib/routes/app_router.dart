@@ -62,14 +62,24 @@ class AppRouter {
       GoRoute(
         path: navigation,
         builder: (context, state) {
-          final destination = state.extra as DestinationEntity?;
+          final extra = state.extra;
+          DestinationEntity? destination;
+          String? imagePath;
+
+          if (extra is Map<String, dynamic>) {
+            destination = extra['destination'] as DestinationEntity?;
+            imagePath = extra['imagePath'] as String?;
+          } else if (extra is DestinationEntity) {
+            destination = extra;
+          }
+
           if (destination == null) {
             return Scaffold(
               appBar: AppBar(title: const Text('Error')),
               body: const Center(child: Text('Destination is required')),
             );
           }
-          return NavigationPage(destination: destination);
+          return NavigationPage(destination: destination, imagePath: imagePath);
         },
       ),
       GoRoute(

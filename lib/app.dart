@@ -32,8 +32,10 @@ class App extends StatelessWidget {
             title: AppText.appName,
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light(state.palette.scheme),
-            darkTheme: AppTheme.dark(state.palette.scheme),
-            themeMode: state.themeMode,
+            darkTheme: AppTheme.light(
+              state.palette.scheme,
+            ), // Always use light theme
+            themeMode: ThemeMode.light, // Force light theme
             routerConfig: AppRouter.router,
           );
         },

@@ -97,48 +97,15 @@ class _DashboardPageState extends State<DashboardPage>
           const ProfilePage(),
         ],
       ),
-      floatingActionButton: SizedBox(
-        width: 80,
-        height: 80,
-        child: FloatingActionButton(
-          onPressed: _handleNavigateMe,
-          backgroundColor: theme.colorScheme.primary,
-          elevation: 4,
-          shape: const CircleBorder(),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.navigation_rounded,
-                size: 32,
-                color: theme.colorScheme.onPrimary,
-              ),
-              Text(
-                'GO',
-                style: TextStyle(
-                  color: theme.colorScheme.onPrimary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 10.0,
         color: theme.colorScheme.surface,
-        elevation: theme.brightness == Brightness.dark ? 0 : 4,
+        elevation: 4,
         child: SizedBox(
           height: 60,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildNavBarItem(context, 0, Icons.home_filled, 'Home'),
-              const SizedBox(width: 48), // Spacer for FAB
               _buildNavBarItem(context, 1, Icons.person, 'Profile'),
             ],
           ),
@@ -182,13 +149,46 @@ class _DashboardPageState extends State<DashboardPage>
           child: _buildHeader(context),
         ),
 
-        // Top Tabs - Locate Me & Navigate Me
+        // Locate Me Section - Prominently displayed
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
           child: _buildTopTabs(context, theme),
         ),
 
-        // Scrollable Content
+        // Visual Divider between Locate Me and Navigation
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Divider(
+                  color: theme.colorScheme.outlineVariant,
+                  thickness: 1,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'WHERE TO?',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Divider(
+                  color: theme.colorScheme.outlineVariant,
+                  thickness: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Scrollable Navigation Content
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -372,60 +372,48 @@ class _DashboardPageState extends State<DashboardPage>
   Widget _buildQuickActionsGrid(BuildContext context) {
     final theme = Theme.of(context);
 
-    // Use popular places from cache, or fallback to defaults
+    // Use popular places from cache
     if (_popularPlaces.isNotEmpty) {
       return _buildDynamicPopularPlaces(context, theme);
     }
 
-    // Fallback static grid when no destinations cached
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: CustomQuickActionCard(
-                icon: Icons.meeting_room_rounded,
-                title: 'Conference Room',
-                color: theme.colorScheme.primary,
-                onTap: () => context.push('/destination'),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: CustomQuickActionCard(
-                icon: Icons.restaurant_rounded,
-                title: 'Cafeteria',
-                color: theme.colorScheme.secondary,
-                onTap: () => context.push('/destination'),
-              ),
-            ),
-          ],
+    // Empty state when no destinations cached yet
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: CustomQuickActionCard(
-                icon: Icons.wc_rounded,
-                title: 'Restrooms',
-                color: theme.colorScheme.tertiary,
-                onTap: () => context.push('/destination'),
-              ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.explore_rounded,
+            size: 48,
+            color: theme.colorScheme.primary.withValues(alpha: 0.6),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Discover Popular Places',
+            style: TextStyle(
+              color: theme.colorScheme.onSurface,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: CustomQuickActionCard(
-                icon: Icons.business_center_rounded,
-                title: 'Lobby',
-                color: theme.colorScheme.primaryContainer.withValues(
-                  alpha: 0.8,
-                ),
-                onTap: () => context.push('/destination'),
-              ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Use "Locate Me" to discover places around you',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontSize: 13,
             ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 

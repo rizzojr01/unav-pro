@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../../../../shared/widgets/map_markers.dart';
+import '../../../destination/domain/entities/destination_entity.dart';
 import '../../domain/entities/location_entity.dart';
 import '../../domain/entities/route_entity.dart';
 
@@ -13,6 +14,7 @@ class MapViewWidget extends StatefulWidget {
   final RouteEntity route;
   final String? floorPlanBase64;
   final VoidCallback? onRetry;
+  final List<DestinationEntity> destinations;
 
   const MapViewWidget({
     super.key,
@@ -20,6 +22,7 @@ class MapViewWidget extends StatefulWidget {
     required this.route,
     this.floorPlanBase64,
     this.onRetry,
+    this.destinations = const [],
   });
 
   @override
@@ -415,6 +418,21 @@ class _MapViewWidgetState extends State<MapViewWidget>
               return Stack(
                 clipBehavior: Clip.none,
                 children: [
+                  // POI markers (destination points of interest)
+                  ...widget.destinations.map(
+                    (destination) => _buildPOIMarker(
+                      Offset(destination.x, destination.y),
+                      destination.name,
+                      scaleX,
+                      scaleY,
+                      centerOffsetX,
+                      centerOffsetY,
+                      displayWidth,
+                      displayHeight,
+                      theme,
+                      currentScale,
+                    ),
+                  ),
                   // Destination flag marker
                   _buildDestinationMarker(
                     coords.last,
@@ -559,6 +577,47 @@ class _MapViewWidgetState extends State<MapViewWidget>
         child: DestinationFlagMarker(
           size: markerSize,
           flagColor: theme.colorScheme.error,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPOIMarker(
+    Offset coord,
+    String name,
+    double scaleX,
+    double scaleY,
+    double centerOffsetX,
+    double centerOffsetY,
+    double displayWidth,
+    double displayHeight,
+    ThemeData theme,
+    double zoomScale,
+  ) {
+    final pos = _transformPoint(
+      coord.dx,
+      coord.dy,
+      scaleX,
+      scaleY,
+      centerOffsetX,
+      centerOffsetY,
+      displayWidth,
+      displayHeight,
+    );
+
+    // POI markers are smaller than main markers
+    const baseSize = 18.0;
+    final markerSize = (baseSize * zoomScale).clamp(12.0, 36.0);
+
+    return Positioned(
+      left: pos.dx - markerSize / 2,
+      top: pos.dy - markerSize / 2,
+      child: IgnorePointer(
+        child: DestinationMarker(
+          size: markerSize,
+          backgroundColor: theme.colorScheme.tertiary,
+          iconColor: theme.colorScheme.onTertiary,
+          icon: DestinationMarker.getIconForDestination(name),
         ),
       ),
     );

@@ -12,6 +12,7 @@ class GetRouteParams {
   final String floor;
   final String sessionId;
   final bool useSampleImage;
+  final String base64Image;
 
   const GetRouteParams({
     required this.destinationId,
@@ -20,6 +21,7 @@ class GetRouteParams {
     required this.floor,
     required this.sessionId,
     required this.useSampleImage,
+    required this.base64Image,
   });
 }
 
@@ -38,6 +40,7 @@ class GetRouteUseCase implements UseCase<RouteEntity, GetRouteParams> {
       floor: params.floor,
       sessionId: params.sessionId,
       useSampleImage: params.useSampleImage,
+      base64Image: params.base64Image,
     );
   }
 }

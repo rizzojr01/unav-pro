@@ -1,4 +1,5 @@
 import '../../../../core/base/base_state.dart';
+import '../../../destination/domain/entities/destination_entity.dart';
 import '../../domain/entities/location_entity.dart';
 import '../../domain/entities/route_entity.dart';
 
@@ -23,15 +24,22 @@ class NavigationReady extends NavigationState {
   final LocationEntity currentLocation;
   final RouteEntity route;
   final String? floorPlanBase64;
+  final List<DestinationEntity> destinations;
 
   const NavigationReady({
     required this.currentLocation,
     required this.route,
     this.floorPlanBase64,
+    this.destinations = const [],
   });
 
   @override
-  List<Object?> get props => [currentLocation, route, floorPlanBase64];
+  List<Object?> get props => [
+    currentLocation,
+    route,
+    floorPlanBase64,
+    destinations,
+  ];
 }
 
 class NavigationCompleted extends NavigationState {

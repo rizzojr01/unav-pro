@@ -21,15 +21,6 @@ class DestinationPage extends StatefulWidget {
 
 class _DestinationPageState extends State<DestinationPage> {
   final TextEditingController _searchController = TextEditingController();
-  String _selectedCategory = 'All';
-
-  final List<String> _categories = [
-    'All',
-    'Meeting Rooms',
-    'Offices',
-    'Cafeteria',
-    'Restrooms',
-  ];
 
   @override
   void initState() {
@@ -85,7 +76,6 @@ class _DestinationPageState extends State<DestinationPage> {
               },
             ),
           ),
-          buildCategories(context),
           Expanded(
             child: BlocConsumer<DestinationBloc, DestinationState>(
               listenWhen: (previous, current) {
@@ -134,60 +124,6 @@ class _DestinationPageState extends State<DestinationPage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget buildCategories(BuildContext context) {
-    final theme = Theme.of(context);
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Row(
-        children: _categories.map((category) {
-          final isSelected = _selectedCategory == category;
-          return Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: GestureDetector(
-              onTap: () {
-                setState(() => _selectedCategory = category);
-                context.read<DestinationBloc>().add(
-                  SearchDestinationsEvent(category == 'All' ? '' : category),
-                );
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? theme.colorScheme.primaryContainer
-                      : theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: isSelected
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.outlineVariant.withValues(
-                            alpha: 0.3,
-                          ),
-                  ),
-                ),
-                child: Text(
-                  category,
-                  style: TextStyle(
-                    color: isSelected
-                        ? theme.colorScheme.onPrimaryContainer
-                        : theme.colorScheme.onSurfaceVariant,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
       ),
     );
   }

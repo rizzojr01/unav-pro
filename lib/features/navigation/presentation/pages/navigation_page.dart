@@ -13,8 +13,9 @@ import '../widgets/map_view_widget.dart';
 
 class NavigationPage extends StatefulWidget {
   final DestinationEntity destination;
+  final String? imagePath;
 
-  const NavigationPage({super.key, required this.destination});
+  const NavigationPage({super.key, required this.destination, this.imagePath});
 
   @override
   State<NavigationPage> createState() => _NavigationPageState();
@@ -25,7 +26,12 @@ class _NavigationPageState extends State<NavigationPage> {
   void initState() {
     super.initState();
     final bloc = context.read<NavigationBloc>();
-    bloc.add(InitializeNavigationEvent(widget.destination));
+    bloc.add(
+      InitializeNavigationEvent(
+        widget.destination,
+        imagePath: widget.imagePath,
+      ),
+    );
   }
 
   @override
@@ -40,16 +46,21 @@ class _NavigationPageState extends State<NavigationPage> {
           } else if (state is NavigationReady) {
             return _NavigationMapView(
               destination: widget.destination,
+              imagePath: widget.imagePath,
               currentLocation: state.currentLocation,
               route: state.route,
               floorPlanBase64: state.floorPlanBase64,
+              destinations: state.destinations,
             );
           } else if (state is NavigationError) {
             return CustomErrorView(
               message: state.message,
               onRetry: () {
                 context.read<NavigationBloc>().add(
-                  InitializeNavigationEvent(widget.destination),
+                  InitializeNavigationEvent(
+                    widget.destination,
+                    imagePath: widget.imagePath,
+                  ),
                 );
               },
               onExit: () => context.pop(),
@@ -64,15 +75,19 @@ class _NavigationPageState extends State<NavigationPage> {
 
 class _NavigationMapView extends StatelessWidget {
   final DestinationEntity destination;
+  final String? imagePath;
   final dynamic currentLocation;
   final dynamic route;
   final String? floorPlanBase64;
+  final List<DestinationEntity> destinations;
 
   const _NavigationMapView({
     required this.destination,
+    this.imagePath,
     required this.currentLocation,
     required this.route,
     this.floorPlanBase64,
+    this.destinations = const [],
   });
 
   @override
@@ -89,9 +104,10 @@ class _NavigationMapView extends StatelessWidget {
             currentLocation: currentLocation,
             route: route,
             floorPlanBase64: floorPlanBase64,
+            destinations: destinations,
             onRetry: () {
               context.read<NavigationBloc>().add(
-                InitializeNavigationEvent(destination),
+                InitializeNavigationEvent(destination, imagePath: imagePath),
               );
             },
           ),

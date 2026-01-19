@@ -570,9 +570,15 @@ class _PhotoPreviewView extends StatelessWidget {
                             context.read<CameraBloc>().add(
                               const UploadPhotoEvent(),
                             );
-                            // Navigate to navigation page directly with the destination
+                            // Navigate to navigation page directly with the destination and image
                             if (destination != null) {
-                              context.push('/navigation', extra: destination);
+                              context.push(
+                                '/navigation',
+                                extra: {
+                                  'destination': destination,
+                                  'imagePath': state.photo.filePath,
+                                },
+                              );
                             } else {
                               context.push('/location-detection');
                             }

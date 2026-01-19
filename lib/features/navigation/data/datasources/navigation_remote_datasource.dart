@@ -11,6 +11,7 @@ abstract class NavigationRemoteDataSource {
     required String floor,
     required String sessionId,
     required bool useSampleImage,
+    required String base64Image,
   });
 }
 
@@ -26,6 +27,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
     required String floor,
     required String sessionId,
     required bool useSampleImage,
+    required String base64Image,
   }) async {
     return executeCall<RouteModel>(() async {
       final response = await post(
@@ -37,7 +39,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
           'floor': floor,
           'session_id': sessionId,
           'use_sample_image': useSampleImage,
-          'base_64_image': '',
+          'base_64_image': base64Image,
           'relocalize': false,
           'saveframe': false,
           'shorten_vlm_response': true,

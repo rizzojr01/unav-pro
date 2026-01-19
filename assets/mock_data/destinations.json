@@ -111,6 +111,34 @@
             "latitude": 40.730618,
             "longitude": -73.935248,
             "imageUrl": "https://via.placeholder.com/400x300"
+        },
+        {
+            "id": "9",
+            "name": "Elevator",
+            "buildingName": "Tech Innovation Center",
+            "floor": 1,
+            "floorName": "Ground Floor",
+            "zone": "Central",
+            "roomNumber": "E1",
+            "category": "Transport",
+            "description": "Main elevator access to all floors",
+            "latitude": 40.730612,
+            "longitude": -73.935240,
+            "imageUrl": "https://via.placeholder.com/400x300"
+        },
+        {
+            "id": "10",
+            "name": "Cafe",
+            "buildingName": "Tech Innovation Center",
+            "floor": 1,
+            "floorName": "Ground Floor",
+            "zone": "South Wing",
+            "roomNumber": "102",
+            "category": "Food & Beverage",
+            "description": "Coffee and light snacks",
+            "latitude": 40.730605,
+            "longitude": -73.935235,
+            "imageUrl": "https://via.placeholder.com/400x300"
         }
     ]
 }

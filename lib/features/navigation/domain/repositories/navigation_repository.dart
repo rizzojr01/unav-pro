@@ -10,5 +10,6 @@ abstract class NavigationRepository {
     required String floor,
     required String sessionId,
     required bool useSampleImage,
+    required String base64Image,
   });
 }
