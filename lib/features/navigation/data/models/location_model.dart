@@ -1,12 +1,18 @@
 import '../../domain/entities/location_entity.dart';
 
 class LocationModel extends LocationEntity {
-  const LocationModel({required super.x, required super.y, super.timestamp});
+  const LocationModel({
+    required super.x,
+    required super.y,
+    super.ang,
+    super.timestamp,
+  });
 
   factory LocationModel.fromJson(Map<String, dynamic> json) {
     return LocationModel(
       x: (json['x'] as num).toDouble(),
       y: (json['y'] as num).toDouble(),
+      ang: json['ang'] != null ? (json['ang'] as num).toDouble() : null,
       timestamp: json['timestamp'] != null
           ? DateTime.parse(json['timestamp'] as String)
           : null,
@@ -14,10 +20,20 @@ class LocationModel extends LocationEntity {
   }
 
   Map<String, dynamic> toJson() {
-    return {'x': x, 'y': y, 'timestamp': timestamp?.toIso8601String()};
+    return {
+      'x': x,
+      'y': y,
+      'ang': ang,
+      'timestamp': timestamp?.toIso8601String(),
+    };
   }
 
   factory LocationModel.fromEntity(LocationEntity entity) {
-    return LocationModel(x: entity.x, y: entity.y, timestamp: entity.timestamp);
+    return LocationModel(
+      x: entity.x,
+      y: entity.y,
+      ang: entity.ang,
+      timestamp: entity.timestamp,
+    );
   }
 }

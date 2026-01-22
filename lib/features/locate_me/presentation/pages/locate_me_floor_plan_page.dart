@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -22,7 +21,6 @@ class LocateMeFloorPlanPage extends StatefulWidget {
 class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
   final TransformationController _transformationController =
       TransformationController();
-  double _mapRotation = 0.0;
   bool _hasInitializedView = false;
 
   @override
@@ -33,9 +31,6 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
 
   void _resetView() {
     _transformationController.value = Matrix4.identity();
-    setState(() {
-      _mapRotation = 0.0;
-    });
   }
 
   /// Initialize map with auto-zoom centered on user position
@@ -91,14 +86,6 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
         _transformationController.value = Matrix4.identity()
           ..translate(translateX, translateY)
           ..scale(initialScale);
-
-        // Rotate map so user's forward direction is up
-        // Convert user angle (radians) to map rotation
-        // User angle 0 = facing right, we want 0 to be facing up
-        // So we rotate the map by -(angle - π/2)
-        setState(() {
-          _mapRotation = -(userPosition.angle - math.pi / 2);
-        });
       }
     });
   }
@@ -136,7 +123,11 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
           body: Column(
             children: [
               _buildHeader(context, theme),
-              Expanded(child: _buildFloorPlanView(context, theme, state)),
+              Expanded(
+                child: ClipRect(
+                  child: _buildFloorPlanView(context, theme, state),
+                ),
+              ),
             ],
           ),
           floatingActionButton: FloatingActionButton(
@@ -214,7 +205,6 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
       destinations: state.destinations,
       theme: theme,
       transformationController: _transformationController,
-      mapRotation: _mapRotation,
       onDestinationTap: (destination) =>
           _showDestinationBottomSheet(context, destination),
       onImageSizeLoaded: (containerSize, imageSize) {
@@ -231,7 +221,6 @@ class _FloorPlanWithMarkers extends StatefulWidget {
   final List<DestinationEntity> destinations;
   final ThemeData theme;
   final TransformationController transformationController;
-  final double mapRotation;
   final Function(DestinationEntity) onDestinationTap;
   final Function(Size containerSize, Size imageSize)? onImageSizeLoaded;
 
@@ -241,7 +230,6 @@ class _FloorPlanWithMarkers extends StatefulWidget {
     required this.destinations,
     required this.theme,
     required this.transformationController,
-    required this.mapRotation,
     required this.onDestinationTap,
     this.onImageSizeLoaded,
   });
@@ -327,62 +315,53 @@ class _FloorPlanWithMarkersState extends State<_FloorPlanWithMarkers> {
         final centerOffsetX = (constraints.maxWidth - displayWidth) / 2;
         final centerOffsetY = (constraints.maxHeight - displayHeight) / 2;
 
-        // Calculate user position for rotation origin
-        final userPosX = widget.userPosition.x * scaleX;
-        final userPosY = widget.userPosition.y * scaleY;
-
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            // Floor plan with InteractiveViewer and rotation
+            // Floor plan with InteractiveViewer
             InteractiveViewer(
               transformationController: widget.transformationController,
               minScale: 0.5,
               maxScale: 5.0,
               boundaryMargin: const EdgeInsets.all(100),
               child: Center(
-                child: Transform(
-                  alignment: FractionalOffset(
-                    userPosX / displayWidth,
-                    userPosY / displayHeight,
-                  ),
-                  transform: Matrix4.identity()..rotateZ(widget.mapRotation),
-                  child: SizedBox(
-                    width: displayWidth,
-                    height: displayHeight,
-                    child: Image.memory(
-                      widget.imageBytes,
-                      fit: BoxFit.fill,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color:
-                              widget.theme.colorScheme.surfaceContainerHighest,
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.map_outlined,
-                                  size: 80,
-                                  color:
-                                      widget.theme.colorScheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(height: 16),
-                                const Text('Floor plan not available'),
-                              ],
-                            ),
+                child: SizedBox(
+                  width: displayWidth,
+                  height: displayHeight,
+                  child: Image.memory(
+                    widget.imageBytes,
+                    fit: BoxFit.fill,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: widget.theme.colorScheme.surfaceContainerHighest,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.map_outlined,
+                                size: 80,
+                                color:
+                                    widget.theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(height: 16),
+                              const Text('Floor plan not available'),
+                            ],
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
             ),
-            // Markers overlay - uses AnimatedBuilder to rebuild on transform changes
             AnimatedBuilder(
               animation: widget.transformationController,
               builder: (context, child) {
+                // Get current zoom scale from transformation matrix
+                final matrix = widget.transformationController.value;
+                final currentScale = matrix.getMaxScaleOnAxis();
+
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -394,6 +373,7 @@ class _FloorPlanWithMarkersState extends State<_FloorPlanWithMarkers> {
                         scaleY,
                         centerOffsetX,
                         centerOffsetY,
+                        currentScale,
                       ),
                     ),
                     // User position marker (on top)
@@ -402,6 +382,7 @@ class _FloorPlanWithMarkersState extends State<_FloorPlanWithMarkers> {
                       scaleY,
                       centerOffsetX,
                       centerOffsetY,
+                      currentScale,
                     ),
                   ],
                 );
@@ -446,6 +427,7 @@ class _FloorPlanWithMarkersState extends State<_FloorPlanWithMarkers> {
     double scaleY,
     double centerOffsetX,
     double centerOffsetY,
+    double zoomScale,
   ) {
     final pos = _transformPoint(
       widget.userPosition.x,
@@ -455,7 +437,10 @@ class _FloorPlanWithMarkersState extends State<_FloorPlanWithMarkers> {
       centerOffsetX,
       centerOffsetY,
     );
-    const markerSize = 24.0;
+
+    // User marker scales with zoom - wider range for better visibility
+    const baseSize = 24.0;
+    final markerSize = (baseSize * zoomScale).clamp(4.0, 72.0);
 
     // Convert radians to degrees for the marker
     final orientationDegrees =
@@ -481,6 +466,7 @@ class _FloorPlanWithMarkersState extends State<_FloorPlanWithMarkers> {
     double scaleY,
     double centerOffsetX,
     double centerOffsetY,
+    double zoomScale,
   ) {
     final pos = _transformPoint(
       destination.x,
@@ -490,15 +476,18 @@ class _FloorPlanWithMarkersState extends State<_FloorPlanWithMarkers> {
       centerOffsetX,
       centerOffsetY,
     );
-    const markerSize = 20.0;
+
+    // Markers scale with zoom level - wider range for better visibility
+    const baseSize = 18.0;
+    final markerSize = (baseSize * zoomScale).clamp(3.0, 60.0);
 
     return Positioned(
       left: pos.dx - markerSize / 2,
       top: pos.dy - markerSize / 2,
       child: DestinationMarker(
         size: markerSize,
-        backgroundColor: widget.theme.colorScheme.error,
-        iconColor: widget.theme.colorScheme.onError,
+        backgroundColor: widget.theme.colorScheme.tertiary,
+        iconColor: widget.theme.colorScheme.onTertiary,
         icon: DestinationMarker.getIconForDestination(destination.name),
         onTap: () => widget.onDestinationTap(destination),
       ),

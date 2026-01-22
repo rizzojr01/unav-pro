@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 class LocationDetectionPage extends StatefulWidget {
@@ -49,21 +47,20 @@ class _LocationDetectionPageState extends State<LocationDetectionPage>
     });
 
     try {
-      // Simulate location detection delay
+      // Simulate detection delay
       await Future.delayed(const Duration(seconds: 2));
 
-      final String jsonString = await rootBundle.loadString(
-        'assets/mock_data/current_location.json',
-      );
-      final Map<String, dynamic> data = json.decode(jsonString);
+      // TODO: Implement actual indoor location detection via backend API
+      // This should call a service that processes the photo and returns location data
 
       setState(() {
-        _locationData = data;
+        _errorMessage =
+            'Indoor location detection requires backend integration';
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to detect indoor location';
+        _errorMessage = 'Failed to detect indoor location: ${e.toString()}';
         _isLoading = false;
       });
     }

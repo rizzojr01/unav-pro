@@ -100,16 +100,18 @@ class _NavigationMapView extends StatelessWidget {
           onBack: () => context.pop(),
         ),
         Expanded(
-          child: MapViewWidget(
-            currentLocation: currentLocation,
-            route: route,
-            floorPlanBase64: floorPlanBase64,
-            destinations: destinations,
-            onRetry: () {
-              context.read<NavigationBloc>().add(
-                InitializeNavigationEvent(destination, imagePath: imagePath),
-              );
-            },
+          child: ClipRect(
+            child: MapViewWidget(
+              currentLocation: currentLocation,
+              route: route,
+              floorPlanBase64: floorPlanBase64,
+              destinations: destinations,
+              onRetry: () {
+                context.read<NavigationBloc>().add(
+                  InitializeNavigationEvent(destination, imagePath: imagePath),
+                );
+              },
+            ),
           ),
         ),
       ],

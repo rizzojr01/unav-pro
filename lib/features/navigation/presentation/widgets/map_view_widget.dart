@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -34,7 +33,6 @@ class _MapViewWidgetState extends State<MapViewWidget>
   late AnimationController _controller;
   final TransformationController _transformationController =
       TransformationController();
-  double _rotation = 0.0;
   Uint8List? _floorPlanBytes;
   bool _hasImageError = false;
   Size? _imageSize;
@@ -102,17 +100,8 @@ class _MapViewWidgetState extends State<MapViewWidget>
     super.dispose();
   }
 
-  void _rotateMap(double delta) {
-    setState(() {
-      _rotation += delta;
-    });
-  }
-
   void _resetView() {
     _transformationController.value = Matrix4.identity();
-    setState(() {
-      _rotation = 0.0;
-    });
   }
 
   @override
@@ -247,25 +236,9 @@ class _MapViewWidgetState extends State<MapViewWidget>
     final imageX = x * scaleX;
     final imageY = y * scaleY;
 
-    // Calculate user position for rotation origin
-    Offset userPosition = Offset(displayWidth / 2, displayHeight / 2);
-    if (widget.route.waypoints.isNotEmpty) {
-      userPosition = Offset(
-        widget.route.waypoints.first.x * scaleX,
-        widget.route.waypoints.first.y * scaleY,
-      );
-    }
-
-    // Apply rotation around user position
-    final rotatedOffset = _rotatePoint(
-      Offset(imageX, imageY),
-      userPosition,
-      _rotation,
-    );
-
     // Add the center offset (where image starts in the container)
-    final baseX = rotatedOffset.dx + centerOffsetX;
-    final baseY = rotatedOffset.dy + centerOffsetY;
+    final baseX = imageX + centerOffsetX;
+    final baseY = imageY + centerOffsetY;
 
     // Get the transformation matrix from InteractiveViewer
     final matrix = _transformationController.value;
@@ -277,18 +250,6 @@ class _MapViewWidgetState extends State<MapViewWidget>
     );
 
     return transformed;
-  }
-
-  /// Rotate a point around an origin
-  Offset _rotatePoint(Offset point, Offset origin, double angle) {
-    final cos = math.cos(angle);
-    final sin = math.sin(angle);
-    final dx = point.dx - origin.dx;
-    final dy = point.dy - origin.dy;
-    return Offset(
-      origin.dx + dx * cos - dy * sin,
-      origin.dy + dx * sin + dy * cos,
-    );
   }
 
   Widget _buildInteractiveMap(
@@ -323,12 +284,6 @@ class _MapViewWidgetState extends State<MapViewWidget>
     final centerOffsetX = (constraints.maxWidth - displayWidth) / 2;
     final centerOffsetY = (constraints.maxHeight - displayHeight) / 2;
 
-    // Calculate user position in widget coordinates for rotation origin
-    Offset userPosition = Offset(displayWidth / 2, displayHeight / 2);
-    if (coords.isNotEmpty) {
-      userPosition = Offset(coords.first.dx * scaleX, coords.first.dy * scaleY);
-    }
-
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -339,68 +294,61 @@ class _MapViewWidgetState extends State<MapViewWidget>
           maxScale: 5.0,
           boundaryMargin: const EdgeInsets.all(100),
           child: Center(
-            child: Transform(
-              alignment: FractionalOffset(
-                userPosition.dx / displayWidth,
-                userPosition.dy / displayHeight,
-              ),
-              transform: Matrix4.identity()..rotateZ(_rotation),
-              child: SizedBox(
-                width: displayWidth,
-                height: displayHeight,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    // background map - use dynamic floor plan
+            child: SizedBox(
+              width: displayWidth,
+              height: displayHeight,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // background map - use dynamic floor plan
+                  Positioned.fill(
+                    child: Image.memory(
+                      _floorPlanBytes!,
+                      fit: BoxFit.fill,
+                      errorBuilder: (context, error, stackTrace) {
+                        // Schedule error state update after build
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            setState(() {
+                              _hasImageError = true;
+                            });
+                          }
+                        });
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ),
+
+                  // overlay grid
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: GridPainter(
+                        theme.dividerColor.withValues(alpha: 0.05),
+                      ),
+                    ),
+                  ),
+
+                  // route paint layer with animation (path only, no markers)
+                  if (coords.isNotEmpty)
                     Positioned.fill(
-                      child: Image.memory(
-                        _floorPlanBytes!,
-                        fit: BoxFit.fill,
-                        errorBuilder: (context, error, stackTrace) {
-                          // Schedule error state update after build
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (mounted) {
-                              setState(() {
-                                _hasImageError = true;
-                              });
-                            }
-                          });
-                          return const SizedBox.shrink();
+                      child: AnimatedBuilder(
+                        animation: _controller,
+                        builder: (context, child) {
+                          return CustomPaint(
+                            size: Size(displayWidth, displayHeight),
+                            painter: _RoutePainter(
+                              coords: coords,
+                              scaleX: scaleX,
+                              scaleY: scaleY,
+                              primaryColor: theme.colorScheme.primary,
+                              animationValue: _controller.value,
+                              drawMarkers: false,
+                            ),
+                          );
                         },
                       ),
                     ),
-
-                    // overlay grid
-                    Positioned.fill(
-                      child: CustomPaint(
-                        painter: GridPainter(
-                          theme.dividerColor.withValues(alpha: 0.05),
-                        ),
-                      ),
-                    ),
-
-                    // route paint layer with animation (path only, no markers)
-                    if (coords.isNotEmpty)
-                      Positioned.fill(
-                        child: AnimatedBuilder(
-                          animation: _controller,
-                          builder: (context, child) {
-                            return CustomPaint(
-                              size: Size(displayWidth, displayHeight),
-                              painter: _RoutePainter(
-                                coords: coords,
-                                scaleX: scaleX,
-                                scaleY: scaleY,
-                                primaryColor: theme.colorScheme.primary,
-                                animationValue: _controller.value,
-                                drawMarkers: false,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                  ],
-                ),
+                ],
               ),
             ),
           ),
@@ -462,34 +410,14 @@ class _MapViewWidgetState extends State<MapViewWidget>
             },
           ),
 
-        // Rotation controls
+        // Map controls
         Positioned(
           right: 16,
           bottom: 16,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Rotate left
-              _MapControlButton(
-                icon: Icons.rotate_left,
-                onPressed: () => _rotateMap(-0.2),
-                tooltip: 'Rotate left',
-              ),
-              const SizedBox(height: 8),
-              // Rotate right
-              _MapControlButton(
-                icon: Icons.rotate_right,
-                onPressed: () => _rotateMap(0.2),
-                tooltip: 'Rotate right',
-              ),
-              const SizedBox(height: 8),
-              // Reset view
-              _MapControlButton(
-                icon: Icons.my_location,
-                onPressed: _resetView,
-                tooltip: 'Reset view',
-              ),
-            ],
+          child: _MapControlButton(
+            icon: Icons.my_location,
+            onPressed: _resetView,
+            tooltip: 'Reset view',
           ),
         ),
       ],
@@ -518,14 +446,19 @@ class _MapViewWidgetState extends State<MapViewWidget>
       displayHeight,
     );
 
-    // Keep markers proportional to zoom level
+    // Keep markers proportional to zoom level - wider range for better visibility
     // Markers grow when zooming in, shrink when zooming out
     const baseSize = 24.0;
-    final markerSize = (baseSize * zoomScale).clamp(16.0, 48.0);
+    final markerSize = (baseSize * zoomScale).clamp(4.0, 72.0);
 
-    // Get orientation from first step if available
+    // Get orientation from current location's 'ang' property if available,
+    // otherwise fall back to first step's orientation
     double orientationDegrees = 0.0;
-    if (widget.route.steps.isNotEmpty) {
+    if (widget.currentLocation.ang != null) {
+      // Convert radians to degrees if ang is in radians
+      // The ang value appears to be in radians based on the sample data (4.508...)
+      orientationDegrees = widget.currentLocation.ang! * (180 / 3.14159265359);
+    } else if (widget.route.steps.isNotEmpty) {
       orientationDegrees = widget.route.steps.first.orientationDegrees;
     }
 
@@ -565,10 +498,10 @@ class _MapViewWidgetState extends State<MapViewWidget>
       displayHeight,
     );
 
-    // Keep markers proportional to zoom level
+    // Keep markers proportional to zoom level - wider range for better visibility
     // Markers grow when zooming in, shrink when zooming out
     const baseSize = 24.0;
-    final markerSize = (baseSize * zoomScale).clamp(16.0, 48.0);
+    final markerSize = (baseSize * zoomScale).clamp(4.0, 72.0);
 
     return Positioned(
       left: pos.dx - markerSize / 2,
@@ -605,9 +538,9 @@ class _MapViewWidgetState extends State<MapViewWidget>
       displayHeight,
     );
 
-    // POI markers are smaller than main markers
+    // POI markers scale with zoom - wider range for better visibility
     const baseSize = 18.0;
-    final markerSize = (baseSize * zoomScale).clamp(12.0, 36.0);
+    final markerSize = (baseSize * zoomScale).clamp(3.0, 60.0);
 
     return Positioned(
       left: pos.dx - markerSize / 2,

@@ -133,7 +133,7 @@ class _SplashPageState extends State<SplashPage>
                         const SizedBox(height: 48),
                         // App Name
                         Text(
-                          AppText.appNameUppercase,
+                          "SpaceSense",
                           style: TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.w900,
