@@ -14,6 +14,8 @@ import '../features/profile/presentation/pages/profile_page.dart';
 import '../features/destination/domain/entities/destination_entity.dart';
 import '../features/locate_me/presentation/pages/locate_me_camera_page.dart';
 import '../features/locate_me/presentation/bloc/locate_me_bloc.dart';
+import '../features/localization_history/presentation/pages/localization_history_page.dart';
+import '../features/localization_history/presentation/bloc/localization_history_bloc.dart';
 import '../injection.dart';
 
 class AppRouter {
@@ -28,6 +30,7 @@ class AppRouter {
   static const String navigation = '/navigation';
   static const String profile = '/profile';
   static const String locateMe = '/locate-me';
+  static const String localizationHistory = '/localization-history';
 
   static final GoRouter router = GoRouter(
     initialLocation: splash,
@@ -88,6 +91,15 @@ class AppRouter {
           return BlocProvider(
             create: (context) => getIt<LocateMeBloc>(),
             child: const LocateMeCameraPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: localizationHistory,
+        builder: (context, state) {
+          return BlocProvider(
+            create: (context) => getIt<LocalizationHistoryBloc>(),
+            child: const LocalizationHistoryPage(),
           );
         },
       ),

@@ -8,6 +8,7 @@ import 'package:smart_sense/theme/theme_bloc.dart';
 
 // Shared
 import 'package:smart_sense/shared/services/location_config_service.dart';
+import 'package:smart_sense/shared/services/device_id_service.dart';
 import 'package:smart_sense/shared/services/floor_plan_cache_service.dart';
 import 'package:smart_sense/shared/services/destinations_cache_service.dart';
 import 'package:smart_sense/shared/services/debug_config_service.dart';
@@ -49,6 +50,13 @@ import 'package:smart_sense/features/locate_me/domain/usecases/localize_user_use
 import 'package:smart_sense/features/locate_me/domain/usecases/get_destinations_usecase.dart';
 import 'package:smart_sense/features/locate_me/presentation/bloc/locate_me_bloc.dart';
 
+// Localization History
+import 'package:smart_sense/features/localization_history/data/datasources/localization_history_remote_datasource.dart';
+import 'package:smart_sense/features/localization_history/data/repositories/localization_history_repository_impl.dart';
+import 'package:smart_sense/features/localization_history/domain/repositories/localization_history_repository.dart';
+import 'package:smart_sense/features/localization_history/domain/usecases/get_user_localization_history_usecase.dart';
+import 'package:smart_sense/features/localization_history/presentation/bloc/localization_history_bloc.dart';
+
 // Auth
 import 'package:smart_sense/features/auth/data/datasources/auth_local_datasource.dart';
 import 'package:smart_sense/features/auth/data/datasources/auth_remote_datasource.dart';
@@ -82,6 +90,9 @@ Future<void> initializeDependencies() async {
   // Shared Services
   getIt.registerLazySingleton<LocationConfigService>(
     () => LocationConfigService(getIt()),
+  );
+  getIt.registerLazySingleton<DeviceIdService>(
+    () => DeviceIdService(getIt()),
   );
   getIt.registerLazySingleton<FloorPlanCacheService>(
     () => FloorPlanCacheService(getIt()),
@@ -234,4 +245,20 @@ Future<void> initializeDependencies() async {
 
   // Theme
   getIt.registerLazySingleton<ThemeBloc>(() => ThemeBloc(getIt()));
+
+  // Localization History Feature
+  getIt.registerLazySingleton<LocalizationHistoryRemoteDataSource>(
+    () => LocalizationHistoryRemoteDataSourceImpl(getIt()),
+  );
+  getIt.registerLazySingleton<LocalizationHistoryRepository>(
+    () => LocalizationHistoryRepositoryImpl(remoteDataSource: getIt()),
+  );
+  getIt.registerLazySingleton(
+    () => GetUserLocalizationHistoryUseCase(repository: getIt()),
+  );
+  getIt.registerFactory(
+    () => LocalizationHistoryBloc(
+      getUserLocalizationHistoryUseCase: getIt(),
+    ),
+  );
 }
