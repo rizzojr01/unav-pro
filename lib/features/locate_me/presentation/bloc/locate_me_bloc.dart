@@ -9,6 +9,7 @@ import '../../../../shared/services/location_config_service.dart';
 import '../../../destination/domain/entities/destination_entity.dart';
 import '../../domain/entities/floor_plan_entity.dart';
 import '../../domain/entities/localization_request_entity.dart';
+import '../../domain/entities/user_position_entity.dart';
 import '../../domain/usecases/get_floor_plan_usecase.dart';
 import '../../domain/usecases/localize_user_usecase.dart';
 import '../../domain/usecases/get_destinations_usecase.dart';
@@ -38,6 +39,9 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
   }) : super(const LocateMeInitial()) {
     on<StartLocalizationEvent>(_onStartLocalization);
     on<StartLocalizationWithSampleEvent>(_onStartLocalizationWithSample);
+    on<StartLocalizationWithCoordinatesEvent>(
+      _onStartLocalizationWithCoordinates,
+    );
     on<SelectDestinationEvent>(_onSelectDestination);
     on<ClearSelectedDestinationEvent>(_onClearSelectedDestination);
     on<ResetLocateMeEvent>(_onReset);
@@ -69,6 +73,20 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
 
     // Use empty string for base64 image when using sample
     await _performLocalization(emit, '', useSampleImage: true);
+  }
+
+  Future<void> _onStartLocalizationWithCoordinates(
+    StartLocalizationWithCoordinatesEvent event,
+    Emitter<LocateMeState> emit,
+  ) async {
+    emit(const LocateMeLoading(message: 'Loading floor plan...'));
+
+    try {
+      // Skip image processing, use manual coordinates directly
+      await _performLocalizationWithManualCoordinates(emit, event.x, event.y);
+    } catch (e) {
+      emit(LocateMeError('Failed to load floor plan: ${e.toString()}'));
+    }
   }
 
   Future<void> _performLocalization(
@@ -226,6 +244,148 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
           ),
         );
       },
+    );
+  }
+
+  Future<void> _performLocalizationWithManualCoordinates(
+    Emitter<LocateMeState> emit,
+    double x,
+    double y,
+  ) async {
+    // Step 1: Get floor plan (with caching)
+    emit(const LocateMeLoading(message: 'Loading floor plan...'));
+
+    FloorPlanEntity? floorPlan;
+    String? floorPlanError;
+
+    // Check cache first
+    if (floorPlanCacheService.hasCachedFloorPlan(
+      place: _place,
+      building: _building,
+      floor: _floor,
+    )) {
+      // Use cached floor plan
+      final cachedBase64 = floorPlanCacheService.getCachedFloorPlanBase64(
+        place: _place,
+        building: _building,
+        floor: _floor,
+      );
+      if (cachedBase64 != null && cachedBase64.isNotEmpty) {
+        floorPlan = FloorPlanEntity(
+          base64Image: cachedBase64,
+          filename: '${_building}_$_floor.png',
+        );
+      }
+    }
+
+    // If no cache, fetch from API
+    if (floorPlan == null) {
+      final floorPlanResult = await getFloorPlanUseCase(
+        GetFloorPlanParams(building: _building, floor: _floor, place: _place),
+      );
+
+      floorPlanResult.fold(
+        (failure) {
+          floorPlanError = failure.message;
+        },
+        (result) {
+          floorPlan = result;
+          // Cache the floor plan for future use
+          if (result.base64Image.isNotEmpty) {
+            floorPlanCacheService.cacheFloorPlan(
+              place: _place,
+              building: _building,
+              floor: _floor,
+              base64Image: result.base64Image,
+            );
+          }
+        },
+      );
+    }
+
+    // If floor plan failed and no cache, show error
+    if (floorPlan == null) {
+      emit(
+        LocateMeError(
+          floorPlanError ?? 'Failed to load floor plan. Please try again.',
+        ),
+      );
+      return;
+    }
+
+    // Step 2: Create user position from manual coordinates
+    emit(const LocateMeLoading(message: 'Setting your position...'));
+    final userPosition = UserPositionEntity(
+      x: x,
+      y: y,
+      angle: 0.0, // Default angle for manual selection
+    );
+
+    // Step 3: Get destinations (with caching)
+    emit(const LocateMeLoading(message: 'Loading places of interest...'));
+
+    List<DestinationEntity>? destinations;
+    String? destinationsError;
+
+    // Check cache first
+    if (destinationsCacheService.hasCachedDestinations(
+      place: _place,
+      building: _building,
+      floor: _floor,
+    )) {
+      // Use cached destinations
+      destinations = destinationsCacheService.getCachedDestinations(
+        place: _place,
+        building: _building,
+        floor: _floor,
+      );
+    }
+
+    // If no cache, fetch from API
+    if (destinations == null || destinations.isEmpty) {
+      final destinationsResult = await getDestinationsUseCase(
+        GetDestinationsParams(
+          building: _building,
+          floor: _floor,
+          place: _place,
+          includeCoordinates: true,
+        ),
+      );
+
+      destinationsResult.fold(
+        (failure) {
+          destinationsError = failure.message;
+        },
+        (result) {
+          destinations = result;
+          // Cache the destinations for future use
+          if (result.isNotEmpty) {
+            destinationsCacheService.cacheDestinations(
+              place: _place,
+              building: _building,
+              floor: _floor,
+              destinations: result,
+            );
+          }
+        },
+      );
+    }
+
+    if (destinations == null) {
+      emit(
+        LocateMeError(
+          destinationsError ?? 'Failed to load destinations. Please try again.',
+        ),
+      );
+      return;
+    }
+
+    emit(
+      LocateMeReady(
+        floorPlan: floorPlan!,
+        userPosition: userPosition,
+        destinations: destinations!,
+      ),
     );
   }
 

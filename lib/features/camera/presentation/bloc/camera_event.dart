@@ -23,3 +23,13 @@ class CapturePhotoEvent extends CameraEvent {
 class UploadPhotoEvent extends CameraEvent {
   const UploadPhotoEvent();
 }
+
+class CaptureWithManualCoordinatesEvent extends CameraEvent {
+  final double x;
+  final double y;
+
+  const CaptureWithManualCoordinatesEvent({required this.x, required this.y});
+
+  @override
+  List<Object?> get props => [x, y];
+}
