@@ -17,6 +17,7 @@ import '../features/locate_me/presentation/bloc/locate_me_bloc.dart';
 import '../features/localization_history/presentation/pages/localization_history_page.dart';
 import '../features/localization_history/presentation/bloc/localization_history_bloc.dart';
 import '../injection.dart';
+import '../features/destination/presentation/pages/floor_map_page.dart';
 
 class AppRouter {
   static const String splash = '/';
@@ -31,6 +32,7 @@ class AppRouter {
   static const String profile = '/profile';
   static const String locateMe = '/locate-me';
   static const String localizationHistory = '/localization-history';
+  static const String floorMap = '/floor-map';
 
   static final GoRouter router = GoRouter(
     initialLocation: splash,
@@ -62,6 +64,10 @@ class AppRouter {
         builder: (context, state) => const DestinationPage(),
       ),
       GoRoute(path: profile, builder: (context, state) => const ProfilePage()),
+      GoRoute(
+        path: floorMap,
+        builder: (context, state) => const FloorMapPage(),
+      ),
       GoRoute(
         path: navigation,
         builder: (context, state) {

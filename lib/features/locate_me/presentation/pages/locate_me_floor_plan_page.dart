@@ -479,7 +479,7 @@ class _FloorPlanWithMarkersState extends State<_FloorPlanWithMarkers> {
 
     // Markers scale with zoom level - wider range for better visibility
     const baseSize = 18.0;
-    final markerSize = (baseSize * zoomScale).clamp(3.0, 60.0);
+    final markerSize = (baseSize * zoomScale).clamp(1.0, 60.0);
 
     return Positioned(
       left: pos.dx - markerSize / 2,

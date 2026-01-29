@@ -138,25 +138,33 @@ class DestinationMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bgColor = backgroundColor ?? theme.colorScheme.error;
-    final fgColor = iconColor ?? theme.colorScheme.onError;
+    final isGeneralIcon = icon == Icons.place;
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: size,
         height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: bgColor,
-          boxShadow: [
-            BoxShadow(
-              color: bgColor.withOpacity(0.3),
-              blurRadius: 4,
-              spreadRadius: 1,
-            ),
-          ],
+        alignment: Alignment.center,
+        decoration: isGeneralIcon
+            ? null
+            : BoxDecoration(
+                shape: BoxShape.circle,
+                color: bgColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: bgColor.withOpacity(0.3),
+                    blurRadius: 4,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+        color: isGeneralIcon ? Colors.transparent : null,
+        child: Icon(
+          icon,
+          color: isGeneralIcon ? bgColor : Colors.white,
+          size: isGeneralIcon ? size : size * 0.6,
         ),
-        child: Icon(icon, color: fgColor, size: size * 0.6),
       ),
     );
   }

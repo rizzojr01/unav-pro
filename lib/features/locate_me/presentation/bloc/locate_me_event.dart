@@ -24,6 +24,20 @@ class StartLocalizationWithSampleEvent extends LocateMeEvent {
   const StartLocalizationWithSampleEvent();
 }
 
+/// Event to start localization with manual coordinates (floor plan selection)
+class StartLocalizationWithCoordinatesEvent extends LocateMeEvent {
+  final double x;
+  final double y;
+
+  const StartLocalizationWithCoordinatesEvent({
+    required this.x,
+    required this.y,
+  });
+
+  @override
+  List<Object?> get props => [x, y];
+}
+
 /// Event to select a destination from the floor plan
 class SelectDestinationEvent extends LocateMeEvent {
   final DestinationEntity destination;

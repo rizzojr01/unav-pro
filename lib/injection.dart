@@ -32,6 +32,7 @@ import 'package:smart_sense/features/destination/domain/repositories/destination
 import 'package:smart_sense/features/destination/domain/usecases/search_destinations_usecase.dart';
 import 'package:smart_sense/features/destination/domain/usecases/select_destination_usecase.dart';
 import 'package:smart_sense/features/destination/presentation/bloc/destination_bloc.dart';
+import 'package:smart_sense/features/destination/presentation/bloc/floor_map_bloc.dart';
 
 // Navigation
 import 'package:smart_sense/features/navigation/data/datasources/navigation_local_datasource.dart';
@@ -196,6 +197,8 @@ Future<void> initializeDependencies() async {
       recentDestinationsService: getIt(),
     ),
   );
+
+  getIt.registerFactory(() => FloorMapBloc());
 
   // Navigation Feature
   getIt.registerLazySingleton<NavigationLocalDataSource>(
