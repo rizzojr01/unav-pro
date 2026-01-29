@@ -15,6 +15,7 @@ import '../features/destination/domain/entities/destination_entity.dart';
 import '../features/locate_me/presentation/pages/locate_me_camera_page.dart';
 import '../features/locate_me/presentation/bloc/locate_me_bloc.dart';
 import '../injection.dart';
+import '../features/destination/presentation/pages/floor_map_page.dart';
 
 class AppRouter {
   static const String splash = '/';
@@ -28,6 +29,7 @@ class AppRouter {
   static const String navigation = '/navigation';
   static const String profile = '/profile';
   static const String locateMe = '/locate-me';
+  static const String floorMap = '/floor-map';
 
   static final GoRouter router = GoRouter(
     initialLocation: splash,
@@ -59,6 +61,10 @@ class AppRouter {
         builder: (context, state) => const DestinationPage(),
       ),
       GoRoute(path: profile, builder: (context, state) => const ProfilePage()),
+      GoRoute(
+        path: floorMap,
+        builder: (context, state) => const FloorMapPage(),
+      ),
       GoRoute(
         path: navigation,
         builder: (context, state) {
