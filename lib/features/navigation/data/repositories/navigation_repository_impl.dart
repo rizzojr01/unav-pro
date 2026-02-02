@@ -24,6 +24,7 @@ class NavigationRepositoryImpl implements NavigationRepository {
     required String sessionId,
     required bool useSampleImage,
     required String base64Image,
+    Map<String, dynamic>? imageCompression,
   }) async {
     try {
       final routeModel = await remoteDataSource.getRoute(
@@ -34,6 +35,7 @@ class NavigationRepositoryImpl implements NavigationRepository {
         sessionId: sessionId,
         useSampleImage: useSampleImage,
         base64Image: base64Image,
+        imageCompression: imageCompression,
       );
 
       return Right(routeModel);

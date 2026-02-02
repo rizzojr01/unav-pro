@@ -12,6 +12,7 @@ abstract class NavigationRemoteDataSource {
     required String sessionId,
     required bool useSampleImage,
     required String base64Image,
+    Map<String, dynamic>? imageCompression,
   });
 }
 
@@ -28,6 +29,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
     required String sessionId,
     required bool useSampleImage,
     required String base64Image,
+    Map<String, dynamic>? imageCompression,
   }) async {
     return executeCall<RouteModel>(() async {
       final response = await post(
@@ -46,6 +48,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
           'speakVlmFirst': true,
           'unav_multifloor': false,
           'use_vlm': false,
+          if (imageCompression != null) 'image_compression': imageCompression,
         },
       );
 

@@ -14,15 +14,41 @@ class LocationConfigService {
   static const String defaultFloor = '6_floor';
 
   static const String _keyUseSampleImage = 'debug_use_sample_image';
+  static const String _keyEnableCompression = 'image_compression_enabled';
+  static const String _keyMaxHeight = 'image_compression_max_height';
+  static const String _keyMaxWidth = 'image_compression_max_width';
+  static const String _keyImageQuality = 'image_compression_quality';
 
   LocationConfigService(this._prefs);
 
   /// Get whether to use sample image for localization
-  bool get useSampleImage => _prefs.getBool(_keyUseSampleImage) ?? false;
+  bool get useSampleImage => _prefs.getBool(_keyUseSampleImage) ?? true;
 
   /// Set whether to use sample image for localization
   Future<void> setUseSampleImage(bool value) async {
     await _prefs.setBool(_keyUseSampleImage, value);
+  }
+
+  /// Image Compression Settings
+  bool get enableCompression => _prefs.getBool(_keyEnableCompression) ?? false;
+  int get maxHeight => _prefs.getInt(_keyMaxHeight) ?? 480;
+  int get maxWidth => _prefs.getInt(_keyMaxWidth) ?? 640;
+  int get imageQuality => _prefs.getInt(_keyImageQuality) ?? 60;
+
+  Future<void> setEnableCompression(bool value) async {
+    await _prefs.setBool(_keyEnableCompression, value);
+  }
+
+  Future<void> setMaxHeight(int value) async {
+    await _prefs.setInt(_keyMaxHeight, value);
+  }
+
+  Future<void> setMaxWidth(int value) async {
+    await _prefs.setInt(_keyMaxWidth, value);
+  }
+
+  Future<void> setImageQuality(int value) async {
+    await _prefs.setInt(_keyImageQuality, value);
   }
 
   /// Get the selected place

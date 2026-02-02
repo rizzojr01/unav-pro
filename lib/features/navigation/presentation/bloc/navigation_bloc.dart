@@ -122,6 +122,12 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         sessionId: sessionId,
         useSampleImage: useSampleImage,
         base64Image: base64Image,
+        imageCompression: {
+          'enable_compression': locationConfigService.enableCompression,
+          'max_height': locationConfigService.maxHeight,
+          'max_width': locationConfigService.maxWidth,
+          'quality': locationConfigService.imageQuality,
+        },
       ),
     );
 

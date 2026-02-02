@@ -186,6 +186,17 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
       sessionId: sessionId,
       unavMultifloor: false,
       useSampleImage: useSampleImage,
+      relocalize: false,
+      saveframe: false,
+      shortenVlmResponse: true,
+      speakVlmFirst: true,
+      useVlm: false,
+      imageCompression: ImageCompressionEntity(
+        enableCompression: locationConfigService.enableCompression,
+        maxHeight: locationConfigService.maxHeight,
+        maxWidth: locationConfigService.maxWidth,
+        quality: locationConfigService.imageQuality,
+      ),
     );
 
     final positionResult = await localizeUserUseCase(localizationRequest);
