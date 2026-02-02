@@ -8,7 +8,6 @@ import '../../../../shared/widgets/location_input_view.dart';
 import '../bloc/locate_me_bloc.dart';
 import '../bloc/locate_me_event.dart';
 import '../bloc/locate_me_state.dart';
-import 'locate_me_floor_plan_page.dart';
 
 import '../../../camera/presentation/widgets/photo_preview_widget.dart';
 
@@ -42,13 +41,9 @@ class _LocateMeCameraPageState extends State<LocateMeCameraPage>
     return BlocListener<LocateMeBloc, LocateMeState>(
       listener: (context, state) {
         if (state is LocateMeReady) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (_) => BlocProvider.value(
-                value: context.read<LocateMeBloc>(),
-                child: const LocateMeFloorPlanPage(),
-              ),
-            ),
+          context.push(
+            '/locate-me/floor-plan',
+            extra: context.read<LocateMeBloc>(),
           );
         } else if (state is LocateMeError) {
           snackbar.CustomSnackBar.show(

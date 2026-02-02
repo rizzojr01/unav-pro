@@ -61,13 +61,24 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
   ) async {
     emit(const LocateMeLoading(message: 'Analyzing your location...'));
 
-    try {
-      // Read and encode the captured image to base64
-      final imageFile = File(event.capturedImagePath);
-      final imageBytes = await imageFile.readAsBytes();
-      final base64Image = base64Encode(imageBytes);
+    final useSampleImage = locationConfigService.useSampleImage;
 
-      await _performLocalization(emit, base64Image, useSampleImage: false);
+    try {
+      String base64Image = '';
+
+      if (event.capturedImagePath.isNotEmpty && !useSampleImage) {
+        final imageFile = File(event.capturedImagePath);
+        if (await imageFile.exists()) {
+          final imageBytes = await imageFile.readAsBytes();
+          base64Image = base64Encode(imageBytes);
+        }
+      }
+
+      await _performLocalization(
+        emit,
+        base64Image,
+        useSampleImage: useSampleImage,
+      );
     } catch (e) {
       emit(LocateMeError('Failed to process image: ${e.toString()}'));
     }

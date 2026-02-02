@@ -9,7 +9,6 @@ import '../../../../injection.dart';
 import '../../../../shared/presentation/bloc/location_settings_bloc.dart';
 import '../../../../shared/presentation/bloc/location_settings_event.dart';
 import '../../../../shared/presentation/bloc/location_settings_state.dart';
-import '../../../../shared/services/debug_config_service.dart';
 import '../../../../shared/services/location_config_service.dart';
 import '../../../../theme/theme_bloc.dart';
 import '../../../../theme/widgets/color_customizer.dart';
@@ -328,7 +327,7 @@ class ProfilePage extends StatelessWidget {
   Widget _buildDebugSection(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final debugConfig = getIt<DebugConfigService>();
+    final locationConfig = getIt<LocationConfigService>();
 
     return StatefulBuilder(
       builder: (context, setState) {
@@ -398,9 +397,9 @@ class ProfilePage extends StatelessWidget {
                       ),
                     ),
                     Switch.adaptive(
-                      value: debugConfig.useSampleImage,
+                      value: locationConfig.useSampleImage,
                       onChanged: (value) async {
-                        await debugConfig.setUseSampleImage(value);
+                        await locationConfig.setUseSampleImage(value);
                         setState(() {});
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -444,9 +443,8 @@ class ProfilePage extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.secondaryContainer.withValues(
-                            alpha: 0.3,
-                          ),
+                          color: theme.colorScheme.secondaryContainer
+                              .withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
@@ -514,7 +512,7 @@ class ProfilePage extends StatelessWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'When enabled, Locate Me will use a pre-configured sample image instead of capturing from camera.',
+                          'When enabled, the app will use a pre-configured sample image instead of capturing from camera.',
                           style: TextStyle(
                             fontSize: 12,
                             color: theme.colorScheme.onSurfaceVariant,
@@ -1077,11 +1075,12 @@ class _LocationSettingsSheet extends StatelessWidget {
           width: double.infinity,
           child: ElevatedButton(
             onPressed: () {
+              final messenger = ScaffoldMessenger.of(context);
               context.read<LocationSettingsBloc>().add(
                 const SaveLocationSettingsEvent(),
               );
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 SnackBar(
                   content: const Text('Location settings saved'),
                   backgroundColor: theme.colorScheme.primary,

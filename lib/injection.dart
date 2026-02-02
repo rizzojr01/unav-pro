@@ -10,7 +10,6 @@ import 'package:smart_sense/theme/theme_bloc.dart';
 import 'package:smart_sense/shared/services/location_config_service.dart';
 import 'package:smart_sense/shared/services/floor_plan_cache_service.dart';
 import 'package:smart_sense/shared/services/destinations_cache_service.dart';
-import 'package:smart_sense/shared/services/debug_config_service.dart';
 import 'package:smart_sense/shared/services/recent_destinations_service.dart';
 import 'package:smart_sense/shared/data/datasources/place_remote_datasource.dart';
 import 'package:smart_sense/shared/presentation/bloc/location_settings_bloc.dart';
@@ -89,9 +88,6 @@ Future<void> initializeDependencies() async {
   );
   getIt.registerLazySingleton<DestinationsCacheService>(
     () => DestinationsCacheService(getIt()),
-  );
-  getIt.registerLazySingleton<DebugConfigService>(
-    () => DebugConfigService(getIt()),
   );
   getIt.registerLazySingleton<RecentDestinationsService>(
     () => RecentDestinationsService(getIt()),
@@ -209,7 +205,6 @@ Future<void> initializeDependencies() async {
       getFloorPlanUseCase: getIt(),
       locationConfigService: getIt(),
       floorPlanCacheService: getIt(),
-      debugConfigService: getIt(),
       destinationsCacheService: getIt(),
     ),
   );

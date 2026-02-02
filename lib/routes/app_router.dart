@@ -13,6 +13,7 @@ import '../features/navigation/presentation/pages/navigation_page.dart';
 import '../features/profile/presentation/pages/profile_page.dart';
 import '../features/destination/domain/entities/destination_entity.dart';
 import '../features/locate_me/presentation/pages/locate_me_camera_page.dart';
+import '../features/locate_me/presentation/pages/locate_me_floor_plan_page.dart';
 import '../features/locate_me/presentation/bloc/locate_me_bloc.dart';
 import '../injection.dart';
 import '../features/destination/presentation/pages/floor_map_page.dart';
@@ -29,6 +30,7 @@ class AppRouter {
   static const String navigation = '/navigation';
   static const String profile = '/profile';
   static const String locateMe = '/locate-me';
+  static const String locateMeFloorPlan = '/locate-me/floor-plan';
   static const String floorMap = '/floor-map';
 
   static final GoRouter router = GoRouter(
@@ -94,6 +96,16 @@ class AppRouter {
           return BlocProvider(
             create: (context) => getIt<LocateMeBloc>(),
             child: const LocateMeCameraPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: locateMeFloorPlan, // Using the static const
+        builder: (context, state) {
+          final bloc = state.extra as LocateMeBloc;
+          return BlocProvider.value(
+            value: bloc,
+            child: const LocateMeFloorPlanPage(),
           );
         },
       ),

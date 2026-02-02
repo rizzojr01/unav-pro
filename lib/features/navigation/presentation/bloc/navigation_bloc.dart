@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../shared/services/debug_config_service.dart';
 import '../../../../shared/services/destinations_cache_service.dart';
 import '../../../../shared/services/floor_plan_cache_service.dart';
 import '../../../../shared/services/location_config_service.dart';
@@ -18,7 +17,6 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
   final GetFloorPlanUseCase getFloorPlanUseCase;
   final LocationConfigService locationConfigService;
   final FloorPlanCacheService floorPlanCacheService;
-  final DebugConfigService debugConfigService;
   final DestinationsCacheService destinationsCacheService;
 
   NavigationBloc({
@@ -26,7 +24,6 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     required this.getFloorPlanUseCase,
     required this.locationConfigService,
     required this.floorPlanCacheService,
-    required this.debugConfigService,
     required this.destinationsCacheService,
   }) : super(const NavigationInitial()) {
     on<InitializeNavigationEvent>(_onInitializeNavigation);
@@ -41,7 +38,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     final floor = locationConfigService.floor;
     final destinationId = event.destination.destinationId;
     final sessionId = 'device_${DateTime.now().millisecondsSinceEpoch}';
-    final useSampleImage = debugConfigService.useSampleImage;
+    final useSampleImage = locationConfigService.useSampleImage;
 
     emit(const NavigationLoading(message: 'Loading floor plan...'));
 

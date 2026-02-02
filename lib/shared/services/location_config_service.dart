@@ -13,7 +13,17 @@ class LocationConfigService {
   static const String defaultBuilding = 'LightHouse';
   static const String defaultFloor = '6_floor';
 
+  static const String _keyUseSampleImage = 'debug_use_sample_image';
+
   LocationConfigService(this._prefs);
+
+  /// Get whether to use sample image for localization
+  bool get useSampleImage => _prefs.getBool(_keyUseSampleImage) ?? false;
+
+  /// Set whether to use sample image for localization
+  Future<void> setUseSampleImage(bool value) async {
+    await _prefs.setBool(_keyUseSampleImage, value);
+  }
 
   /// Get the selected place
   String get place => _prefs.getString(_keyPlace) ?? defaultPlace;
