@@ -9,7 +9,6 @@ import '../../../../injection.dart';
 import '../../../../shared/presentation/bloc/location_settings_bloc.dart';
 import '../../../../shared/presentation/bloc/location_settings_event.dart';
 import '../../../../shared/presentation/bloc/location_settings_state.dart';
-import '../../../../shared/services/debug_config_service.dart';
 import '../../../../shared/services/location_config_service.dart';
 import '../../../../theme/theme_bloc.dart';
 import '../../../../theme/widgets/color_customizer.dart';
@@ -98,6 +97,12 @@ class ProfilePage extends StatelessWidget {
                           title: 'Language',
                           subtitle: 'English (US)',
                           onTap: () {},
+                        ),
+                        _SettingsItem(
+                          icon: Icons.compress_rounded,
+                          title: 'Image Compression',
+                          subtitle: 'Height, Width, Quality',
+                          onTap: () => _showImageCompressionSettings(context),
                         ),
                       ]),
                       const SizedBox(height: 32),
@@ -328,7 +333,7 @@ class ProfilePage extends StatelessWidget {
   Widget _buildDebugSection(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final debugConfig = getIt<DebugConfigService>();
+    final locationConfig = getIt<LocationConfigService>();
 
     return StatefulBuilder(
       builder: (context, setState) {
@@ -398,9 +403,9 @@ class ProfilePage extends StatelessWidget {
                       ),
                     ),
                     Switch.adaptive(
-                      value: debugConfig.useSampleImage,
+                      value: locationConfig.useSampleImage,
                       onChanged: (value) async {
-                        await debugConfig.setUseSampleImage(value);
+                        await locationConfig.setUseSampleImage(value);
                         setState(() {});
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -444,9 +449,8 @@ class ProfilePage extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.secondaryContainer.withValues(
-                            alpha: 0.3,
-                          ),
+                          color: theme.colorScheme.secondaryContainer
+                              .withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
@@ -514,7 +518,7 @@ class ProfilePage extends StatelessWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'When enabled, Locate Me will use a pre-configured sample image instead of capturing from camera.',
+                          'When enabled, the app will use a pre-configured sample image instead of capturing from camera.',
                           style: TextStyle(
                             fontSize: 12,
                             color: theme.colorScheme.onSurfaceVariant,
@@ -554,6 +558,16 @@ class ProfilePage extends StatelessWidget {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => const _ThemeSelectionSheet(),
+    );
+  }
+
+  void _showImageCompressionSettings(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => const _ImageCompressionSettingsSheet(),
     );
   }
 
@@ -753,6 +767,268 @@ class _AvatarWidget extends StatelessWidget {
             Icons.edit_rounded,
             size: 16,
             color: theme.colorScheme.onPrimary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ImageCompressionSettingsSheet extends StatefulWidget {
+  const _ImageCompressionSettingsSheet();
+
+  @override
+  State<_ImageCompressionSettingsSheet> createState() =>
+      _ImageCompressionSettingsSheetState();
+}
+
+class _ImageCompressionSettingsSheetState
+    extends State<_ImageCompressionSettingsSheet> {
+  final _heightController = TextEditingController();
+  final _widthController = TextEditingController();
+  late bool _enabled;
+  late double _quality;
+
+  @override
+  void initState() {
+    super.initState();
+    final config = getIt<LocationConfigService>();
+    _enabled = config.enableCompression;
+    _quality = config.imageQuality.toDouble();
+    _heightController.text = config.maxHeight.toString();
+    _widthController.text = config.maxWidth.toString();
+  }
+
+  @override
+  void dispose() {
+    _heightController.dispose();
+    _widthController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final config = getIt<LocationConfigService>();
+    final h = int.tryParse(_heightController.text) ?? 480;
+    final w = int.tryParse(_widthController.text) ?? 640;
+
+    await config.setEnableCompression(_enabled);
+    await config.setMaxHeight(h);
+    await config.setMaxWidth(w);
+    await config.setImageQuality(_quality.round());
+
+    if (mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      builder: (context, scrollController) => Container(
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: ListView(
+          controller: scrollController,
+          padding: const EdgeInsets.all(24),
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Center(
+              child: Text(
+                'IMAGE COMPRESSION',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+            _buildToggle(theme),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    theme,
+                    'Max Height',
+                    _heightController,
+                    Icons.height,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildTextField(
+                    theme,
+                    'Max Width',
+                    _widthController,
+                    Icons.width_full,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+            _buildQualitySlider(theme),
+            const SizedBox(height: 48),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: theme.colorScheme.onPrimary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text(
+                  'SAVE CHANGES',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggle(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.compress_rounded, color: theme.colorScheme.primary),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              'Enable Compression',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
+          Switch.adaptive(
+            value: _enabled,
+            onChanged: (v) => setState(() => _enabled = v),
+            activeColor: theme.colorScheme.primary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextField(
+    ThemeData theme,
+    String label,
+    TextEditingController controller,
+    IconData icon,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            color: theme.colorScheme.onSurfaceVariant,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+          decoration: InputDecoration(
+            prefixIcon: Icon(icon, size: 20),
+            filled: true,
+            fillColor: theme.colorScheme.surface,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQualitySlider(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'IMAGE QUALITY',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                color: theme.colorScheme.onSurfaceVariant,
+                letterSpacing: 1,
+              ),
+            ),
+            Text(
+              '${_quality.round()}%',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            trackHeight: 8,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 24),
+          ),
+          child: Slider(
+            value: _quality,
+            min: 0,
+            max: 100,
+            divisions: 100,
+            onChanged: (v) => setState(() => _quality = v),
           ),
         ),
       ],
@@ -1077,11 +1353,12 @@ class _LocationSettingsSheet extends StatelessWidget {
           width: double.infinity,
           child: ElevatedButton(
             onPressed: () {
+              final messenger = ScaffoldMessenger.of(context);
               context.read<LocationSettingsBloc>().add(
                 const SaveLocationSettingsEvent(),
               );
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 SnackBar(
                   content: const Text('Location settings saved'),
                   backgroundColor: theme.colorScheme.primary,

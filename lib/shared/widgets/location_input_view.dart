@@ -28,6 +28,7 @@ class LocationInputView extends StatefulWidget {
 class _LocationInputViewState extends State<LocationInputView> {
   CameraController? _controller;
   bool _isInitializing = true;
+  bool _isCapturing = false;
 
   @override
   void initState() {
@@ -67,9 +68,13 @@ class _LocationInputViewState extends State<LocationInputView> {
   }
 
   Future<void> _captureImage() async {
-    if (_controller == null || !_controller!.value.isInitialized) {
+    if (_controller == null ||
+        !_controller!.value.isInitialized ||
+        _isCapturing) {
       return;
     }
+
+    setState(() => _isCapturing = true);
 
     try {
       final image = await _controller!.takePicture();
@@ -83,6 +88,10 @@ class _LocationInputViewState extends State<LocationInputView> {
           message: 'Failed to capture image: ${e.toString()}',
           type: snackbar.SnackBarType.error,
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isCapturing = false);
       }
     }
   }
@@ -160,11 +169,15 @@ class _LocationInputViewState extends State<LocationInputView> {
                       ),
                     ],
                   ),
-                  child: Icon(
-                    Icons.camera_rounded,
-                    color: theme.colorScheme.onPrimary,
-                    size: 40,
-                  ),
+                  child: _isCapturing
+                      ? const Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        )
+                      : Icon(
+                          Icons.camera_rounded,
+                          color: theme.colorScheme.onPrimary,
+                          size: 40,
+                        ),
                 ),
               ),
               const SizedBox(width: 60), // Spacer for symmetry

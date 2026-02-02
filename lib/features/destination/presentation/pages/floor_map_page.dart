@@ -15,7 +15,8 @@ class FloorMapPage extends StatefulWidget {
 }
 
 class _FloorMapPageState extends State<FloorMapPage> {
-  final TransformationController _transformationController = TransformationController();
+  final TransformationController _transformationController =
+      TransformationController();
   Offset? _markerPosition;
 
   @override
@@ -36,7 +37,11 @@ class _FloorMapPageState extends State<FloorMapPage> {
             StepIndicator(
               currentStep: 1,
               title: 'Point to your location on the map',
-              onBack: () => context.pop(),
+              onBack: () {
+                if (mounted) {
+                  context.pop();
+                }
+              },
             ),
             Expanded(
               child: BlocConsumer<FloorMapBloc, FloorMapState>(
@@ -74,11 +79,15 @@ class _FloorMapPageState extends State<FloorMapPage> {
         onTapUp: (details) {
           final renderBox = context.findRenderObject() as RenderBox?;
           if (renderBox != null) {
-            final localPosition = renderBox.globalToLocal(details.globalPosition);
-            final mapSize = renderBox.size;
-            context.read<FloorMapBloc>().add(
-              FloorMapTapped(localPosition, mapSize),
+            final localPosition = renderBox.globalToLocal(
+              details.globalPosition,
             );
+            final mapSize = renderBox.size;
+            if (mounted) {
+              context.read<FloorMapBloc>().add(
+                FloorMapTapped(localPosition, mapSize),
+              );
+            }
           }
         },
         child: Container(
@@ -90,12 +99,11 @@ class _FloorMapPageState extends State<FloorMapPage> {
               width: 300,
               height: 400,
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: theme.colorScheme.outline,
-                  width: 2,
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.3,
                 ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: theme.colorScheme.outline, width: 2),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -153,17 +161,20 @@ class _FloorMapPageState extends State<FloorMapPage> {
       right: 20,
       child: ElevatedButton(
         onPressed: () {
-          final state = context.read<FloorMapBloc>().state;
-          if (state is FloorMapMarkerPlaced) {
-            // Create a destination entity with the coordinates
-            final destination = DestinationEntity(
-              destinationId: 'user_location_${DateTime.now().millisecondsSinceEpoch}',
-              name: 'My Location',
-              x: state.x,
-              y: state.y,
-              address: 'User selected location',
-            );
-            context.push('/camera', extra: destination);
+          if (mounted) {
+            final state = context.read<FloorMapBloc>().state;
+            if (state is FloorMapMarkerPlaced) {
+              // Create a destination entity with the coordinates
+              final destination = DestinationEntity(
+                destinationId:
+                    'user_location_${DateTime.now().millisecondsSinceEpoch}',
+                name: 'My Location',
+                x: state.x,
+                y: state.y,
+                address: 'User selected location',
+              );
+              context.push('/camera', extra: destination);
+            }
           }
         },
         style: ElevatedButton.styleFrom(
@@ -176,10 +187,7 @@ class _FloorMapPageState extends State<FloorMapPage> {
         ),
         child: const Text(
           'Confirm Location',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
     );

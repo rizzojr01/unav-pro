@@ -14,6 +14,7 @@ class MapViewWidget extends StatefulWidget {
   final String? floorPlanBase64;
   final VoidCallback? onRetry;
   final List<DestinationEntity> destinations;
+  final Function(DestinationEntity)? onDestinationTap;
 
   const MapViewWidget({
     super.key,
@@ -22,6 +23,7 @@ class MapViewWidget extends StatefulWidget {
     this.floorPlanBase64,
     this.onRetry,
     this.destinations = const [],
+    this.onDestinationTap,
   });
 
   @override
@@ -545,13 +547,28 @@ class _MapViewWidgetState extends State<MapViewWidget>
     return Positioned(
       left: pos.dx - markerSize / 2,
       top: pos.dy - markerSize / 2,
-      child: IgnorePointer(
-        child: DestinationMarker(
-          size: markerSize,
-          backgroundColor: theme.colorScheme.tertiary,
-          iconColor: theme.colorScheme.onTertiary,
-          icon: DestinationMarker.getIconForDestination(name),
-        ),
+      child: DestinationMarker(
+        size: markerSize,
+        backgroundColor: theme.colorScheme.tertiary,
+        iconColor: theme.colorScheme.onTertiary,
+        icon: DestinationMarker.getIconForDestination(name),
+        onTap: widget.onDestinationTap != null
+            ? () {
+                final results = widget.destinations.where(
+                  (d) => d.name == name && d.x == coord.dx && d.y == coord.dy,
+                );
+
+                final destination = results.isNotEmpty
+                    ? results.first
+                    : DestinationEntity(
+                        destinationId: 'poi_${name}_${coord.dx}_${coord.dy}',
+                        name: name,
+                        x: coord.dx,
+                        y: coord.dy,
+                      );
+                widget.onDestinationTap!(destination);
+              }
+            : null,
       ),
     );
   }

@@ -95,14 +95,18 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
     DestinationEntity destination,
   ) {
     showModalBottomSheet(
-      context: context,
+      context: this.context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => DestinationBottomSheet(
+      builder: (modalContext) => DestinationBottomSheet(
         destination: destination,
         onNavigate: () {
-          Navigator.pop(context);
-          context.push('/camera', extra: destination);
+          if (modalContext.mounted) {
+            Navigator.pop(modalContext);
+          }
+          if (mounted) {
+            context.push('/camera', extra: destination);
+          }
         },
       ),
     );
@@ -165,8 +169,10 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
         children: [
           IconButton(
             onPressed: () {
-              context.read<LocateMeBloc>().add(const ResetLocateMeEvent());
-              context.pop();
+              if (mounted) {
+                context.read<LocateMeBloc>().add(const ResetLocateMeEvent());
+                context.pop();
+              }
             },
             icon: Icon(
               Icons.arrow_back_ios,
@@ -182,7 +188,9 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
           ),
           IconButton(
             onPressed: () {
-              context.read<LocateMeBloc>().add(const ResetLocateMeEvent());
+              if (mounted) {
+                context.read<LocateMeBloc>().add(const ResetLocateMeEvent());
+              }
             },
             icon: Icon(Icons.refresh, color: theme.colorScheme.primary),
           ),
@@ -206,7 +214,7 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
       theme: theme,
       transformationController: _transformationController,
       onDestinationTap: (destination) =>
-          _showDestinationBottomSheet(context, destination),
+          _showDestinationBottomSheet(this.context, destination),
       onImageSizeLoaded: (containerSize, imageSize) {
         _initializeMapView(containerSize, imageSize, state.userPosition);
       },

@@ -38,6 +38,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     required this.destinationsCacheService,
   }) : super(const LocateMeInitial()) {
     on<StartLocalizationEvent>(_onStartLocalization);
+    on<LocateMeCapturePhotoEvent>(_onCapturePhoto);
     on<StartLocalizationWithSampleEvent>(_onStartLocalizationWithSample);
     on<StartLocalizationWithCoordinatesEvent>(
       _onStartLocalizationWithCoordinates,
@@ -47,19 +48,37 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     on<ResetLocateMeEvent>(_onReset);
   }
 
+  void _onCapturePhoto(
+    LocateMeCapturePhotoEvent event,
+    Emitter<LocateMeState> emit,
+  ) {
+    emit(LocateMePhotoCaptured(event.capturedImagePath));
+  }
+
   Future<void> _onStartLocalization(
     StartLocalizationEvent event,
     Emitter<LocateMeState> emit,
   ) async {
     emit(const LocateMeLoading(message: 'Analyzing your location...'));
 
-    try {
-      // Read and encode the captured image to base64
-      final imageFile = File(event.capturedImagePath);
-      final imageBytes = await imageFile.readAsBytes();
-      final base64Image = base64Encode(imageBytes);
+    final useSampleImage = locationConfigService.useSampleImage;
 
-      await _performLocalization(emit, base64Image, useSampleImage: false);
+    try {
+      String base64Image = '';
+
+      if (event.capturedImagePath.isNotEmpty && !useSampleImage) {
+        final imageFile = File(event.capturedImagePath);
+        if (await imageFile.exists()) {
+          final imageBytes = await imageFile.readAsBytes();
+          base64Image = base64Encode(imageBytes);
+        }
+      }
+
+      await _performLocalization(
+        emit,
+        base64Image,
+        useSampleImage: useSampleImage,
+      );
     } catch (e) {
       emit(LocateMeError('Failed to process image: ${e.toString()}'));
     }
@@ -167,6 +186,17 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
       sessionId: sessionId,
       unavMultifloor: false,
       useSampleImage: useSampleImage,
+      relocalize: false,
+      saveframe: false,
+      shortenVlmResponse: true,
+      speakVlmFirst: true,
+      useVlm: false,
+      imageCompression: ImageCompressionEntity(
+        enableCompression: locationConfigService.enableCompression,
+        maxHeight: locationConfigService.maxHeight,
+        maxWidth: locationConfigService.maxWidth,
+        quality: locationConfigService.imageQuality,
+      ),
     );
 
     final positionResult = await localizeUserUseCase(localizationRequest);

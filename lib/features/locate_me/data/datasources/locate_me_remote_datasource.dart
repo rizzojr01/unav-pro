@@ -55,10 +55,9 @@ class LocateMeRemoteDataSourceImpl extends BaseRemoteDataSource
     LocalizationRequestModel request,
   ) async {
     try {
-      final response = await post(
-        ApiRoutes.localizeUser,
-        data: request.toJson(),
-      );
+      final requestData = request.toJson();
+
+      final response = await post(ApiRoutes.localizeUser, data: requestData);
       return UserPositionModel.fromJson(response);
     } on LocalizationFailedException catch (e) {
       // Re-throw with the proper error message from the API

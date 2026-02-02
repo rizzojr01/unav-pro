@@ -11,5 +11,6 @@ abstract class NavigationRepository {
     required String sessionId,
     required bool useSampleImage,
     required String base64Image,
+    Map<String, dynamic>? imageCompression,
   });
 }

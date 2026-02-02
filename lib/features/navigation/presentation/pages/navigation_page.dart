@@ -9,6 +9,7 @@ import '../../../destination/domain/entities/destination_entity.dart';
 import '../bloc/navigation_bloc.dart';
 import '../bloc/navigation_event.dart';
 import '../bloc/navigation_state.dart';
+import '../../../locate_me/presentation/widgets/destination_bottom_sheet.dart';
 import '../widgets/map_view_widget.dart';
 
 class NavigationPage extends StatefulWidget {
@@ -34,6 +35,28 @@ class _NavigationPageState extends State<NavigationPage> {
     );
   }
 
+  void _showDestinationBottomSheet(
+    BuildContext context,
+    DestinationEntity destination,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalContext) => DestinationBottomSheet(
+        destination: destination,
+        onNavigate: () {
+          if (modalContext.mounted) {
+            Navigator.pop(modalContext);
+          }
+          if (mounted) {
+            context.push('/camera', extra: destination);
+          }
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -51,6 +74,8 @@ class _NavigationPageState extends State<NavigationPage> {
               route: state.route,
               floorPlanBase64: state.floorPlanBase64,
               destinations: state.destinations,
+              onDestinationTap: (destination) =>
+                  _showDestinationBottomSheet(this.context, destination),
             );
           } else if (state is NavigationError) {
             return CustomErrorView(
@@ -80,6 +105,7 @@ class _NavigationMapView extends StatelessWidget {
   final dynamic route;
   final String? floorPlanBase64;
   final List<DestinationEntity> destinations;
+  final Function(DestinationEntity)? onDestinationTap;
 
   const _NavigationMapView({
     required this.destination,
@@ -88,6 +114,7 @@ class _NavigationMapView extends StatelessWidget {
     required this.route,
     this.floorPlanBase64,
     this.destinations = const [],
+    this.onDestinationTap,
   });
 
   @override
@@ -106,6 +133,7 @@ class _NavigationMapView extends StatelessWidget {
               route: route,
               floorPlanBase64: floorPlanBase64,
               destinations: destinations,
+              onDestinationTap: onDestinationTap,
               onRetry: () {
                 context.read<NavigationBloc>().add(
                   InitializeNavigationEvent(destination, imagePath: imagePath),

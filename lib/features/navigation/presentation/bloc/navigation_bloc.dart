@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../shared/services/debug_config_service.dart';
 import '../../../../shared/services/destinations_cache_service.dart';
 import '../../../../shared/services/floor_plan_cache_service.dart';
 import '../../../../shared/services/location_config_service.dart';
@@ -18,7 +17,6 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
   final GetFloorPlanUseCase getFloorPlanUseCase;
   final LocationConfigService locationConfigService;
   final FloorPlanCacheService floorPlanCacheService;
-  final DebugConfigService debugConfigService;
   final DestinationsCacheService destinationsCacheService;
 
   NavigationBloc({
@@ -26,7 +24,6 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     required this.getFloorPlanUseCase,
     required this.locationConfigService,
     required this.floorPlanCacheService,
-    required this.debugConfigService,
     required this.destinationsCacheService,
   }) : super(const NavigationInitial()) {
     on<InitializeNavigationEvent>(_onInitializeNavigation);
@@ -41,7 +38,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     final floor = locationConfigService.floor;
     final destinationId = event.destination.destinationId;
     final sessionId = 'device_${DateTime.now().millisecondsSinceEpoch}';
-    final useSampleImage = debugConfigService.useSampleImage;
+    final useSampleImage = locationConfigService.useSampleImage;
 
     emit(const NavigationLoading(message: 'Loading floor plan...'));
 
@@ -97,7 +94,10 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
 
     // Step 2: Encode captured image to base64
     String base64Image = '';
-    if (event.imagePath != null && event.imagePath!.isNotEmpty) {
+
+    if (event.imagePath != null &&
+        event.imagePath!.isNotEmpty &&
+        !useSampleImage) {
       try {
         final imageFile = File(event.imagePath!);
         if (await imageFile.exists()) {
@@ -106,7 +106,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         }
       } catch (e) {
         // If image encoding fails, continue with empty string
-        // Backend will use sample image if useSampleImage is true
+        print('NavigationBloc: Image encoding failed: $e');
       }
     }
 
@@ -122,6 +122,12 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         sessionId: sessionId,
         useSampleImage: useSampleImage,
         base64Image: base64Image,
+        imageCompression: {
+          'enable_compression': locationConfigService.enableCompression,
+          'max_height': locationConfigService.maxHeight,
+          'max_width': locationConfigService.maxWidth,
+          'quality': locationConfigService.imageQuality,
+        },
       ),
     );
 

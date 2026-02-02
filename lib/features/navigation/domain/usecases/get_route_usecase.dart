@@ -13,6 +13,7 @@ class GetRouteParams {
   final String sessionId;
   final bool useSampleImage;
   final String base64Image;
+  final Map<String, dynamic>? imageCompression;
 
   const GetRouteParams({
     required this.destinationId,
@@ -22,6 +23,7 @@ class GetRouteParams {
     required this.sessionId,
     required this.useSampleImage,
     required this.base64Image,
+    this.imageCompression,
   });
 }
 
@@ -41,6 +43,7 @@ class GetRouteUseCase implements UseCase<RouteEntity, GetRouteParams> {
       sessionId: params.sessionId,
       useSampleImage: params.useSampleImage,
       base64Image: params.base64Image,
+      imageCompression: params.imageCompression,
     );
   }
 }
