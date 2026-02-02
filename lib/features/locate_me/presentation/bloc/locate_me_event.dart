@@ -19,6 +19,16 @@ class StartLocalizationEvent extends LocateMeEvent {
   List<Object?> get props => [capturedImagePath];
 }
 
+/// Event to capture photo for preview
+class LocateMeCapturePhotoEvent extends LocateMeEvent {
+  final String capturedImagePath;
+
+  const LocateMeCapturePhotoEvent({required this.capturedImagePath});
+
+  @override
+  List<Object?> get props => [capturedImagePath];
+}
+
 /// Event to start localization with sample image (for testing)
 class StartLocalizationWithSampleEvent extends LocateMeEvent {
   const StartLocalizationWithSampleEvent();

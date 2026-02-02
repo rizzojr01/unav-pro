@@ -38,6 +38,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     required this.destinationsCacheService,
   }) : super(const LocateMeInitial()) {
     on<StartLocalizationEvent>(_onStartLocalization);
+    on<LocateMeCapturePhotoEvent>(_onCapturePhoto);
     on<StartLocalizationWithSampleEvent>(_onStartLocalizationWithSample);
     on<StartLocalizationWithCoordinatesEvent>(
       _onStartLocalizationWithCoordinates,
@@ -45,6 +46,13 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     on<SelectDestinationEvent>(_onSelectDestination);
     on<ClearSelectedDestinationEvent>(_onClearSelectedDestination);
     on<ResetLocateMeEvent>(_onReset);
+  }
+
+  void _onCapturePhoto(
+    LocateMeCapturePhotoEvent event,
+    Emitter<LocateMeState> emit,
+  ) {
+    emit(LocateMePhotoCaptured(event.capturedImagePath));
   }
 
   Future<void> _onStartLocalization(

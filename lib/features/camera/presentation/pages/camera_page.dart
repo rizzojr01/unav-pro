@@ -1,6 +1,3 @@
-import 'dart:io';
-
-import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -15,6 +12,8 @@ import '../../../../shared/widgets/location_input_view.dart';
 import '../bloc/camera_bloc.dart';
 import '../bloc/camera_event.dart';
 import '../bloc/camera_state.dart';
+
+import '../widgets/photo_preview_widget.dart';
 
 class CameraPage extends StatefulWidget {
   final DestinationEntity? destination;
@@ -77,7 +76,21 @@ class _CameraPageState extends State<CameraPage>
         destination: widget.destination,
       );
     } else if (state is CameraPhotoCaptured) {
-      return _PhotoPreviewView(state: state, destination: widget.destination);
+      return PhotoPreviewWidget(
+        imagePath: state.photo.filePath,
+        onRetake: () {
+          context.read<CameraBloc>().add(const InitializeCameraEvent());
+        },
+        onContinue: () {
+          context.push(
+            '/navigation',
+            extra: {
+              'destination': widget.destination,
+              'imagePath': state.photo.filePath,
+            },
+          );
+        },
+      );
     } else if (state is CameraError) {
       return CustomErrorView(
         message: state.message,
@@ -144,7 +157,7 @@ class _CameraReadyView extends StatelessWidget {
               context.read<CameraBloc>().add(CapturePhotoEvent(filePath: path));
             },
             onLocationSelected: (x, y) {
-              context.go(
+              context.push(
                 '/navigation',
                 extra: {
                   'destination': destination,
@@ -152,86 +165,6 @@ class _CameraReadyView extends StatelessWidget {
                 },
               );
             },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PhotoPreviewView extends StatelessWidget {
-  final CameraPhotoCaptured state;
-  final DestinationEntity? destination;
-
-  const _PhotoPreviewView({required this.state, this.destination});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Photo preview
-        Image.file(File(state.photo.filePath), fit: BoxFit.cover),
-        // Header
-        SafeArea(
-          child: StepIndicator(
-            currentStep: 2,
-            title: 'Review Photo',
-            onBack: () =>
-                context.read<CameraBloc>().add(const InitializeCameraEvent()),
-          ),
-        ),
-        // Footer controls
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: Container(
-            padding: const EdgeInsets.only(bottom: 50, top: 40),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [Colors.black, Colors.transparent],
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                TextButton.icon(
-                  onPressed: () => context.read<CameraBloc>().add(
-                    const InitializeCameraEvent(),
-                  ),
-                  icon: const Icon(Icons.refresh, color: Colors.white),
-                  label: const Text(
-                    'Retake',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    context.go(
-                      '/navigation',
-                      extra: {
-                        'destination': destination,
-                        'imagePath': state.photo.filePath,
-                      },
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.colorScheme.primary,
-                    foregroundColor: theme.colorScheme.onPrimary,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                  ),
-                  icon: const Icon(Icons.check),
-                  label: const Text('Continue'),
-                ),
-              ],
-            ),
           ),
         ),
       ],

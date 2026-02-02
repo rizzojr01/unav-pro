@@ -17,6 +17,16 @@ class LocateMeCameraReady extends LocateMeState {
   const LocateMeCameraReady();
 }
 
+/// State when photo is captured for preview
+class LocateMePhotoCaptured extends LocateMeState {
+  final String imagePath;
+
+  const LocateMePhotoCaptured(this.imagePath);
+
+  @override
+  List<Object?> get props => [imagePath];
+}
+
 /// State when processing localization
 class LocateMeLoading extends LocateMeState {
   final String message;

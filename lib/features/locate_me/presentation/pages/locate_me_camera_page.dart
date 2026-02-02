@@ -10,6 +10,8 @@ import '../bloc/locate_me_event.dart';
 import '../bloc/locate_me_state.dart';
 import 'locate_me_floor_plan_page.dart';
 
+import '../../../camera/presentation/widgets/photo_preview_widget.dart';
+
 class LocateMeCameraPage extends StatefulWidget {
   const LocateMeCameraPage({super.key});
 
@@ -56,58 +58,70 @@ class _LocateMeCameraPageState extends State<LocateMeCameraPage>
           );
         }
       },
-      child: Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        appBar: AppBar(
-          backgroundColor: theme.colorScheme.surface,
-          elevation: 0,
-          leading: IconButton(
-            icon: Icon(
-              Icons.arrow_back_ios,
-              color: theme.colorScheme.onSurface,
-            ),
-            onPressed: () => context.pop(),
-          ),
-          title: Text(
-            'Locate Me',
-            style: TextStyle(
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          centerTitle: true,
-          bottom: TabBar(
-            controller: _tabController,
-            indicatorColor: theme.colorScheme.primary,
-            labelColor: theme.colorScheme.primary,
-            unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
-            tabs: const [
-              Tab(icon: Icon(Icons.camera_alt_rounded), text: 'Camera'),
-              Tab(icon: Icon(Icons.map_rounded), text: 'Floor Plan'),
-            ],
-          ),
-        ),
-        body: BlocBuilder<LocateMeBloc, LocateMeState>(
-          builder: (context, state) {
-            if (state is LocateMeLoading) {
-              return CustomLoadingView(message: state.message);
-            }
-
-            return LocationInputView(
-              tabController: _tabController,
-              onImageCaptured: (path) {
-                context.read<LocateMeBloc>().add(
-                  StartLocalizationEvent(capturedImagePath: path),
-                );
+      child: BlocBuilder<LocateMeBloc, LocateMeState>(
+        builder: (context, state) {
+          if (state is LocateMePhotoCaptured) {
+            return PhotoPreviewWidget(
+              imagePath: state.imagePath,
+              onRetake: () {
+                context.read<LocateMeBloc>().add(const ResetLocateMeEvent());
               },
-              onLocationSelected: (x, y) {
+              onContinue: () {
                 context.read<LocateMeBloc>().add(
-                  StartLocalizationWithCoordinatesEvent(x: x, y: y),
+                  StartLocalizationEvent(capturedImagePath: state.imagePath),
                 );
               },
             );
-          },
-        ),
+          }
+
+          return Scaffold(
+            backgroundColor: theme.scaffoldBackgroundColor,
+            appBar: AppBar(
+              backgroundColor: theme.colorScheme.surface,
+              elevation: 0,
+              leading: IconButton(
+                icon: Icon(
+                  Icons.arrow_back_ios,
+                  color: theme.colorScheme.onSurface,
+                ),
+                onPressed: () => context.pop(),
+              ),
+              title: Text(
+                'Locate Me',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              centerTitle: true,
+              bottom: TabBar(
+                controller: _tabController,
+                indicatorColor: theme.colorScheme.primary,
+                labelColor: theme.colorScheme.primary,
+                unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+                tabs: const [
+                  Tab(icon: Icon(Icons.camera_alt_rounded), text: 'Camera'),
+                  Tab(icon: Icon(Icons.map_rounded), text: 'Floor Plan'),
+                ],
+              ),
+            ),
+            body: state is LocateMeLoading
+                ? CustomLoadingView(message: state.message)
+                : LocationInputView(
+                    tabController: _tabController,
+                    onImageCaptured: (path) {
+                      context.read<LocateMeBloc>().add(
+                        LocateMeCapturePhotoEvent(capturedImagePath: path),
+                      );
+                    },
+                    onLocationSelected: (x, y) {
+                      context.read<LocateMeBloc>().add(
+                        StartLocalizationWithCoordinatesEvent(x: x, y: y),
+                      );
+                    },
+                  ),
+          );
+        },
       ),
     );
   }

@@ -97,7 +97,10 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
 
     // Step 2: Encode captured image to base64
     String base64Image = '';
-    if (event.imagePath != null && event.imagePath!.isNotEmpty) {
+
+    if (event.imagePath != null &&
+        event.imagePath!.isNotEmpty &&
+        !useSampleImage) {
       try {
         final imageFile = File(event.imagePath!);
         if (await imageFile.exists()) {
@@ -106,7 +109,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         }
       } catch (e) {
         // If image encoding fails, continue with empty string
-        // Backend will use sample image if useSampleImage is true
+        print('NavigationBloc: Image encoding failed: $e');
       }
     }
 

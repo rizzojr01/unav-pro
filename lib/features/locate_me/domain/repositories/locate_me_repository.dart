@@ -13,6 +13,7 @@ abstract class LocateMeRepository {
     String? floor,
     String? place,
   });
+  
 
   /// Localize user on the floor plan
   Future<Either<Failure, UserPositionEntity>> localizeUser(
