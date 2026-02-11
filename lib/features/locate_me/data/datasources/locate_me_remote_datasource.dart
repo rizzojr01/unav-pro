@@ -1,5 +1,7 @@
 import '../../../../core/base/base_datasource.dart';
 import '../../../../core/constants/api_routes.dart';
+import '../../../../shared/services/device_id_service.dart';
+import '../../../../injection.dart';
 import '../../../destination/data/models/destination_model.dart';
 import '../models/floor_plan_model.dart';
 import '../models/user_position_model.dart';
@@ -85,8 +87,7 @@ class LocateMeRemoteDataSourceImpl extends BaseRemoteDataSource
           'building': building,
           'floor': floor,
           'place': place,
-          'device_id':
-              deviceId ?? 'device_${DateTime.now().millisecondsSinceEpoch}',
+          'device_id': deviceId ?? getIt<DeviceIdService>().getDeviceId(),
           'include_coordinates': includeCoordinates,
           'unav_multifloor': unavMultifloor,
         },

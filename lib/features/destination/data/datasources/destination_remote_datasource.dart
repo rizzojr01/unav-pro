@@ -1,6 +1,8 @@
 import '../../../../core/base/base_datasource.dart';
 import '../../../../core/constants/api_routes.dart';
 import '../../../../shared/services/location_config_service.dart';
+import '../../../../shared/services/device_id_service.dart';
+import '../../../../injection.dart';
 import '../models/destination_model.dart';
 
 abstract class DestinationRemoteDataSource {
@@ -22,7 +24,7 @@ class DestinationRemoteDataSourceImpl extends BaseRemoteDataSource
           'building': _locationConfigService.building,
           'floor': _locationConfigService.floor,
           'place': _locationConfigService.place,
-          'device_id': 'device_${DateTime.now().millisecondsSinceEpoch}',
+          'device_id': getIt<DeviceIdService>().getDeviceId(),
           'include_coordinates': true,
           'unav_multifloor': false,
         },
