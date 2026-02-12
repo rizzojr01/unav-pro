@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../../../../shared/widgets/map_search_overlay.dart';
+import '../../../../shared/widgets/map_controls_widget.dart';
 import '../../../../shared/widgets/map_markers.dart';
 import '../../../destination/domain/entities/destination_entity.dart';
 import '../../domain/entities/location_entity.dart';
@@ -39,6 +41,11 @@ class _MapViewWidgetState extends State<MapViewWidget>
   bool _hasImageError = false;
   Size? _imageSize;
 
+  // Search state
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  List<DestinationEntity> _filteredDestinations = [];
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +54,21 @@ class _MapViewWidgetState extends State<MapViewWidget>
       duration: const Duration(seconds: 10),
     )..repeat();
     _decodeFloorPlan();
+    _filteredDestinations = [];
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredDestinations = widget.destinations;
+      } else {
+        _filteredDestinations = widget.destinations
+            .where((d) => d.name.toLowerCase().contains(query))
+            .toList();
+      }
+    });
   }
 
   void _decodeFloorPlan() {
@@ -99,6 +121,7 @@ class _MapViewWidgetState extends State<MapViewWidget>
   void dispose() {
     _controller.dispose();
     _transformationController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -412,16 +435,30 @@ class _MapViewWidgetState extends State<MapViewWidget>
             },
           ),
 
-        // Map controls
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: _MapControlButton(
-            icon: Icons.my_location,
-            onPressed: _resetView,
-            tooltip: 'Reset view',
-          ),
+        MapControls(
+          onSearch: () => setState(() => _isSearching = true),
+          onReset: _resetView,
         ),
+
+        // Search Overlay
+        if (_isSearching)
+          MapSearchOverlay(
+            controller: _searchController,
+            filteredDestinations: _filteredDestinations,
+            onClose: () {
+              setState(() {
+                _isSearching = false;
+                _searchController.clear();
+              });
+            },
+            onDestinationTap: (destination) {
+              setState(() {
+                _isSearching = false;
+                _searchController.clear();
+              });
+              widget.onDestinationTap?.call(destination);
+            },
+          ),
       ],
     );
   }
@@ -569,43 +606,6 @@ class _MapViewWidgetState extends State<MapViewWidget>
                 widget.onDestinationTap!(destination);
               }
             : null,
-      ),
-    );
-  }
-}
-
-class _MapControlButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onPressed;
-  final String tooltip;
-
-  const _MapControlButton({
-    required this.icon,
-    required this.onPressed,
-    required this.tooltip,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      elevation: 4,
-      shadowColor: Colors.black26,
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onPressed,
-        customBorder: const CircleBorder(),
-        child: Tooltip(
-          message: tooltip,
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: Colors.black87, size: 22),
-          ),
-        ),
       ),
     );
   }

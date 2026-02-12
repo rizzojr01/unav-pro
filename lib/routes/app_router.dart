@@ -50,8 +50,22 @@ class AppRouter {
       GoRoute(
         path: camera,
         builder: (context, state) {
-          final destination = state.extra as DestinationEntity?;
-          return CameraPage(destination: destination);
+          final extra = state.extra;
+          DestinationEntity? destination;
+          Map<String, dynamic>? manualCoordinates;
+
+          if (extra is Map<String, dynamic>) {
+            destination = extra['destination'] as DestinationEntity?;
+            manualCoordinates =
+                extra['manualCoordinates'] as Map<String, dynamic>?;
+          } else if (extra is DestinationEntity) {
+            destination = extra;
+          }
+
+          return CameraPage(
+            destination: destination,
+            manualCoordinates: manualCoordinates,
+          );
         },
       ),
       GoRoute(
@@ -73,10 +87,13 @@ class AppRouter {
           final extra = state.extra;
           DestinationEntity? destination;
           String? imagePath;
+          Map<String, dynamic>? userPickedCoordinates;
 
           if (extra is Map<String, dynamic>) {
             destination = extra['destination'] as DestinationEntity?;
             imagePath = extra['imagePath'] as String?;
+            userPickedCoordinates =
+                extra['manualCoordinates'] as Map<String, dynamic>?;
           } else if (extra is DestinationEntity) {
             destination = extra;
           }
@@ -87,7 +104,11 @@ class AppRouter {
               body: const Center(child: Text('Destination is required')),
             );
           }
-          return NavigationPage(destination: destination, imagePath: imagePath);
+          return NavigationPage(
+            destination: destination,
+            imagePath: imagePath,
+            userPickedCoordinates: userPickedCoordinates,
+          );
         },
       ),
       GoRoute(
@@ -100,7 +121,7 @@ class AppRouter {
         },
       ),
       GoRoute(
-        path: locateMeFloorPlan, // Using the static const
+        path: locateMeFloorPlan,
         builder: (context, state) {
           final bloc = state.extra as LocateMeBloc;
           return BlocProvider.value(

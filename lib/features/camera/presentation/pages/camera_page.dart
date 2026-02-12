@@ -17,8 +17,9 @@ import '../widgets/photo_preview_widget.dart';
 
 class CameraPage extends StatefulWidget {
   final DestinationEntity? destination;
+  final Map<String, dynamic>? manualCoordinates;
 
-  const CameraPage({super.key, this.destination});
+  const CameraPage({super.key, this.destination, this.manualCoordinates});
 
   @override
   State<CameraPage> createState() => _CameraPageState();
@@ -87,6 +88,7 @@ class _CameraPageState extends State<CameraPage>
             extra: {
               'destination': widget.destination,
               'imagePath': state.photo.filePath,
+              'manualCoordinates': widget.manualCoordinates,
             },
           );
         },
@@ -161,7 +163,12 @@ class _CameraReadyView extends StatelessWidget {
                 '/navigation',
                 extra: {
                   'destination': destination,
-                  'manualCoordinates': {'x': x, 'y': y},
+                  'manualCoordinates': {
+                    'x': x,
+                    'y': y,
+                    'ang': 0.0,
+                    'enabled': true,
+                  },
                 },
               );
             },

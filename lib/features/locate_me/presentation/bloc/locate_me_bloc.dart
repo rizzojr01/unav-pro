@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../shared/services/destinations_cache_service.dart';
@@ -62,11 +63,20 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     emit(const LocateMeLoading(message: 'Analyzing your location...'));
 
     final useSampleImage = locationConfigService.useSampleImage;
+    final useAlternate = locationConfigService.useAlternateSampleImage;
 
     try {
       String base64Image = '';
+      bool effectiveUseSample = useSampleImage;
 
-      if (event.capturedImagePath.isNotEmpty && !useSampleImage) {
+      if (useAlternate) {
+        final byteData = await rootBundle.load(
+          locationConfigService.alternateSampleImagePath,
+        );
+        final bytes = byteData.buffer.asUint8List();
+        base64Image = base64Encode(bytes);
+        effectiveUseSample = false;
+      } else if (event.capturedImagePath.isNotEmpty && !useSampleImage) {
         final imageFile = File(event.capturedImagePath);
         if (await imageFile.exists()) {
           final imageBytes = await imageFile.readAsBytes();
@@ -77,7 +87,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
       await _performLocalization(
         emit,
         base64Image,
-        useSampleImage: useSampleImage,
+        useSampleImage: effectiveUseSample,
       );
     } catch (e) {
       emit(LocateMeError('Failed to process image: ${e.toString()}'));
@@ -187,7 +197,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
       unavMultifloor: false,
       useSampleImage: useSampleImage,
       relocalize: false,
-      saveframe: false,
+      saveframe: locationConfigService.saveFrame,
       shortenVlmResponse: true,
       speakVlmFirst: true,
       useVlm: false,
@@ -415,6 +425,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
         floorPlan: floorPlan!,
         userPosition: userPosition,
         destinations: destinations!,
+        isManualLocalization: true,
       ),
     );
   }

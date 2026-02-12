@@ -1,15 +1,14 @@
+import 'package:smart_sense/shared/widgets/custom_loading_view.dart';
+import 'package:smart_sense/shared/widgets/custom_snackbar.dart' as snackbar;
+import 'package:smart_sense/shared/widgets/location_input_view.dart';
+import 'package:smart_sense/features/locate_me/presentation/bloc/locate_me_bloc.dart';
+import 'package:smart_sense/features/locate_me/presentation/bloc/locate_me_event.dart';
+import 'package:smart_sense/features/locate_me/presentation/bloc/locate_me_state.dart';
+import 'package:smart_sense/features/camera/presentation/widgets/photo_preview_widget.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-
-import '../../../../shared/widgets/custom_loading_view.dart';
-import '../../../../shared/widgets/custom_snackbar.dart' as snackbar;
-import '../../../../shared/widgets/location_input_view.dart';
-import '../bloc/locate_me_bloc.dart';
-import '../bloc/locate_me_event.dart';
-import '../bloc/locate_me_state.dart';
-
-import '../../../camera/presentation/widgets/photo_preview_widget.dart';
 
 class LocateMeCameraPage extends StatefulWidget {
   const LocateMeCameraPage({super.key});

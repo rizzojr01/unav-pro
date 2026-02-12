@@ -43,12 +43,14 @@ class LocateMeReady extends LocateMeState {
   final UserPositionEntity userPosition;
   final List<DestinationEntity> destinations;
   final DestinationEntity? selectedDestination;
+  final bool isManualLocalization;
 
   const LocateMeReady({
     required this.floorPlan,
     required this.userPosition,
     required this.destinations,
     this.selectedDestination,
+    this.isManualLocalization = false,
   });
 
   LocateMeReady copyWith({
@@ -56,12 +58,14 @@ class LocateMeReady extends LocateMeState {
     UserPositionEntity? userPosition,
     List<DestinationEntity>? destinations,
     DestinationEntity? selectedDestination,
+    bool? isManualLocalization,
     bool clearSelectedDestination = false,
   }) {
     return LocateMeReady(
       floorPlan: floorPlan ?? this.floorPlan,
       userPosition: userPosition ?? this.userPosition,
       destinations: destinations ?? this.destinations,
+      isManualLocalization: isManualLocalization ?? this.isManualLocalization,
       selectedDestination: clearSelectedDestination
           ? null
           : (selectedDestination ?? this.selectedDestination),
@@ -74,6 +78,7 @@ class LocateMeReady extends LocateMeState {
     userPosition,
     destinations,
     selectedDestination,
+    isManualLocalization,
   ];
 }
 

@@ -11,9 +11,14 @@ abstract class NavigationEvent extends Equatable {
 class InitializeNavigationEvent extends NavigationEvent {
   final DestinationEntity destination;
   final String? imagePath;
+  final Map<String, dynamic>? userPickedCoordinates;
 
-  const InitializeNavigationEvent(this.destination, {this.imagePath});
+  const InitializeNavigationEvent(
+    this.destination, {
+    this.imagePath,
+    this.userPickedCoordinates,
+  });
 
   @override
-  List<Object?> get props => [destination, imagePath];
+  List<Object?> get props => [destination, imagePath, userPickedCoordinates];
 }

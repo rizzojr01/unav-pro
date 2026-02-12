@@ -12,7 +12,9 @@ abstract class NavigationRemoteDataSource {
     required String sessionId,
     required bool useSampleImage,
     required String base64Image,
+    bool saveFrame = false,
     Map<String, dynamic>? imageCompression,
+    Map<String, dynamic>? userPickedCoordinates,
   });
 }
 
@@ -29,7 +31,9 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
     required String sessionId,
     required bool useSampleImage,
     required String base64Image,
+    bool saveFrame = false,
     Map<String, dynamic>? imageCompression,
+    Map<String, dynamic>? userPickedCoordinates,
   }) async {
     return executeCall<RouteModel>(() async {
       final response = await post(
@@ -43,12 +47,14 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
           'use_sample_image': useSampleImage,
           'base_64_image': base64Image,
           'relocalize': false,
-          'saveframe': false,
+          'saveframe': saveFrame,
           'shorten_vlm_response': true,
           'speakVlmFirst': true,
           'unav_multifloor': false,
           'use_vlm': false,
           if (imageCompression != null) 'image_compression': imageCompression,
+          if (userPickedCoordinates != null)
+            'user_picked_coordinates': userPickedCoordinates,
         },
       );
 

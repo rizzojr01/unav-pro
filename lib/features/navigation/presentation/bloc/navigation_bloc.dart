@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../shared/services/destinations_cache_service.dart';
@@ -92,10 +93,23 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
       return;
     }
 
-    // Step 2: Encode captured image to base64
+    final useAlternate = locationConfigService.useAlternateSampleImage;
+    bool effectiveUseSample = useSampleImage;
+
     String base64Image = '';
 
-    if (event.imagePath != null &&
+    if (useAlternate) {
+      try {
+        final byteData = await rootBundle.load(
+          locationConfigService.alternateSampleImagePath,
+        );
+        final bytes = byteData.buffer.asUint8List();
+        base64Image = base64Encode(bytes);
+        effectiveUseSample = false;
+      } catch (e) {
+        print('NavigationBloc: Alternate image loading failed: $e');
+      }
+    } else if (event.imagePath != null &&
         event.imagePath!.isNotEmpty &&
         !useSampleImage) {
       try {
@@ -120,14 +134,16 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         building: building,
         floor: floor,
         sessionId: sessionId,
-        useSampleImage: useSampleImage,
+        useSampleImage: effectiveUseSample,
         base64Image: base64Image,
+        saveFrame: locationConfigService.saveFrame,
         imageCompression: {
           'enable_compression': locationConfigService.enableCompression,
           'max_height': locationConfigService.maxHeight,
           'max_width': locationConfigService.maxWidth,
           'quality': locationConfigService.imageQuality,
         },
+        userPickedCoordinates: event.userPickedCoordinates,
       ),
     );
 

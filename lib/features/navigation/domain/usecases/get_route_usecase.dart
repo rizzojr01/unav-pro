@@ -13,7 +13,9 @@ class GetRouteParams {
   final String sessionId;
   final bool useSampleImage;
   final String base64Image;
+  final bool saveFrame;
   final Map<String, dynamic>? imageCompression;
+  final Map<String, dynamic>? userPickedCoordinates;
 
   const GetRouteParams({
     required this.destinationId,
@@ -23,7 +25,9 @@ class GetRouteParams {
     required this.sessionId,
     required this.useSampleImage,
     required this.base64Image,
+    this.saveFrame = false,
     this.imageCompression,
+    this.userPickedCoordinates,
   });
 }
 
@@ -43,7 +47,9 @@ class GetRouteUseCase implements UseCase<RouteEntity, GetRouteParams> {
       sessionId: params.sessionId,
       useSampleImage: params.useSampleImage,
       base64Image: params.base64Image,
+      saveFrame: params.saveFrame,
       imageCompression: params.imageCompression,
+      userPickedCoordinates: params.userPickedCoordinates,
     );
   }
 }

@@ -11,6 +11,8 @@ abstract class NavigationRepository {
     required String sessionId,
     required bool useSampleImage,
     required String base64Image,
+    bool saveFrame = false,
     Map<String, dynamic>? imageCompression,
+    Map<String, dynamic>? userPickedCoordinates,
   });
 }

@@ -18,6 +18,11 @@ class LocationConfigService {
   static const String _keyMaxHeight = 'image_compression_max_height';
   static const String _keyMaxWidth = 'image_compression_max_width';
   static const String _keyImageQuality = 'image_compression_quality';
+  static const String _keySaveFrame = 'navigation_save_frame';
+  static const String _keyUseAlternateSampleImage =
+      'use_alternate_sample_image';
+  static const String _keyAlternateSampleImagePath =
+      'alternate_sample_image_path';
 
   LocationConfigService(this._prefs);
 
@@ -29,11 +34,27 @@ class LocationConfigService {
     await _prefs.setBool(_keyUseSampleImage, value);
   }
 
+  /// Alternate Sample Image Settings
+  bool get useAlternateSampleImage =>
+      _prefs.getBool(_keyUseAlternateSampleImage) ?? false;
+  String get alternateSampleImagePath =>
+      _prefs.getString(_keyAlternateSampleImagePath) ??
+      'assets/images/sample_images/sample_1.jpg';
+
+  Future<void> setUseAlternateSampleImage(bool value) async {
+    await _prefs.setBool(_keyUseAlternateSampleImage, value);
+  }
+
+  Future<void> setAlternateSampleImagePath(String value) async {
+    await _prefs.setString(_keyAlternateSampleImagePath, value);
+  }
+
   /// Image Compression Settings
   bool get enableCompression => _prefs.getBool(_keyEnableCompression) ?? false;
   int get maxHeight => _prefs.getInt(_keyMaxHeight) ?? 480;
   int get maxWidth => _prefs.getInt(_keyMaxWidth) ?? 640;
   int get imageQuality => _prefs.getInt(_keyImageQuality) ?? 60;
+  bool get saveFrame => _prefs.getBool(_keySaveFrame) ?? false;
 
   Future<void> setEnableCompression(bool value) async {
     await _prefs.setBool(_keyEnableCompression, value);
@@ -49,6 +70,10 @@ class LocationConfigService {
 
   Future<void> setImageQuality(int value) async {
     await _prefs.setInt(_keyImageQuality, value);
+  }
+
+  Future<void> setSaveFrame(bool value) async {
+    await _prefs.setBool(_keySaveFrame, value);
   }
 
   /// Get the selected place

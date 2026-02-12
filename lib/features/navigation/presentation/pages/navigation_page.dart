@@ -15,8 +15,14 @@ import '../widgets/map_view_widget.dart';
 class NavigationPage extends StatefulWidget {
   final DestinationEntity destination;
   final String? imagePath;
+  final Map<String, dynamic>? userPickedCoordinates;
 
-  const NavigationPage({super.key, required this.destination, this.imagePath});
+  const NavigationPage({
+    super.key,
+    required this.destination,
+    this.imagePath,
+    this.userPickedCoordinates,
+  });
 
   @override
   State<NavigationPage> createState() => _NavigationPageState();
@@ -31,6 +37,7 @@ class _NavigationPageState extends State<NavigationPage> {
       InitializeNavigationEvent(
         widget.destination,
         imagePath: widget.imagePath,
+        userPickedCoordinates: widget.userPickedCoordinates,
       ),
     );
   }
@@ -76,6 +83,7 @@ class _NavigationPageState extends State<NavigationPage> {
               destinations: state.destinations,
               onDestinationTap: (destination) =>
                   _showDestinationBottomSheet(this.context, destination),
+              userPickedCoordinates: widget.userPickedCoordinates,
             );
           } else if (state is NavigationError) {
             return CustomErrorView(
@@ -85,6 +93,7 @@ class _NavigationPageState extends State<NavigationPage> {
                   InitializeNavigationEvent(
                     widget.destination,
                     imagePath: widget.imagePath,
+                    userPickedCoordinates: widget.userPickedCoordinates,
                   ),
                 );
               },
@@ -106,6 +115,7 @@ class _NavigationMapView extends StatelessWidget {
   final String? floorPlanBase64;
   final List<DestinationEntity> destinations;
   final Function(DestinationEntity)? onDestinationTap;
+  final Map<String, dynamic>? userPickedCoordinates;
 
   const _NavigationMapView({
     required this.destination,
@@ -115,6 +125,7 @@ class _NavigationMapView extends StatelessWidget {
     this.floorPlanBase64,
     this.destinations = const [],
     this.onDestinationTap,
+    this.userPickedCoordinates,
   });
 
   @override
@@ -136,7 +147,11 @@ class _NavigationMapView extends StatelessWidget {
               onDestinationTap: onDestinationTap,
               onRetry: () {
                 context.read<NavigationBloc>().add(
-                  InitializeNavigationEvent(destination, imagePath: imagePath),
+                  InitializeNavigationEvent(
+                    destination,
+                    imagePath: imagePath,
+                    userPickedCoordinates: userPickedCoordinates,
+                  ),
                 );
               },
             ),

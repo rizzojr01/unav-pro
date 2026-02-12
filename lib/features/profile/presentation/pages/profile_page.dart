@@ -434,6 +434,134 @@ class ProfilePage extends StatelessWidget {
                 indent: 68,
                 color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
               ),
+              // Save Frame Toggle
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.tertiaryContainer.withValues(
+                          alpha: 0.3,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.save_outlined,
+                        color: theme.colorScheme.tertiary,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Save Frame',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Save captured frames to server',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: locationConfig.saveFrame,
+                      onChanged: (value) async {
+                        await locationConfig.setSaveFrame(value);
+                        setState(() {});
+                      },
+                      activeColor: theme.colorScheme.tertiary,
+                    ),
+                  ],
+                ),
+              ),
+              Divider(
+                height: 1,
+                indent: 68,
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+              // Alternate Sample Image Link
+              InkWell(
+                onTap: () => _showAlternateSampleImageSettings(context),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primaryContainer.withValues(
+                            alpha: 0.3,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.collections_outlined,
+                          color: theme.colorScheme.primary,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Alternate Sample Image',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              locationConfig.useAlternateSampleImage
+                                  ? 'Using: ${locationConfig.alternateSampleImagePath.split('/').last}'
+                                  : 'Send local asset instead of camera',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: locationConfig.useAlternateSampleImage
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 16,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Divider(
+                height: 1,
+                indent: 68,
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ),
               // Floor Map Testing
               InkWell(
                 onTap: () {
@@ -568,6 +696,16 @@ class ProfilePage extends StatelessWidget {
       isScrollControlled: true,
       useSafeArea: true,
       builder: (context) => const _ImageCompressionSettingsSheet(),
+    );
+  }
+
+  void _showAlternateSampleImageSettings(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => const _AlternateSampleImageSettingsSheet(),
     );
   }
 
@@ -1449,6 +1587,201 @@ class _LocationSettingsSheet extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _AlternateSampleImageSettingsSheet extends StatefulWidget {
+  const _AlternateSampleImageSettingsSheet();
+
+  @override
+  State<_AlternateSampleImageSettingsSheet> createState() =>
+      _AlternateSampleImageSettingsSheetState();
+}
+
+class _AlternateSampleImageSettingsSheetState
+    extends State<_AlternateSampleImageSettingsSheet> {
+  late bool _enabled;
+  late String _selectedPath;
+  final locationConfig = getIt<LocationConfigService>();
+
+  final List<String> _sampleImages = List.generate(
+    15,
+    (i) => 'assets/images/sample_images/sample_${i + 1}.jpg',
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _enabled = locationConfig.useAlternateSampleImage;
+    _selectedPath = locationConfig.alternateSampleImagePath;
+  }
+
+  Future<void> _save() async {
+    await locationConfig.setUseAlternateSampleImage(_enabled);
+    await locationConfig.setAlternateSampleImagePath(_selectedPath);
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.5,
+      maxChildSize: 0.9,
+      builder: (context, scrollController) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'ALTERNATE SAMPLE IMAGES',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2,
+                fontSize: 14,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 32),
+            _buildToggle(theme),
+            const SizedBox(height: 24),
+            Expanded(child: _buildImageList(theme, scrollController)),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: theme.colorScheme.onPrimary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text(
+                  'SAVE CHANGES',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggle(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.collections_outlined, color: theme.colorScheme.primary),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              'Enable Alternate Samples',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
+          Switch.adaptive(
+            value: _enabled,
+            onChanged: (v) => setState(() => _enabled = v),
+            activeColor: theme.colorScheme.primary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImageList(ThemeData theme, ScrollController scrollController) {
+    return ListView.builder(
+      controller: scrollController,
+      itemCount: _sampleImages.length,
+      itemBuilder: (context, index) {
+        final path = _sampleImages[index];
+        final name = path.split('/').last;
+        final isSelected = _selectedPath == path;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: InkWell(
+            onTap: () => setState(() => _selectedPath = path),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? theme.colorScheme.primaryContainer.withValues(alpha: 0.1)
+                    : theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isSelected
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                  width: isSelected ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.asset(
+                      path,
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: TextStyle(
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  if (isSelected)
+                    Icon(Icons.check_circle, color: theme.colorScheme.primary),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

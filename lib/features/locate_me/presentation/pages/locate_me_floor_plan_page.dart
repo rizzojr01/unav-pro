@@ -10,6 +10,8 @@ import '../bloc/locate_me_bloc.dart';
 import '../bloc/locate_me_event.dart';
 import '../bloc/locate_me_state.dart';
 import '../widgets/destination_bottom_sheet.dart';
+import '../../../../shared/widgets/map_controls_widget.dart';
+import '../../../../shared/widgets/map_search_overlay.dart';
 
 class LocateMeFloorPlanPage extends StatefulWidget {
   const LocateMeFloorPlanPage({super.key});
@@ -23,9 +25,41 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
       TransformationController();
   bool _hasInitializedView = false;
 
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  List<DestinationEntity> _filteredDestinations = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        final state = context.read<LocateMeBloc>().state;
+        if (state is LocateMeReady) {
+          _filteredDestinations = state.destinations;
+        } else {
+          _filteredDestinations = [];
+        }
+      } else {
+        final state = context.read<LocateMeBloc>().state;
+        if (state is LocateMeReady) {
+          _filteredDestinations = state.destinations
+              .where((d) => d.name.toLowerCase().contains(query))
+              .toList();
+        }
+      }
+    });
+  }
+
   @override
   void dispose() {
     _transformationController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -105,7 +139,26 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
             Navigator.pop(modalContext);
           }
           if (mounted) {
-            context.push('/camera', extra: destination);
+            final locateState = context.read<LocateMeBloc>().state;
+            Map<String, dynamic>? manualCoordinates;
+
+            if (locateState is LocateMeReady &&
+                locateState.isManualLocalization) {
+              manualCoordinates = {
+                'x': locateState.userPosition.x,
+                'y': locateState.userPosition.y,
+                'ang': locateState.userPosition.angle,
+                'enabled': true,
+              };
+            }
+
+            context.push(
+              '/camera',
+              extra: {
+                'destination': destination,
+                'manualCoordinates': manualCoordinates,
+              },
+            );
           }
         },
       ),
@@ -124,23 +177,45 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
 
         return Scaffold(
           backgroundColor: theme.scaffoldBackgroundColor,
-          body: Column(
+          floatingActionButton: null,
+          body: Stack(
             children: [
-              _buildHeader(context, theme),
-              Expanded(
-                child: ClipRect(
-                  child: _buildFloorPlanView(context, theme, state),
-                ),
+              Column(
+                children: [
+                  _buildHeader(context, theme),
+                  Expanded(
+                    child: ClipRect(
+                      child: _buildFloorPlanView(context, theme, state),
+                    ),
+                  ),
+                ],
               ),
+              MapControls(
+                onSearch: () => setState(() => _isSearching = true),
+                onReset: _resetView,
+                resetIcon: Icons.center_focus_strong,
+              ),
+
+              // Search Overlay
+              if (_isSearching)
+                MapSearchOverlay(
+                  controller: _searchController,
+                  filteredDestinations: _filteredDestinations,
+                  onClose: () {
+                    setState(() {
+                      _isSearching = false;
+                      _searchController.clear();
+                    });
+                  },
+                  onDestinationTap: (destination) {
+                    setState(() {
+                      _isSearching = false;
+                      _searchController.clear();
+                    });
+                    _showDestinationBottomSheet(context, destination);
+                  },
+                ),
             ],
-          ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: _resetView,
-            backgroundColor: theme.colorScheme.primaryContainer,
-            child: Icon(
-              Icons.center_focus_strong,
-              color: theme.colorScheme.onPrimaryContainer,
-            ),
           ),
         );
       },
