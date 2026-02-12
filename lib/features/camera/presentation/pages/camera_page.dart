@@ -83,7 +83,7 @@ class _CameraPageState extends State<CameraPage>
           context.read<CameraBloc>().add(const InitializeCameraEvent());
         },
         onContinue: () {
-          context.push(
+          context.pushReplacement(
             '/navigation',
             extra: {
               'destination': widget.destination,
@@ -159,7 +159,7 @@ class _CameraReadyView extends StatelessWidget {
               context.read<CameraBloc>().add(CapturePhotoEvent(filePath: path));
             },
             onLocationSelected: (x, y) {
-              context.push(
+              context.pushReplacement(
                 '/navigation',
                 extra: {
                   'destination': destination,

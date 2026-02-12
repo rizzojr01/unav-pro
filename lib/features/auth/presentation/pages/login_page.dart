@@ -8,6 +8,8 @@ import 'package:smart_sense/features/auth/presentation/bloc/auth_state.dart';
 import 'package:smart_sense/shared/widgets/premium_icon_container.dart';
 import 'package:smart_sense/shared/widgets/custom_button.dart';
 import 'package:smart_sense/shared/widgets/custom_text_field.dart';
+import 'package:smart_sense/core/services/storage_service.dart';
+import 'package:smart_sense/injection.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -47,7 +49,16 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _handleGuestLogin() {
-    context.go('/dashboard');
+    _navigateAfterLogin();
+  }
+
+  void _navigateAfterLogin() {
+    final storage = getIt<StorageService>();
+    if (storage.getBool('has_seen_onboarding') == true) {
+      context.go('/dashboard');
+    } else {
+      context.go('/onboarding');
+    }
   }
 
   @override
@@ -57,7 +68,7 @@ class _LoginPageState extends State<LoginPage> {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is Authenticated) {
-          context.go('/dashboard');
+          _navigateAfterLogin();
         } else if (state is AuthFailure) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

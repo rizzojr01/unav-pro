@@ -9,25 +9,25 @@ class AppText {
   static const String appTaglineUppercase = 'INDOOR NAVIGATION ASSISTANT';
 
   // ============ Onboarding ============
-  static const String onboardingTitle1 = 'Find Yourself';
+  static const String onboardingTitle1 = 'Welcome to SpaceSense';
   static const String onboardingDesc1 =
-      'Take a quick photo and we\'ll show you exactly where you are inside the building.';
+      'You are all set! Let\'s quickly show you how to find your way around.';
 
-  static const String onboardingTitle2 = 'Pick Where to Go';
+  static const String onboardingTitle2 = 'Locate & Navigate';
   static const String onboardingDesc2 =
-      'Choose any place you want to visit from our easy-to-use map.';
+      'Search for any destination or use "Locate Me" to pinpoint your exact position on the map.';
 
-  static const String onboardingTitle3 = 'See Your Path';
+  static const String onboardingTitle3 = 'Camera Tips';
   static const String onboardingDesc3 =
-      'View the route on the map and easily find your way to any destination.';
+      'For best results, hold your camera steady and capture distinct features like corners or signage.';
 
   static const String onboardingSkip = 'Skip';
   static const String onboardingNext = 'Next';
   static const String onboardingGetStarted = 'Get Started';
 
   // ============ Dashboard ============
-  static const String dashboardGreeting = 'Hello!';
-  static const String dashboardTagline = 'Find your way';
+  static const String dashboardGreeting = 'Unav';
+  static const String dashboardTagline = 'Indoor Navigation';
   static const String dashboardSearchHint = 'Search destination...';
   static const String dashboardPopularPlaces = 'Popular Places';
   static const String dashboardRecentDestinations = 'Recent Destinations';

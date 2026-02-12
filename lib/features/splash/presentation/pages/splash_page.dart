@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:smart_sense/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:smart_sense/features/auth/presentation/bloc/auth_state.dart';
 import 'package:smart_sense/core/constants/app_text.dart';
+import 'package:smart_sense/core/services/storage_service.dart';
+import 'package:smart_sense/injection.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -45,7 +50,17 @@ class _SplashPageState extends State<SplashPage>
 
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
-        context.go('/onboarding');
+        final authState = context.read<AuthBloc>().state;
+        if (authState is Authenticated) {
+          final storage = getIt<StorageService>();
+          if (storage.getBool('has_seen_onboarding') == true) {
+            context.go('/dashboard');
+          } else {
+            context.go('/onboarding');
+          }
+        } else {
+          context.go('/login');
+        }
       }
     });
   }

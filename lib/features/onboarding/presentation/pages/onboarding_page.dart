@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:smart_sense/core/constants/app_text.dart';
 import 'package:smart_sense/shared/widgets/premium_icon_container.dart';
 import 'package:smart_sense/shared/widgets/custom_button.dart';
+import 'package:smart_sense/core/services/storage_service.dart';
+import 'package:smart_sense/injection.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -17,17 +19,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   final List<OnboardingItem> _items = [
     OnboardingItem(
-      icon: Icons.center_focus_strong_rounded,
+      icon: Icons.explore_rounded,
       title: AppText.onboardingTitle1,
       description: AppText.onboardingDesc1,
     ),
     OnboardingItem(
-      icon: Icons.map_outlined,
+      icon: Icons.map_rounded,
       title: AppText.onboardingTitle2,
       description: AppText.onboardingDesc2,
     ),
     OnboardingItem(
-      icon: Icons.turn_right_rounded,
+      icon: Icons.camera_enhance_rounded,
       title: AppText.onboardingTitle3,
       description: AppText.onboardingDesc3,
     ),
@@ -45,7 +47,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     });
   }
 
-  void _goToNextPage() {
+  void _goToNextPage() async {
     if (_currentPage < _items.length - 1) {
       _pageController.animateToPage(
         _currentPage + 1,
@@ -53,12 +55,20 @@ class _OnboardingPageState extends State<OnboardingPage> {
         curve: Curves.easeInOut,
       );
     } else {
-      context.go('/login');
+      await _completeOnboarding();
     }
   }
 
-  void _skipOnboarding() {
-    context.go('/login');
+  void _skipOnboarding() async {
+    await _completeOnboarding();
+  }
+
+  Future<void> _completeOnboarding() async {
+    final storage = getIt<StorageService>();
+    await storage.setBool('has_seen_onboarding', true);
+    if (mounted) {
+      context.go('/dashboard');
+    }
   }
 
   @override

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../injection.dart';
 import '../../../../shared/services/device_id_service.dart';
 import '../../../../shared/services/destinations_cache_service.dart';
 import '../../../../shared/services/location_config_service.dart';
-import '../../../destination/domain/entities/destination_entity.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../bloc/localization_history_bloc.dart';
@@ -43,12 +43,12 @@ class _LocalizationHistoryPageState extends State<LocalizationHistoryPage> {
     }
 
     context.read<LocalizationHistoryBloc>().add(
-          FetchLocalizationHistoryEvent(
-            userIdentifier: userIdentifier,
-            identifierType: identifierType,
-            limit: 50,
-          ),
-        );
+      FetchLocalizationHistoryEvent(
+        userIdentifier: userIdentifier,
+        identifierType: identifierType,
+        limit: 50,
+      ),
+    );
   }
 
   @override
@@ -69,9 +69,7 @@ class _LocalizationHistoryPageState extends State<LocalizationHistoryPage> {
       body: BlocBuilder<LocalizationHistoryBloc, LocalizationHistoryState>(
         builder: (context, state) {
           if (state is LocalizationHistoryLoading) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
 
           if (state is LocalizationHistoryError) {
@@ -116,7 +114,9 @@ class _LocalizationHistoryPageState extends State<LocalizationHistoryPage> {
                     Icon(
                       Icons.history_rounded,
                       size: 48,
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                      color: theme.colorScheme.onSurfaceVariant.withOpacity(
+                        0.5,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -228,8 +228,9 @@ class _LocalizationHistoryPageState extends State<LocalizationHistoryPage> {
 
       if (cached != null && cached.isNotEmpty) {
         try {
-          final match = cached.firstWhere((d) =>
-              d.destinationId == destinationId || d.id == destinationId);
+          final match = cached.firstWhere(
+            (d) => d.destinationId == destinationId || d.id == destinationId,
+          );
           return match.name;
         } on StateError {
           // no match found, fall through to return id

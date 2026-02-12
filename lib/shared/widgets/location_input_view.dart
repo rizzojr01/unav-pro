@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:camera/camera.dart';
+import 'package:camera_macos/camera_macos.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../injection.dart';
 import '../services/floor_plan_cache_service.dart';
@@ -27,8 +30,10 @@ class LocationInputView extends StatefulWidget {
 
 class _LocationInputViewState extends State<LocationInputView> {
   CameraController? _controller;
+  CameraMacOSController? _macOSController;
   bool _isInitializing = true;
   bool _isCapturing = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -38,9 +43,21 @@ class _LocationInputViewState extends State<LocationInputView> {
 
   Future<void> _initializeCamera() async {
     try {
+      if (Platform.isMacOS) {
+        if (mounted) setState(() => _errorMessage = null);
+        return;
+      }
+
+      if (mounted) setState(() => _errorMessage = null);
+
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
-        if (mounted) setState(() => _isInitializing = false);
+        if (mounted) {
+          setState(() {
+            _isInitializing = false;
+            _errorMessage = 'No cameras found on this device.';
+          });
+        }
         return;
       }
 
@@ -56,7 +73,10 @@ class _LocationInputViewState extends State<LocationInputView> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isInitializing = false);
+        setState(() {
+          _isInitializing = false;
+          _errorMessage = 'Error initializing camera: $e';
+        });
       }
     }
   }
@@ -68,6 +88,37 @@ class _LocationInputViewState extends State<LocationInputView> {
   }
 
   Future<void> _captureImage() async {
+    if (Platform.isMacOS) {
+      if (_macOSController != null && !_isCapturing) {
+        setState(() => _isCapturing = true);
+        try {
+          final result = await _macOSController!.takePicture();
+          if (result != null && result.bytes != null) {
+            final tempDir = await getTemporaryDirectory();
+            final file = File(
+              '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg',
+            );
+            await file.writeAsBytes(result.bytes!);
+            if (mounted) {
+              widget.onImageCaptured(file.path);
+            }
+          }
+        } catch (e) {
+          if (mounted) {
+            snackbar.CustomSnackBar.show(
+              context,
+              message: 'Failed to capture image: ${e.toString()}',
+              type: snackbar.SnackBarType.error,
+            );
+          }
+        } finally {
+          if (mounted) setState(() => _isCapturing = false);
+        }
+      }
+      return;
+    }
+
+    // Mobile Capture Logic
     if (_controller == null ||
         !_controller!.value.isInitialized ||
         _isCapturing) {
@@ -108,29 +159,115 @@ class _LocationInputViewState extends State<LocationInputView> {
   }
 
   Widget _buildCameraTab(ThemeData theme) {
+    // macOS Camera View
+    if (Platform.isMacOS) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          CameraMacOSView(
+            key: GlobalKey(),
+            fit: BoxFit.cover,
+            cameraMode: CameraMacOSMode.photo,
+            onCameraInizialized: (CameraMacOSController controller) {
+              if (mounted) {
+                setState(() {
+                  _macOSController = controller;
+                  _isInitializing = false;
+                  _errorMessage = null; // Clear any previous error
+                });
+              }
+            },
+          ),
+          if (_isInitializing) const Center(child: CircularProgressIndicator()),
+          if (!_isInitializing) ...[
+            const _CameraGuidance(),
+            // Capture Button (Shared UI)
+            Positioned(
+              bottom: 40,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  const SizedBox(width: 60), // Spacer for symmetry
+                  GestureDetector(
+                    onTap: _captureImage,
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: theme.colorScheme.primary,
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.4,
+                            ),
+                            blurRadius: 20,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: _isCapturing
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
+                            )
+                          : Icon(
+                              Icons.camera_rounded,
+                              color: theme.colorScheme.onPrimary,
+                              size: 40,
+                            ),
+                    ),
+                  ),
+                  const SizedBox(width: 60), // Spacer for symmetry
+                ],
+              ),
+            ),
+          ],
+        ],
+      );
+    }
+
+    // Mobile Camera View
     if (_isInitializing) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_controller == null || !_controller!.value.isInitialized) {
+    if (_errorMessage != null ||
+        _controller == null ||
+        !_controller!.value.isInitialized) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.camera_alt_outlined,
-              size: 64,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Camera not available',
-              style: TextStyle(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.camera_alt_outlined,
+                size: 64,
                 color: theme.colorScheme.onSurfaceVariant,
-                fontSize: 16,
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              Text(
+                _errorMessage ?? 'Camera not available',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() => _isInitializing = true);
+                  _initializeCamera();
+                },
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -163,7 +300,7 @@ class _LocationInputViewState extends State<LocationInputView> {
                     color: theme.colorScheme.primary,
                     boxShadow: [
                       BoxShadow(
-                        color: theme.colorScheme.primary.withOpacity(0.4),
+                        color: theme.colorScheme.primary.withValues(alpha: 0.4),
                         blurRadius: 20,
                         spreadRadius: 2,
                       ),

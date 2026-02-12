@@ -57,7 +57,7 @@ class _NavigationPageState extends State<NavigationPage> {
             Navigator.pop(modalContext);
           }
           if (mounted) {
-            context.push('/camera', extra: destination);
+            context.pushReplacement('/camera', extra: destination);
           }
         },
       ),

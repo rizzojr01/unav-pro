@@ -22,9 +22,9 @@ class ProfilePage extends StatelessWidget {
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
         final user = state is Authenticated ? state.user : null;
-        return Container(
-          color: theme.scaffoldBackgroundColor,
-          child: CustomScrollView(
+        return Scaffold(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          body: CustomScrollView(
             slivers: [
               _buildSliverAppBar(context, state, user?.nickname ?? 'Guest'),
               SliverToBoxAdapter(
@@ -150,7 +150,7 @@ class ProfilePage extends StatelessWidget {
     return SliverAppBar(
       expandedHeight: 280,
       backgroundColor: theme.scaffoldBackgroundColor,
-      automaticallyImplyLeading: false,
+      automaticallyImplyLeading: true,
       pinned: true,
       flexibleSpace: FlexibleSpaceBar(
         background: Stack(
@@ -624,39 +624,6 @@ class ProfilePage extends StatelessWidget {
                 height: 1,
                 indent: 68,
                 color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
-              ),
-              // Info text
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.tertiaryContainer.withValues(
-                      alpha: 0.3,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        size: 18,
-                        color: theme.colorScheme.tertiary,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'When enabled, the app will use a pre-configured sample image instead of capturing from camera.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: theme.colorScheme.onSurfaceVariant,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ),
             ],
           ),

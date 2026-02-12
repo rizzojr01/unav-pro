@@ -1,4 +1,6 @@
 PODS:
+  - camera_macos (0.0.1):
+    - FlutterMacOS
   - FlutterMacOS (1.0.0)
   - geolocator_apple (1.2.0):
     - Flutter
@@ -11,12 +13,15 @@ PODS:
     - FlutterMacOS
 
 DEPENDENCIES:
+  - camera_macos (from `Flutter/ephemeral/.symlinks/plugins/camera_macos/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
   - geolocator_apple (from `Flutter/ephemeral/.symlinks/plugins/geolocator_apple/darwin`)
   - path_provider_foundation (from `Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin`)
   - shared_preferences_foundation (from `Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin`)
 
 EXTERNAL SOURCES:
+  camera_macos:
+    :path: Flutter/ephemeral/.symlinks/plugins/camera_macos/macos
   FlutterMacOS:
     :path: Flutter/ephemeral
   geolocator_apple:
@@ -27,11 +32,12 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin
 
 SPEC CHECKSUMS:
+  camera_macos: 9fd766915a6c236c8b3fd902f7ccd215636cd07a
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
   geolocator_apple: ab36aa0e8b7d7a2d7639b3b4e48308394e8cef5e
   path_provider_foundation: bb55f6dbba17d0dccd6737fe6f7f34fbd0376880
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
 
-PODFILE CHECKSUM: 54d867c82ac51cbd61b565781b9fada492027009
+PODFILE CHECKSUM: 180da7a1dbc1d932db021ebc8007656e7c46dd99
 
 COCOAPODS: 1.16.2

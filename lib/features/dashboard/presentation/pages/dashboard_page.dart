@@ -9,13 +9,11 @@ import '../../../../shared/services/destinations_cache_service.dart';
 import '../../../../shared/services/device_id_service.dart';
 import '../../../../shared/services/location_config_service.dart';
 import '../../../destination/domain/entities/destination_entity.dart';
-import '../../../profile/presentation/pages/profile_page.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../localization_history/presentation/bloc/localization_history_bloc.dart';
 import '../../../localization_history/presentation/bloc/localization_history_event.dart';
 import '../../../localization_history/presentation/bloc/localization_history_state.dart';
-import '../../../../shared/widgets/search_bar.dart';
 import '../../../../shared/widgets/quick_action_card.dart';
 import '../../../../shared/widgets/recent_place_tile.dart';
 
@@ -28,7 +26,6 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage>
     with WidgetsBindingObserver {
-  int _selectedIndex = 0;
   List<DestinationEntity> _popularPlaces = [];
 
   @override
@@ -82,6 +79,10 @@ class _DashboardPageState extends State<DashboardPage>
     context.push('/destination').then((_) => _loadData());
   }
 
+  void _handleProfile() {
+    context.push('/profile');
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -90,201 +91,38 @@ class _DashboardPageState extends State<DashboardPage>
       create: (context) => getIt<LocalizationHistoryBloc>(),
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
-        body: IndexedStack(
-          index: _selectedIndex,
-          children: [
-            SafeArea(child: _buildHomeContent(context)),
-            const ProfilePage(),
-          ],
-        ),
-        bottomNavigationBar: BottomAppBar(
-          color: theme.colorScheme.surface,
-          elevation: 4,
-          child: SizedBox(
-            height: 60,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavBarItem(context, 0, Icons.home_filled, 'Home'),
-                _buildNavBarItem(context, 1, Icons.person, 'Profile'),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavBarItem(
-    BuildContext context,
-    int index,
-    IconData icon,
-    String label,
-  ) {
-    final theme = Theme.of(context);
-    final isSelected = _selectedIndex == index;
-    return InkWell(
-      onTap: () => setState(() => _selectedIndex = index),
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Icon(
-          icon,
-          color: isSelected
-              ? theme.colorScheme.primary
-              : theme.colorScheme.onSurfaceVariant,
-          size: 28,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHomeContent(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      children: [
-        // Header Section
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-          child: _buildHeader(context),
-        ),
-
-        // Locate Me Section - Prominently displayed
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-          child: _buildTopTabs(context, theme),
-        ),
-
-        // Visual Divider between Locate Me and Navigation
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-          child: Row(
+        body: SafeArea(
+          child: Column(
             children: [
-              Expanded(
-                child: Divider(
-                  color: theme.colorScheme.outlineVariant,
-                  thickness: 1,
-                ),
-              ),
+              // Header Section
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'WHERE TO?',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.5,
-                  ),
-                ),
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                child: _buildHeader(context),
               ),
+
+              // Scrollable Content
               Expanded(
-                child: Divider(
-                  color: theme.colorScheme.outlineVariant,
-                  thickness: 1,
-                ),
-              ),
-            ],
-          ),
-        ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Large Navigate Me CTA
+                      _buildNavigateMeButton(context, theme),
 
-        // Scrollable Navigation Content
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSearchBar(context),
-                const SizedBox(height: 32),
-                _buildSectionHeader(context, 'Popular Places', () {}),
-                const SizedBox(height: 16),
-                _buildQuickActionsGrid(context),
-                const SizedBox(height: 32),
-                _buildSectionHeader(context, 'Recent Destinations', () {
-                  context.push('/destination');
-                }),
-                const SizedBox(height: 16),
-                _buildRecentDestinationsList(context),
-                const SizedBox(height: 32),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTopTabs(BuildContext context, ThemeData theme) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildTabButton(
-              context,
-              theme,
-              icon: Icons.my_location_rounded,
-              label: 'Locate Me',
-              onTap: _handleLocateMe,
-              isPrimary: true,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _buildTabButton(
-              context,
-              theme,
-              icon: Icons.navigation_rounded,
-              label: 'Navigate Me',
-              onTap: _handleNavigateMe,
-              isPrimary: false,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabButton(
-    BuildContext context,
-    ThemeData theme, {
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    required bool isPrimary,
-  }) {
-    final color = isPrimary
-        ? theme.colorScheme.primary
-        : theme.colorScheme.secondary;
-
-    return Material(
-      color: color.withValues(alpha: 0.15),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: color, size: 24),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                      const SizedBox(height: 32),
+                      _buildSectionHeader(context, 'Popular Places', () {}),
+                      const SizedBox(height: 16),
+                      _buildQuickActionsGrid(context),
+                      const SizedBox(height: 32),
+                      _buildSectionHeader(context, 'Recent Destinations', () {
+                        context.push('/destination');
+                      }),
+                      const SizedBox(height: 16),
+                      _buildRecentDestinationsList(context),
+                      const SizedBox(height: 32),
+                    ],
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -296,44 +134,161 @@ class _DashboardPageState extends State<DashboardPage>
 
   Widget _buildHeader(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Hello!',
+              'Unav',
               style: TextStyle(
-                fontSize: 16,
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
               ),
             ),
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-              child: Icon(Icons.person, color: theme.colorScheme.primary),
+            Text(
+              'Indoor Navigation',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Find your way',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onSurface,
-          ),
+        Row(
+          children: [
+            // Locate Me Button
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _handleLocateMe,
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.secondaryContainer.withValues(
+                      alpha: 0.5,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: theme.colorScheme.outline.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.my_location_rounded,
+                        size: 20,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Locate',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Profile Icon
+            InkWell(
+              onTap: _handleProfile,
+              borderRadius: BorderRadius.circular(20),
+              child: CircleAvatar(
+                radius: 20,
+                backgroundColor: theme.colorScheme.primary.withValues(
+                  alpha: 0.1,
+                ),
+                child: Icon(Icons.person, color: theme.colorScheme.primary),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildSearchBar(BuildContext context) {
-    return CustomSearchBar(
-      hintText: 'Search destination...',
-      onTap: () => context.push('/destination'),
+  Widget _buildNavigateMeButton(BuildContext context, ThemeData theme) {
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.primary.withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _handleNavigateMe,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.onPrimary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.navigation_rounded,
+                    color: theme.colorScheme.onPrimary,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Navigate Me',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onPrimary,
+                        ),
+                      ),
+                      Text(
+                        'Find your destination',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: theme.colorScheme.onPrimary.withValues(
+                            alpha: 0.8,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: theme.colorScheme.onPrimary,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -406,7 +361,7 @@ class _DashboardPageState extends State<DashboardPage>
           ),
           const SizedBox(height: 8),
           Text(
-            'Use "Locate Me" to discover places around you',
+            'Places will appear here as you use the app',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: theme.colorScheme.onSurfaceVariant,
@@ -515,12 +470,12 @@ class _DashboardPageState extends State<DashboardPage>
           }
 
           context.read<LocalizationHistoryBloc>().add(
-                FetchLocalizationHistoryEvent(
-                  userIdentifier: userIdentifier,
-                  identifierType: identifierType,
-                  limit: 10,
-                ),
-              );
+            FetchLocalizationHistoryEvent(
+              userIdentifier: userIdentifier,
+              identifierType: identifierType,
+              limit: 10,
+            ),
+          );
 
           return const SizedBox();
         }
@@ -575,10 +530,9 @@ class _DashboardPageState extends State<DashboardPage>
                     Icon(
                       Icons.history_rounded,
                       size: 48,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurfaceVariant
-                          .withOpacity(0.5),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurfaceVariant.withOpacity(0.5),
                     ),
                     const SizedBox(height: 12),
                     Text(
@@ -592,10 +546,9 @@ class _DashboardPageState extends State<DashboardPage>
                     Text(
                       'Start navigating to see your history',
                       style: TextStyle(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurfaceVariant
-                            .withOpacity(0.7),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurfaceVariant.withOpacity(0.7),
                         fontSize: 12,
                       ),
                     ),
