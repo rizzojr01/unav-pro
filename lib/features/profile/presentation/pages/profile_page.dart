@@ -49,7 +49,7 @@ class ProfilePage extends StatelessWidget {
                           icon: Icons.history_rounded,
                           title: 'Navigation History',
                           subtitle: 'View your past trips',
-                          onTap: () {},
+                          onTap: () => context.push('/localization-history'),
                         ),
                         _SettingsItem(
                           icon: Icons.bookmark_border_rounded,

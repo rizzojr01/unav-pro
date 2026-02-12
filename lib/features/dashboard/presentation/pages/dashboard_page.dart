@@ -1,14 +1,20 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../injection.dart';
 import '../../../../shared/services/destinations_cache_service.dart';
+import '../../../../shared/services/device_id_service.dart';
 import '../../../../shared/services/location_config_service.dart';
-import '../../../../shared/services/recent_destinations_service.dart';
 import '../../../destination/domain/entities/destination_entity.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../localization_history/presentation/bloc/localization_history_bloc.dart';
+import '../../../localization_history/presentation/bloc/localization_history_event.dart';
+import '../../../localization_history/presentation/bloc/localization_history_state.dart';
 import '../../../../shared/widgets/search_bar.dart';
 import '../../../../shared/widgets/quick_action_card.dart';
 import '../../../../shared/widgets/recent_place_tile.dart';
@@ -23,7 +29,6 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage>
     with WidgetsBindingObserver {
   int _selectedIndex = 0;
-  List<DestinationEntity> _recentDestinations = [];
   List<DestinationEntity> _popularPlaces = [];
 
   @override
@@ -47,13 +52,6 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   void _loadData() {
-    // Load recent destinations
-    final recentService = getIt<RecentDestinationsService>();
-    _recentDestinations = recentService
-        .getRecentDestinations()
-        .take(3)
-        .toList();
-
     // Load popular places from cached destinations
     final cacheService = getIt<DestinationsCacheService>();
     final locationService = getIt<LocationConfigService>();
@@ -88,26 +86,29 @@ class _DashboardPageState extends State<DashboardPage>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: [
-          SafeArea(child: _buildHomeContent(context)),
-          const ProfilePage(),
-        ],
-      ),
-      bottomNavigationBar: BottomAppBar(
-        color: theme.colorScheme.surface,
-        elevation: 4,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavBarItem(context, 0, Icons.home_filled, 'Home'),
-              _buildNavBarItem(context, 1, Icons.person, 'Profile'),
-            ],
+    return BlocProvider(
+      create: (context) => getIt<LocalizationHistoryBloc>(),
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: [
+            SafeArea(child: _buildHomeContent(context)),
+            const ProfilePage(),
+          ],
+        ),
+        bottomNavigationBar: BottomAppBar(
+          color: theme.colorScheme.surface,
+          elevation: 4,
+          child: SizedBox(
+            height: 60,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavBarItem(context, 0, Icons.home_filled, 'Home'),
+                _buildNavBarItem(context, 1, Icons.person, 'Profile'),
+              ],
+            ),
           ),
         ),
       ),
@@ -495,61 +496,162 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Widget _buildRecentDestinationsList(BuildContext context) {
-    // Use actual recent destinations
-    if (_recentDestinations.isNotEmpty) {
-      return Column(
-        children: _recentDestinations.asMap().entries.map((entry) {
-          final index = entry.key;
-          final destination = entry.value;
-          return Column(
-            children: [
-              if (index > 0) const SizedBox(height: 12),
-              CustomRecentPlaceTile(
-                name: destination.name,
-                location: destination.address ?? 'Location',
-                icon: _getIconForDestination(destination.name),
-                onTap: () => context.push('/camera', extra: destination),
-              ),
-            ],
-          );
-        }).toList(),
-      );
-    }
+    return BlocBuilder<LocalizationHistoryBloc, LocalizationHistoryState>(
+      builder: (context, state) {
+        // Fetch localization history on first build
+        if (state is LocalizationHistoryInitial) {
+          final authState = context.read<AuthBloc>().state;
+          final deviceIdService = getIt<DeviceIdService>();
 
-    // Fallback empty state
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Column(
-          children: [
-            Icon(
-              Icons.history_rounded,
-              size: 48,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurfaceVariant.withOpacity(0.5),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'No recent destinations',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 14,
+          String userIdentifier;
+          String identifierType;
+
+          if (authState is Authenticated) {
+            userIdentifier = authState.user.email;
+            identifierType = 'email';
+          } else {
+            userIdentifier = deviceIdService.getDeviceId();
+            identifierType = 'device';
+          }
+
+          context.read<LocalizationHistoryBloc>().add(
+                FetchLocalizationHistoryEvent(
+                  userIdentifier: userIdentifier,
+                  identifierType: identifierType,
+                  limit: 10,
+                ),
+              );
+
+          return const SizedBox();
+        }
+
+        if (state is LocalizationHistoryLoading) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Theme.of(context).colorScheme.primary,
+                ),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Start navigating to see your history',
-              style: TextStyle(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurfaceVariant.withOpacity(0.7),
-                fontSize: 12,
+          );
+        }
+
+        if (state is LocalizationHistoryError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 32,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Failed to load history',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
+          );
+        }
+
+        if (state is LocalizationHistorySuccess) {
+          final history = state.history;
+
+          if (history.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.history_rounded,
+                      size: 48,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurfaceVariant
+                          .withOpacity(0.5),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No recent destinations',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Start navigating to see your history',
+                      style: TextStyle(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurfaceVariant
+                            .withOpacity(0.7),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return Column(
+            children: history.take(3).map((item) {
+              // Try to resolve a human-friendly name from cached destinations
+              final cache = getIt<DestinationsCacheService>();
+              String resolvedName = item.destinationId;
+              final cached = cache.getCachedDestinations(
+                place: item.place,
+                building: item.building,
+                floor: item.floor,
+              );
+              if (cached != null && cached.isNotEmpty) {
+                final matches = cached
+                    .where((d) => d.destinationId == item.destinationId)
+                    .toList();
+                if (matches.isNotEmpty) {
+                  resolvedName = matches.first.name;
+                }
+              }
+
+              return Column(
+                children: [
+                  CustomRecentPlaceTile(
+                    name: resolvedName,
+                    location:
+                        '${item.building} • ${item.floor} • ${item.place}',
+                    icon: Icons.location_on_rounded,
+                    onTap: () {
+                      // Navigate to camera with destination context
+                      final destination = DestinationEntity(
+                        destinationId: item.destinationId,
+                        name: resolvedName,
+                        x: 0,
+                        y: 0,
+                        address: '${item.building} • ${item.floor}',
+                      );
+                      context.push('/camera', extra: destination);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              );
+            }).toList(),
+          );
+        }
+
+        return const SizedBox();
+      },
     );
   }
 }
