@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 class MapControls extends StatelessWidget {
   final VoidCallback onSearch;
   final VoidCallback onReset;
+  final VoidCallback? onToggleMode;
+  final bool isAutoRotate;
   final IconData? resetIcon;
   final double right;
   final double bottom;
@@ -12,6 +14,8 @@ class MapControls extends StatelessWidget {
     super.key,
     required this.onSearch,
     required this.onReset,
+    this.onToggleMode,
+    this.isAutoRotate = false,
     this.resetIcon,
     this.right = 16,
     this.bottom = 16,
@@ -31,6 +35,14 @@ class MapControls extends StatelessWidget {
             tooltip: 'Search destinations',
           ),
           const SizedBox(height: 12),
+          if (onToggleMode != null) ...[
+            MapControlButton(
+              icon: isAutoRotate ? Icons.explore : Icons.explore_outlined,
+              onPressed: onToggleMode!,
+              tooltip: isAutoRotate ? 'Heading-Up Mode' : 'North-Up Mode',
+            ),
+            const SizedBox(height: 12),
+          ],
           MapControlButton(
             icon: resetIcon ?? Icons.my_location,
             onPressed: onReset,

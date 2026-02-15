@@ -20,9 +20,8 @@ class UserPositionMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bgColor = primaryColor ?? theme.colorScheme.primary;
-    final fgColor = iconColor ?? theme.colorScheme.onPrimary;
+    final bgColor = primaryColor ?? Colors.green;
+    final fgColor = iconColor ?? Colors.white;
 
     // Convert degrees to radians for rotation
     final rotationRadians = orientationDegrees * (math.pi / 180);
@@ -90,8 +89,7 @@ class DestinationFlagMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bgColor = flagColor ?? theme.colorScheme.error;
+    final bgColor = flagColor ?? const Color(0xFFEA4335);
     final fgColor = iconColor ?? Colors.white;
 
     return GestureDetector(
@@ -136,8 +134,7 @@ class DestinationMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bgColor = backgroundColor ?? theme.colorScheme.error;
+    final bgColor = backgroundColor ?? const Color(0xFFEA4335);
     final isGeneralIcon = icon == Icons.place;
 
     return GestureDetector(

@@ -9,8 +9,9 @@ import '../../../destination/domain/entities/destination_entity.dart';
 import '../bloc/navigation_bloc.dart';
 import '../bloc/navigation_event.dart';
 import '../bloc/navigation_state.dart';
+import '../../domain/entities/route_entity.dart';
+import '../../../../shared/widgets/map_view.dart';
 import '../../../locate_me/presentation/widgets/destination_bottom_sheet.dart';
-import '../widgets/map_view_widget.dart';
 
 class NavigationPage extends StatefulWidget {
   final DestinationEntity destination;
@@ -111,7 +112,7 @@ class _NavigationMapView extends StatelessWidget {
   final DestinationEntity destination;
   final String? imagePath;
   final dynamic currentLocation;
-  final dynamic route;
+  final RouteEntity route;
   final String? floorPlanBase64;
   final List<DestinationEntity> destinations;
   final Function(DestinationEntity)? onDestinationTap;
@@ -134,27 +135,26 @@ class _NavigationMapView extends StatelessWidget {
       children: [
         StepIndicator(
           currentStep: 3,
-          title: 'Route Preview',
+          title: 'Direct Guidance',
           onBack: () => context.pop(),
         ),
         Expanded(
-          child: ClipRect(
-            child: MapViewWidget(
-              currentLocation: currentLocation,
-              route: route,
-              floorPlanBase64: floorPlanBase64,
-              destinations: destinations,
-              onDestinationTap: onDestinationTap,
-              onRetry: () {
-                context.read<NavigationBloc>().add(
-                  InitializeNavigationEvent(
-                    destination,
-                    imagePath: imagePath,
-                    userPickedCoordinates: userPickedCoordinates,
-                  ),
-                );
-              },
-            ),
+          child: MapView(
+            userLocation: currentLocation,
+            route: route,
+            floorPlanBase64: floorPlanBase64 ?? '',
+            destinations: destinations,
+            onDestinationTap: onDestinationTap,
+            initialAutoRotate: true,
+            onRetry: () {
+              context.read<NavigationBloc>().add(
+                InitializeNavigationEvent(
+                  destination,
+                  imagePath: imagePath,
+                  userPickedCoordinates: userPickedCoordinates,
+                ),
+              );
+            },
           ),
         ),
       ],

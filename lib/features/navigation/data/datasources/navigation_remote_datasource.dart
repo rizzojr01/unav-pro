@@ -50,7 +50,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
           'saveframe': saveFrame,
           'shorten_vlm_response': true,
           'speakVlmFirst': true,
-          'unav_multifloor': false,
+          'unav_multifloor': true,
           'use_vlm': false,
           if (imageCompression != null) 'image_compression': imageCompression,
           if (userPickedCoordinates != null)
@@ -58,10 +58,9 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
         },
       );
 
-      // Check if navigation_steps is empty - this indicates an error
-      final navigationSteps = response['navigation_steps'] as List<dynamic>?;
-      if (navigationSteps == null || navigationSteps.isEmpty) {
-        // Extract error message from instructions
+      final multiFloorSteps =
+          response['multifloor_navigation_steps'] as List<dynamic>?;
+      if (multiFloorSteps == null || multiFloorSteps.isEmpty) {
         final instructions = response['instructions'] as List<dynamic>?;
         final errorMessage = (instructions != null && instructions.isNotEmpty)
             ? instructions.first.toString()
