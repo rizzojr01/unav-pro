@@ -494,9 +494,8 @@ class _MapViewWidgetState extends State<MapViewWidget>
     // otherwise fall back to first step's orientation
     double orientationDegrees = 0.0;
     if (widget.currentLocation.ang != null) {
-      // Convert radians to degrees if ang is in radians
-      // The ang value appears to be in radians based on the sample data (4.508...)
-      orientationDegrees = widget.currentLocation.ang! * (180 / 3.14159265359);
+      // ang from API is already in degrees
+      orientationDegrees = widget.currentLocation.ang!;
     } else if (widget.route.steps.isNotEmpty) {
       orientationDegrees = widget.route.steps.first.orientationDegrees;
     }
