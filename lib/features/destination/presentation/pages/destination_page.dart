@@ -11,6 +11,7 @@ import 'package:smart_sense/shared/widgets/custom_error_view.dart';
 import '../bloc/destination_bloc.dart';
 import '../bloc/destination_event.dart';
 import '../bloc/destination_state.dart';
+import '../../domain/entities/destination_entity.dart';
 
 class DestinationPage extends StatefulWidget {
   const DestinationPage({super.key});
@@ -77,27 +78,9 @@ class _DestinationPageState extends State<DestinationPage> {
             ),
           ),
           Expanded(
-            child: BlocConsumer<DestinationBloc, DestinationState>(
-              listenWhen: (previous, current) {
-                // Only listen for DestinationSelected if previous wasn't already selected
-                // This prevents re-triggering navigation when coming back
-                return current is DestinationSelected &&
-                    previous is! DestinationSelected;
-              },
-              listener: (context, state) {
-                if (state is DestinationSelected) {
-                  context.push('/camera', extra: state.destination).then((_) {
-                    // When returning from camera, restore the destinations list
-                    context.read<DestinationBloc>().add(
-                      const RestoreDestinationsEvent(),
-                    );
-                  });
-                }
-              },
+            child: BlocBuilder<DestinationBloc, DestinationState>(
               builder: (context, state) {
-                if (state is DestinationInitial) {
-                  return const _EmptyStateView();
-                } else if (state is DestinationSearching) {
+                if (state is DestinationSearching) {
                   return const CustomLoadingView();
                 } else if (state is DestinationSearchSuccess) {
                   if (state.destinations.isEmpty) {
@@ -105,12 +88,10 @@ class _DestinationPageState extends State<DestinationPage> {
                   }
                   return _DestinationListView(destinations: state.destinations);
                 } else if (state is DestinationSelected) {
-                  // Show destinations while navigating or when coming back
-                  if (state.destinations != null &&
-                      state.destinations!.isNotEmpty) {
-                    return _DestinationListView(
-                      destinations: state.destinations!,
-                    );
+                  // While selected/navigating, still show the list
+                  final destinations = state.destinations ?? [];
+                  if (destinations.isNotEmpty) {
+                    return _DestinationListView(destinations: destinations);
                   }
                   return const CustomLoadingView();
                 } else if (state is DestinationError) {
@@ -119,7 +100,8 @@ class _DestinationPageState extends State<DestinationPage> {
                     onRetry: _handleSearch,
                   );
                 }
-                return const SizedBox.shrink();
+                // Default to empty state
+                return const _EmptyStateView();
               },
             ),
           ),
@@ -301,9 +283,22 @@ class _DestinationTile extends StatelessWidget {
       ),
       child: InkWell(
         onTap: () {
+          // 1. Update bloc state (saves to recents)
           context.read<DestinationBloc>().add(
             SelectDestinationEvent(destination.id),
           );
+
+          // 2. Navigate immediately
+          if (destination is DestinationEntity) {
+            context.push('/camera', extra: destination).then((_) {
+              // 3. Reset state on return
+              if (context.mounted) {
+                context.read<DestinationBloc>().add(
+                  const RestoreDestinationsEvent(),
+                );
+              }
+            });
+          }
         },
         borderRadius: BorderRadius.circular(24),
         child: Padding(

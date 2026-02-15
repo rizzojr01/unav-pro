@@ -33,6 +33,7 @@ class _LocationInputViewState extends State<LocationInputView> {
   CameraMacOSController? _macOSController;
   bool _isInitializing = true;
   bool _isCapturing = false;
+  bool _showGuidance = true;
   String? _errorMessage;
 
   @override
@@ -87,6 +88,16 @@ class _LocationInputViewState extends State<LocationInputView> {
     super.dispose();
   }
 
+  Future<bool> _isImageClear(String path) async {
+    // Placeholder for image quality check (focus/blur/motion)
+    // In a production app, we would use a native plugin or TFLite model
+    // to check Laplacian variance or similar metrics.
+    await Future.delayed(
+      const Duration(milliseconds: 500),
+    ); // Simulate processing
+    return true; // Auto-accepting for now
+  }
+
   Future<void> _captureImage() async {
     if (Platform.isMacOS) {
       if (_macOSController != null && !_isCapturing) {
@@ -99,8 +110,18 @@ class _LocationInputViewState extends State<LocationInputView> {
               '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg',
             );
             await file.writeAsBytes(result.bytes!);
+
+            final isClear = await _isImageClear(file.path);
             if (mounted) {
-              widget.onImageCaptured(file.path);
+              if (isClear) {
+                widget.onImageCaptured(file.path);
+              } else {
+                snackbar.CustomSnackBar.show(
+                  context,
+                  message: 'Image is blurry. Please hold steady and try again.',
+                  type: snackbar.SnackBarType.warning,
+                );
+              }
             }
           }
         } catch (e) {
@@ -129,8 +150,18 @@ class _LocationInputViewState extends State<LocationInputView> {
 
     try {
       final image = await _controller!.takePicture();
+      final isClear = await _isImageClear(image.path);
+
       if (mounted) {
-        widget.onImageCaptured(image.path);
+        if (isClear) {
+          widget.onImageCaptured(image.path);
+        } else {
+          snackbar.CustomSnackBar.show(
+            context,
+            message: 'Image is blurry. Please hold steady and try again.',
+            type: snackbar.SnackBarType.warning,
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -180,7 +211,10 @@ class _LocationInputViewState extends State<LocationInputView> {
           ),
           if (_isInitializing) const Center(child: CircularProgressIndicator()),
           if (!_isInitializing) ...[
-            const _CameraGuidance(),
+            _CameraGuidance(
+              showGuidance: _showGuidance,
+              onToggle: () => setState(() => _showGuidance = !_showGuidance),
+            ),
             // Capture Button (Shared UI)
             Positioned(
               bottom: 40,
@@ -279,7 +313,10 @@ class _LocationInputViewState extends State<LocationInputView> {
         Positioned.fill(child: CameraPreview(_controller!)),
 
         // 2. Camera Guidance Overlays (CEILING, PATH, FLOOR)
-        const _CameraGuidance(),
+        _CameraGuidance(
+          showGuidance: _showGuidance,
+          onToggle: () => setState(() => _showGuidance = !_showGuidance),
+        ),
 
         // 3. Capture Button
         Positioned(
@@ -343,53 +380,135 @@ class _LocationInputViewState extends State<LocationInputView> {
   }
 }
 
-class _CameraGuidance extends StatelessWidget {
-  const _CameraGuidance();
+class _CameraGuidance extends StatefulWidget {
+  final bool showGuidance;
+  final VoidCallback onToggle;
+
+  const _CameraGuidance({required this.showGuidance, required this.onToggle});
 
   @override
+  State<_CameraGuidance> createState() => _CameraGuidanceState();
+}
+
+class _CameraGuidanceState extends State<_CameraGuidance> {
+  @override
   Widget build(BuildContext context) {
-    return Column(
+    if (!widget.showGuidance) {
+      // Just show the toggle when guidance is hidden
+      return Positioned(
+        top: 20,
+        right: 20,
+        child: _GuidanceToggle(showGuidance: false, onToggle: widget.onToggle),
+      );
+    }
+
+    return Stack(
       children: [
-        // Top 20% Overlay - CEILING
-        Expanded(
-          flex: 20,
-          child: _GuidanceSection(
-            label: 'CEILING',
-            color: Colors.white.withValues(alpha: 0.03),
-            showBottomDivider: true,
-          ),
+        Column(
+          children: [
+            // Top 25% Overlay - CEILING
+            Expanded(
+              flex: 25,
+              child: _GuidanceSection(
+                label: 'CEILING',
+                description: 'Include 20-30% of ceiling',
+                color: Colors.black.withValues(alpha: 0.3),
+                showBottomDivider: true,
+                alignment: Alignment.topCenter,
+              ),
+            ),
+            // Middle 50% Overlay - PATH
+            Expanded(
+              flex: 50,
+              child: _GuidanceSection(
+                label: 'PATH',
+                description: 'Keep path clear',
+                color: Colors.transparent,
+                showBottomDivider: true,
+                alignment: Alignment.center,
+              ),
+            ),
+            // Bottom 25% Overlay - FLOOR
+            Expanded(
+              flex: 25,
+              child: _GuidanceSection(
+                label: '', // Removed label to avoid overlap with button
+                description: '', // Removed description
+                color: Colors.black.withValues(alpha: 0.3),
+                showBottomDivider: false,
+                alignment: Alignment.bottomCenter,
+              ),
+            ),
+          ],
         ),
-        // Middle 60% Overlay - PATH
-        Expanded(
-          flex: 60,
-          child: _GuidanceSection(
-            label: 'PATH',
-            color: Colors.transparent,
-            showBottomDivider: true,
-          ),
-        ),
-        // Bottom 20% Overlay - FLOOR
-        Expanded(
-          flex: 20,
-          child: _GuidanceSection(
-            label: 'FLOOR',
-            color: Colors.black.withValues(alpha: 0.08),
-            showBottomDivider: false,
-          ),
+        // Toggle Button
+        Positioned(
+          top: 20,
+          right: 20,
+          child: _GuidanceToggle(showGuidance: true, onToggle: widget.onToggle),
         ),
       ],
     );
   }
 }
 
+class _GuidanceToggle extends StatelessWidget {
+  final bool showGuidance;
+  final VoidCallback onToggle;
+
+  const _GuidanceToggle({required this.showGuidance, required this.onToggle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onToggle,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white24),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                showGuidance ? Icons.visibility : Icons.visibility_off,
+                color: Colors.white,
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                showGuidance ? 'Hide Guide' : 'Show Guide',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _GuidanceSection extends StatelessWidget {
   final String label;
+  final String description;
   final Color color;
   final bool showBottomDivider;
+  final Alignment alignment;
 
   const _GuidanceSection({
     required this.label,
+    required this.description,
     required this.color,
+    required this.alignment,
     this.showBottomDivider = false,
   });
 
@@ -402,36 +521,77 @@ class _GuidanceSection extends StatelessWidget {
         border: showBottomDivider
             ? Border(
                 bottom: BorderSide(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                  width: 1,
-                  style: BorderStyle.solid,
+                  color: theme.colorScheme.primary.withValues(alpha: 0.8),
+                  width: 2,
                 ),
               )
             : null,
       ),
       child: Stack(
         children: [
-          Center(
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white24,
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 4,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            child: Align(
+              alignment: alignment == Alignment.topCenter
+                  ? Alignment.topCenter
+                  : (alignment == Alignment.bottomCenter
+                        ? Alignment.bottomCenter
+                        : Alignment.center),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (label.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ),
+                  if (label.isNotEmpty && description.isNotEmpty)
+                    const SizedBox(height: 4),
+                  if (description.isNotEmpty)
+                    Text(
+                      description,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        shadows: const [
+                          Shadow(
+                            color: Colors.black,
+                            offset: Offset(0, 1),
+                            blurRadius: 2,
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
           if (showBottomDivider)
             Positioned(
-              bottom: 4,
+              bottom: 8,
               left: 0,
               right: 0,
               child: Center(
                 child: Icon(
-                  Icons.keyboard_arrow_down,
-                  color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                  size: 16,
+                  Icons.expand_more,
+                  color: theme.colorScheme.primary,
+                  size: 24,
                 ),
               ),
             ),

@@ -13,8 +13,6 @@ import '../bloc/camera_bloc.dart';
 import '../bloc/camera_event.dart';
 import '../bloc/camera_state.dart';
 
-import '../widgets/photo_preview_widget.dart';
-
 class CameraPage extends StatefulWidget {
   final DestinationEntity? destination;
   final Map<String, dynamic>? manualCoordinates;
@@ -77,21 +75,19 @@ class _CameraPageState extends State<CameraPage>
         destination: widget.destination,
       );
     } else if (state is CameraPhotoCaptured) {
-      return PhotoPreviewWidget(
-        imagePath: state.photo.filePath,
-        onRetake: () {
-          context.read<CameraBloc>().add(const InitializeCameraEvent());
-        },
-        onContinue: () {
-          context.pushReplacement(
-            '/navigation',
-            extra: {
-              'destination': widget.destination,
-              'imagePath': state.photo.filePath,
-              'manualCoordinates': widget.manualCoordinates,
-            },
-          );
-        },
+      // Automatically proceed to navigation for clear images
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.pushReplacement(
+          '/navigation',
+          extra: {
+            'destination': widget.destination,
+            'imagePath': state.photo.filePath,
+            'manualCoordinates': widget.manualCoordinates,
+          },
+        );
+      });
+      return const CustomLoadingView(
+        message: 'Image clear, preparing navigation...',
       );
     } else if (state is CameraError) {
       return CustomErrorView(

@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../shared/services/recent_destinations_service.dart';
+import '../../domain/entities/destination_entity.dart';
 import '../../domain/usecases/search_destinations_usecase.dart';
 import '../../domain/usecases/select_destination_usecase.dart';
 import 'destination_event.dart';
@@ -38,13 +39,23 @@ class DestinationBloc extends Bloc<DestinationEvent, DestinationState> {
     SelectDestinationEvent event,
     Emitter<DestinationState> emit,
   ) async {
-    if (state is! DestinationSearchSuccess) return;
+    List<DestinationEntity> destinations;
+    if (state is DestinationSearchSuccess) {
+      destinations = (state as DestinationSearchSuccess).destinations;
+    } else if (state is DestinationSelected) {
+      destinations = (state as DestinationSelected).destinations ?? [];
+    } else {
+      return;
+    }
 
-    final currentState = state as DestinationSearchSuccess;
-    final destinations = currentState.destinations;
-    final destination = destinations.firstWhere(
+    if (destinations.isEmpty) return;
+
+    // Use List.from to ensure we have a List<DestinationEntity> at runtime,
+    // avoiding covariance issues with orElse return type mismatch.
+    final items = List<DestinationEntity>.from(destinations);
+    final destination = items.firstWhere(
       (d) => d.id == event.destinationId,
-      orElse: () => throw StateError('Destination not found'),
+      orElse: () => items.first,
     );
 
     // Save to recent destinations
@@ -58,25 +69,20 @@ class DestinationBloc extends Bloc<DestinationEvent, DestinationState> {
     RestoreDestinationsEvent event,
     Emitter<DestinationState> emit,
   ) async {
-    // If current state is DestinationSelected, restore the destinations list
+    List<DestinationEntity>? existingDestinations;
+
     if (state is DestinationSelected) {
-      final selectedState = state as DestinationSelected;
-      if (selectedState.destinations != null &&
-          selectedState.destinations!.isNotEmpty) {
-        emit(DestinationSearchSuccess(selectedState.destinations!));
-        return;
-      }
+      existingDestinations = (state as DestinationSelected).destinations;
+    } else if (state is DestinationSearchSuccess) {
+      existingDestinations = (state as DestinationSearchSuccess).destinations;
     }
 
-    // If already in success state with destinations, do nothing
-    if (state is DestinationSearchSuccess) {
-      final successState = state as DestinationSearchSuccess;
-      if (successState.destinations.isNotEmpty) {
-        return;
-      }
+    if (existingDestinations != null && existingDestinations.isNotEmpty) {
+      emit(DestinationSearchSuccess(existingDestinations));
+      return;
     }
 
-    // Otherwise, fetch destinations from cache/API
+    // Refresh if no list exists
     emit(const DestinationSearching());
     final result = await searchDestinationsUseCase('');
     result.fold(

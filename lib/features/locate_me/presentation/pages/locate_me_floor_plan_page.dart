@@ -525,8 +525,8 @@ class _FloorPlanWithMarkersState extends State<_FloorPlanWithMarkers> {
     const baseSize = 24.0;
     final markerSize = (baseSize * zoomScale).clamp(4.0, 72.0);
 
-    // angle from API is already in degrees
-    final orientationDegrees = widget.userPosition.angle;
+    // angle from API is in degrees, add 90 to correct coordinate system offset
+    final orientationDegrees = widget.userPosition.angle + 90;
 
     return Positioned(
       left: pos.dx - markerSize / 2,

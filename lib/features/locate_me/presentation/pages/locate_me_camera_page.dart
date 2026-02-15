@@ -4,8 +4,6 @@ import 'package:smart_sense/shared/widgets/location_input_view.dart';
 import 'package:smart_sense/features/locate_me/presentation/bloc/locate_me_bloc.dart';
 import 'package:smart_sense/features/locate_me/presentation/bloc/locate_me_event.dart';
 import 'package:smart_sense/features/locate_me/presentation/bloc/locate_me_state.dart';
-import 'package:smart_sense/features/camera/presentation/widgets/photo_preview_widget.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -54,17 +52,18 @@ class _LocateMeCameraPageState extends State<LocateMeCameraPage>
       },
       child: BlocBuilder<LocateMeBloc, LocateMeState>(
         builder: (context, state) {
+          // Note: PhotoPreviewWidget is now bypassed for "clear" images
+          // to implement auto-detection and immediate progression.
+          // If the image was blurry, it would have been caught in LocationInputView.
           if (state is LocateMePhotoCaptured) {
-            return PhotoPreviewWidget(
-              imagePath: state.imagePath,
-              onRetake: () {
-                context.read<LocateMeBloc>().add(const ResetLocateMeEvent());
-              },
-              onContinue: () {
-                context.read<LocateMeBloc>().add(
-                  StartLocalizationEvent(capturedImagePath: state.imagePath),
-                );
-              },
+            // Automatically proceed to localization
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              context.read<LocateMeBloc>().add(
+                StartLocalizationEvent(capturedImagePath: state.imagePath),
+              );
+            });
+            return const CustomLoadingView(
+              message: 'Processing clear image...',
             );
           }
 

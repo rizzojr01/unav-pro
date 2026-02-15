@@ -490,14 +490,17 @@ class _MapViewWidgetState extends State<MapViewWidget>
     const baseSize = 24.0;
     final markerSize = (baseSize * zoomScale).clamp(4.0, 72.0);
 
-    // Get orientation from current location's 'ang' property if available,
-    // otherwise fall back to first step's orientation
+    // Get orientation from first navigation step's 'from.ang' property
+    // Add 90 degrees to correct the offset (API uses different coordinate system)
     double orientationDegrees = 0.0;
-    if (widget.currentLocation.ang != null) {
-      // ang from API is already in degrees
-      orientationDegrees = widget.currentLocation.ang!;
+    if (widget.route.steps.isNotEmpty &&
+        widget.route.steps.first.from.ang != null) {
+      // ang from API is in degrees, add 90 to correct coordinate system offset
+      orientationDegrees = widget.route.steps.first.from.ang! + 90;
+    } else if (widget.currentLocation.ang != null) {
+      orientationDegrees = widget.currentLocation.ang! + 90;
     } else if (widget.route.steps.isNotEmpty) {
-      orientationDegrees = widget.route.steps.first.orientationDegrees;
+      orientationDegrees = widget.route.steps.first.orientationDegrees + 90;
     }
 
     return Positioned(

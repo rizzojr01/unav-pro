@@ -12,6 +12,9 @@ import '../features/destination/presentation/pages/destination_page.dart';
 import '../features/navigation/presentation/pages/navigation_page.dart';
 import '../features/profile/presentation/pages/profile_page.dart';
 import '../features/destination/domain/entities/destination_entity.dart';
+import '../features/camera/presentation/bloc/camera_bloc.dart';
+import '../features/destination/presentation/bloc/destination_bloc.dart';
+import '../features/navigation/presentation/bloc/navigation_bloc.dart';
 import '../features/locate_me/presentation/pages/locate_me_camera_page.dart';
 import '../features/locate_me/presentation/pages/locate_me_floor_plan_page.dart';
 import '../features/locate_me/presentation/bloc/locate_me_bloc.dart';
@@ -65,9 +68,12 @@ class AppRouter {
             destination = extra;
           }
 
-          return CameraPage(
-            destination: destination,
-            manualCoordinates: manualCoordinates,
+          return BlocProvider(
+            create: (context) => getIt<CameraBloc>(),
+            child: CameraPage(
+              destination: destination,
+              manualCoordinates: manualCoordinates,
+            ),
           );
         },
       ),
@@ -77,7 +83,12 @@ class AppRouter {
       ),
       GoRoute(
         path: destination,
-        builder: (context, state) => const DestinationPage(),
+        builder: (context, state) {
+          return BlocProvider(
+            create: (context) => getIt<DestinationBloc>(),
+            child: const DestinationPage(),
+          );
+        },
       ),
       GoRoute(path: profile, builder: (context, state) => const ProfilePage()),
       GoRoute(
@@ -107,10 +118,13 @@ class AppRouter {
               body: const Center(child: Text('Destination is required')),
             );
           }
-          return NavigationPage(
-            destination: destination,
-            imagePath: imagePath,
-            userPickedCoordinates: userPickedCoordinates,
+          return BlocProvider(
+            create: (context) => getIt<NavigationBloc>(),
+            child: NavigationPage(
+              destination: destination,
+              imagePath: imagePath,
+              userPickedCoordinates: userPickedCoordinates,
+            ),
           );
         },
       ),
