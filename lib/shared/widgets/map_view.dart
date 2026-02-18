@@ -45,7 +45,10 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
   // Two-pointer rotation tracking
   final Map<int, Offset> _activePointers = {};
   double _lastPointerAngle = 0.0;
+  double _gestureStartAngle = 0.0; // angle when second finger touched down
   bool _isTrackingRotation = false;
+  bool _rotationThresholdMet = false; // only rotate after intentional twist
+  static const double _rotationThreshold = 0.12; // ~7 degrees dead zone
   bool _showLegend = true;
   Uint8List? _floorPlanBytes;
   Size? _imageSize;
@@ -263,7 +266,9 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
                     pts[1].dy - pts[0].dy,
                     pts[1].dx - pts[0].dx,
                   );
+                  _gestureStartAngle = _lastPointerAngle;
                   _isTrackingRotation = true;
+                  _rotationThresholdMet = false;
                 }
               },
               onPointerMove: (e) {
@@ -275,8 +280,25 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
                     pts[1].dx - pts[0].dx,
                   );
                   final delta = newAngle - _lastPointerAngle;
-                  // Ignore large jumps (angle wrap-around)
-                  if (delta.abs() < 0.3) {
+
+                  // Skip wrap-around jumps
+                  if (delta.abs() > 0.3) {
+                    _lastPointerAngle = newAngle;
+                    return;
+                  }
+
+                  // Check if cumulative twist exceeds dead zone threshold
+                  if (!_rotationThresholdMet) {
+                    final cumulative = (newAngle - _gestureStartAngle).abs();
+                    if (cumulative < _rotationThreshold) {
+                      _lastPointerAngle = newAngle;
+                      return; // still in dead zone — ignore
+                    }
+                    _rotationThresholdMet = true;
+                  }
+
+                  // Apply rotation — filter out tiny noise
+                  if (delta.abs() > 0.005) {
                     setState(() => _manualRotation += delta);
                   }
                   _lastPointerAngle = newAngle;
@@ -284,11 +306,17 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
               },
               onPointerUp: (e) {
                 _activePointers.remove(e.pointer);
-                if (_activePointers.length < 2) _isTrackingRotation = false;
+                if (_activePointers.length < 2) {
+                  _isTrackingRotation = false;
+                  _rotationThresholdMet = false;
+                }
               },
               onPointerCancel: (e) {
                 _activePointers.remove(e.pointer);
-                if (_activePointers.length < 2) _isTrackingRotation = false;
+                if (_activePointers.length < 2) {
+                  _isTrackingRotation = false;
+                  _rotationThresholdMet = false;
+                }
               },
               child: InteractiveViewer(
                 transformationController: _transformationController,
