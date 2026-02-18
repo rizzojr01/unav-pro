@@ -20,7 +20,6 @@ class MapView extends StatefulWidget {
   final List<DestinationEntity> destinations;
   final VoidCallback? onRetry;
   final bool autoCenterOnUser;
-  final bool initialAutoRotate;
 
   const MapView({
     super.key,
@@ -31,7 +30,6 @@ class MapView extends StatefulWidget {
     this.destinations = const [],
     this.onRetry,
     this.autoCenterOnUser = true,
-    this.initialAutoRotate = false,
   });
 
   @override
@@ -43,7 +41,11 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
   final TransformationController _transformationController =
       TransformationController();
 
-  bool _autoRotate = false;
+  double _manualRotation = 0.0; // radians, accumulated from two-finger twist
+  // Two-pointer rotation tracking
+  final Map<int, Offset> _activePointers = {};
+  double _lastPointerAngle = 0.0;
+  bool _isTrackingRotation = false;
   bool _showLegend = true;
   Uint8List? _floorPlanBytes;
   Size? _imageSize;
@@ -58,7 +60,6 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _autoRotate = widget.initialAutoRotate;
     _routeAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 10),
@@ -122,9 +123,6 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
     }
     if (oldWidget.destinations != widget.destinations) {
       _filteredDestinations = widget.destinations;
-    }
-    if (oldWidget.initialAutoRotate != widget.initialAutoRotate) {
-      _autoRotate = widget.initialAutoRotate;
     }
   }
 
@@ -249,50 +247,88 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
         final centerOffsetY = (constraints.maxHeight - displayHeight) / 2;
 
         final userAngle = _getUserAngle();
-        // Negative angle to rotate map so user direction is \"up\"
-        final rotationAngle = _autoRotate
-            ? -(userAngle + 90) * (math.pi / 180)
-            : 0.0;
+        // Manual hand rotation only
+        final rotationAngle = _manualRotation;
 
         return Stack(
           children: [
-            InteractiveViewer(
-              transformationController: _transformationController,
-              minScale: 0.1,
-              maxScale: 8.0,
-              boundaryMargin: const EdgeInsets.all(400),
-              child: Transform.rotate(
-                angle: rotationAngle,
-                child: Center(
-                  child: SizedBox(
-                    width: displayWidth,
-                    height: displayHeight,
-                    child: Stack(
-                      children: [
-                        Image.memory(_floorPlanBytes!, fit: BoxFit.fill),
+            // Two-finger rotation detector (sits on top, doesn't block IV)
+            Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerDown: (e) {
+                _activePointers[e.pointer] = e.localPosition;
+                if (_activePointers.length == 2) {
+                  final pts = _activePointers.values.toList();
+                  _lastPointerAngle = math.atan2(
+                    pts[1].dy - pts[0].dy,
+                    pts[1].dx - pts[0].dx,
+                  );
+                  _isTrackingRotation = true;
+                }
+              },
+              onPointerMove: (e) {
+                _activePointers[e.pointer] = e.localPosition;
+                if (_activePointers.length == 2 && _isTrackingRotation) {
+                  final pts = _activePointers.values.toList();
+                  final newAngle = math.atan2(
+                    pts[1].dy - pts[0].dy,
+                    pts[1].dx - pts[0].dx,
+                  );
+                  final delta = newAngle - _lastPointerAngle;
+                  // Ignore large jumps (angle wrap-around)
+                  if (delta.abs() < 0.3) {
+                    setState(() => _manualRotation += delta);
+                  }
+                  _lastPointerAngle = newAngle;
+                }
+              },
+              onPointerUp: (e) {
+                _activePointers.remove(e.pointer);
+                if (_activePointers.length < 2) _isTrackingRotation = false;
+              },
+              onPointerCancel: (e) {
+                _activePointers.remove(e.pointer);
+                if (_activePointers.length < 2) _isTrackingRotation = false;
+              },
+              child: InteractiveViewer(
+                transformationController: _transformationController,
+                minScale: 0.1,
+                maxScale: 8.0,
+                boundaryMargin: const EdgeInsets.all(400),
+                child: Transform.rotate(
+                  angle: rotationAngle,
+                  child: Center(
+                    child: SizedBox(
+                      width: displayWidth,
+                      height: displayHeight,
+                      child: Stack(
+                        children: [
+                          Image.memory(_floorPlanBytes!, fit: BoxFit.fill),
 
-                        // Route Layer
-                        if (widget.route != null)
-                          AnimatedBuilder(
-                            animation: _routeAnimationController,
-                            builder: (context, _) => CustomPaint(
-                              size: Size(displayWidth, displayHeight),
-                              painter: RoutePainter(
-                                coords: widget.route!.steps
-                                    .expand(
-                                      (s) => [
-                                        Offset(s.from.x, s.from.y),
-                                        Offset(s.to.x, s.to.y),
-                                      ],
-                                    )
-                                    .toList(),
-                                scaleX: scaleX,
-                                scaleY: scaleY,
-                                animationValue: _routeAnimationController.value,
+                          // Route Layer
+                          if (widget.route != null)
+                            AnimatedBuilder(
+                              animation: _routeAnimationController,
+                              builder: (context, _) => CustomPaint(
+                                size: Size(displayWidth, displayHeight),
+                                painter: RoutePainter(
+                                  coords: widget.route!.steps
+                                      .expand(
+                                        (s) => [
+                                          Offset(s.from.x, s.from.y),
+                                          Offset(s.to.x, s.to.y),
+                                        ],
+                                      )
+                                      .toList(),
+                                  scaleX: scaleX,
+                                  scaleY: scaleY,
+                                  animationValue:
+                                      _routeAnimationController.value,
+                                ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -369,8 +405,6 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
                 _hasRecenteredOnUser = false;
                 _recenterOnUser(containerSize, _imageSize!);
               },
-              onToggleMode: () => setState(() => _autoRotate = !_autoRotate),
-              isAutoRotate: _autoRotate,
             ),
 
             if (_showLegend)
@@ -457,7 +491,8 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
         top: pos.dy - size / 2,
         child: UserPositionMarker(
           size: size,
-          orientationDegrees: _autoRotate ? 0.0 : angle + 90,
+          // Arrow is glued to the map: heading + full map rotation so it spins with the map
+          orientationDegrees: (angle + 90) + (rotation * 180 / math.pi),
         ),
       );
     }

@@ -14,7 +14,6 @@ import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../localization_history/presentation/bloc/localization_history_bloc.dart';
 import '../../../localization_history/presentation/bloc/localization_history_event.dart';
 import '../../../localization_history/presentation/bloc/localization_history_state.dart';
-import '../../../../shared/widgets/quick_action_card.dart';
 import '../../../../shared/widgets/recent_place_tile.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -100,27 +99,29 @@ class _DashboardPageState extends State<DashboardPage>
                 child: _buildHeader(context),
               ),
 
-              // Scrollable Content
+              // Non-scrollable Content
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Large Navigate Me CTA
+                      // Navigate Me CTA
                       _buildNavigateMeButton(context, theme),
 
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 20),
                       _buildSectionHeader(context, 'Popular Places', () {}),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       _buildQuickActionsGrid(context),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 20),
                       _buildSectionHeader(context, 'Recent Destinations', () {
                         context.push('/destination');
                       }),
-                      const SizedBox(height: 16),
-                      _buildRecentDestinationsList(context),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 12),
+                      Expanded(child: _buildRecentDestinationsList(context)),
                     ],
                   ),
                 ),
@@ -172,12 +173,11 @@ class _DashboardPageState extends State<DashboardPage>
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.secondaryContainer.withValues(
-                      alpha: 0.5,
-                    ),
+                    color: Colors.transparent,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: theme.colorScheme.outline.withValues(alpha: 0.2),
+                      color: theme.colorScheme.primary,
+                      width: 1.5,
                     ),
                   ),
                   child: Row(
@@ -193,7 +193,7 @@ class _DashboardPageState extends State<DashboardPage>
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onSecondaryContainer,
+                          color: theme.colorScheme.primary,
                         ),
                       ),
                     ],
@@ -224,12 +224,12 @@ class _DashboardPageState extends State<DashboardPage>
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.primary,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: theme.colorScheme.primary.withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -237,24 +237,24 @@ class _DashboardPageState extends State<DashboardPage>
         color: Colors.transparent,
         child: InkWell(
           onTap: _handleNavigateMe,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.onPrimary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     Icons.navigation_rounded,
                     color: theme.colorScheme.onPrimary,
-                    size: 28,
+                    size: 24,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -262,7 +262,7 @@ class _DashboardPageState extends State<DashboardPage>
                       Text(
                         'Navigate Me',
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: theme.colorScheme.onPrimary,
                         ),
@@ -270,7 +270,7 @@ class _DashboardPageState extends State<DashboardPage>
                       Text(
                         'Find your destination',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           color: theme.colorScheme.onPrimary.withValues(
                             alpha: 0.8,
                           ),
@@ -282,7 +282,7 @@ class _DashboardPageState extends State<DashboardPage>
                 Icon(
                   Icons.arrow_forward_ios_rounded,
                   color: theme.colorScheme.onPrimary,
-                  size: 20,
+                  size: 18,
                 ),
               ],
             ),
@@ -304,7 +304,7 @@ class _DashboardPageState extends State<DashboardPage>
         Text(
           title,
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 17,
             fontWeight: FontWeight.bold,
             color: theme.colorScheme.onSurface,
           ),
@@ -315,7 +315,7 @@ class _DashboardPageState extends State<DashboardPage>
             child: Text(
               'See All',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 color: theme.colorScheme.primary,
                 fontWeight: FontWeight.bold,
               ),
@@ -335,7 +335,7 @@ class _DashboardPageState extends State<DashboardPage>
 
     // Empty state when no destinations cached yet
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16),
@@ -347,25 +347,25 @@ class _DashboardPageState extends State<DashboardPage>
         children: [
           Icon(
             Icons.explore_rounded,
-            size: 48,
+            size: 40,
             color: theme.colorScheme.primary.withValues(alpha: 0.6),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
             'Discover Popular Places',
             style: TextStyle(
               color: theme.colorScheme.onSurface,
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             'Places will appear here as you use the app',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: theme.colorScheme.onSurfaceVariant,
-              fontSize: 13,
+              fontSize: 12,
             ),
           ),
         ],
@@ -374,52 +374,127 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Widget _buildDynamicPopularPlaces(BuildContext context, ThemeData theme) {
+    final locationService = getIt<LocationConfigService>();
     final colors = [
       theme.colorScheme.primary,
       theme.colorScheme.secondary,
       theme.colorScheme.tertiary,
-      theme.colorScheme.primaryContainer,
+      theme.colorScheme.error,
     ];
 
-    final rows = <Widget>[];
-    for (var i = 0; i < _popularPlaces.length; i += 2) {
-      final first = _popularPlaces[i];
-      final second = i + 1 < _popularPlaces.length
-          ? _popularPlaces[i + 1]
-          : null;
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < _popularPlaces.length; i++) ...[
+            _buildPopularPlaceTile(
+              context,
+              theme,
+              _popularPlaces[i],
+              colors[i % colors.length],
+              locationService,
+            ),
+            if (i < _popularPlaces.length - 1)
+              Divider(
+                height: 1,
+                thickness: 1,
+                indent: 0,
+                endIndent: 0,
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
 
-      rows.add(
-        Row(
+  Widget _buildPopularPlaceTile(
+    BuildContext context,
+    ThemeData theme,
+    DestinationEntity destination,
+    Color color,
+    LocationConfigService locationService,
+  ) {
+    final subtitle = [
+      if (locationService.floor.isNotEmpty) locationService.floor,
+      if (locationService.building.isNotEmpty) locationService.building,
+      if (locationService.place.isNotEmpty) locationService.place,
+    ].join(' • ');
+
+    return InkWell(
+      onTap: () => context.push('/camera', extra: destination),
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
           children: [
-            Expanded(
-              child: CustomQuickActionCard(
-                icon: _getIconForDestination(first.name),
-                title: first.name,
-                color: colors[i % colors.length],
-                onTap: () => context.push('/camera', extra: first),
+            // Icon badge
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                _getIconForDestination(destination.name),
+                color: color,
+                size: 22,
               ),
             ),
-            const SizedBox(width: 16),
-            if (second != null)
-              Expanded(
-                child: CustomQuickActionCard(
-                  icon: _getIconForDestination(second.name),
-                  title: second.name,
-                  color: colors[(i + 1) % colors.length],
-                  onTap: () => context.push('/camera', extra: second),
-                ),
-              )
-            else
-              const Expanded(child: SizedBox()),
+            const SizedBox(width: 14),
+            // Text info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    destination.name,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.onSurfaceVariant,
+                        height: 1.3,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Arrow
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
           ],
         ),
-      );
-      if (i + 2 < _popularPlaces.length) {
-        rows.add(const SizedBox(height: 16));
-      }
-    }
-
-    return Column(children: rows);
+      ),
+    );
   }
 
   IconData _getIconForDestination(String name) {
@@ -596,7 +671,7 @@ class _DashboardPageState extends State<DashboardPage>
                       context.push('/camera', extra: destination);
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                 ],
               );
             }).toList(),

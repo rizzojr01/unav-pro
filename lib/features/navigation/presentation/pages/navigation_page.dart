@@ -145,7 +145,6 @@ class _NavigationMapView extends StatelessWidget {
             floorPlanBase64: floorPlanBase64 ?? '',
             destinations: destinations,
             onDestinationTap: onDestinationTap,
-            initialAutoRotate: true,
             onRetry: () {
               context.read<NavigationBloc>().add(
                 InitializeNavigationEvent(
