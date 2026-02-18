@@ -56,6 +56,7 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
   bool _isSearching = false;
   bool _hasInitializedView = false;
   bool _hasRecenteredOnUser = false;
+  bool _hasSetInitialRotation = false;
 
   final TextEditingController _searchController = TextEditingController();
   List<DestinationEntity> _filteredDestinations = [];
@@ -99,10 +100,27 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
                   info.image.width.toDouble(),
                   info.image.height.toDouble(),
                 );
+                _setInitialRouteRotation();
               });
             }
           }),
         );
+  }
+
+  /// Rotates the map so the first route segment points upward on screen.
+  void _setInitialRouteRotation() {
+    if (_hasSetInitialRotation) return;
+    final route = widget.route;
+    if (route == null || route.steps.isEmpty) return;
+    _hasSetInitialRotation = true;
+
+    // orientationDegrees is the compass bearing of the first segment.
+    // To make it point UP (north of screen), we negate it and correct
+    // for the 90° offset between compass (0=north=up) and atan2 space.
+    final firstStepDeg = route.steps.first.orientationDegrees;
+    // Convert: rotate map so firstStepDeg faces up
+    // "up" on screen = -90° in standard math angles
+    _manualRotation = -(firstStepDeg - 90) * (math.pi / 180);
   }
 
   void _onSearchChanged() {
@@ -126,6 +144,10 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
     }
     if (oldWidget.destinations != widget.destinations) {
       _filteredDestinations = widget.destinations;
+    }
+    // If route arrives after image is already loaded, set initial rotation now
+    if (oldWidget.route != widget.route && _imageSize != null) {
+      _setInitialRouteRotation();
     }
   }
 
