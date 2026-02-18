@@ -36,12 +36,16 @@ class MapView extends StatefulWidget {
   State<MapView> createState() => _MapViewState();
 }
 
-class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
+class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   late AnimationController _routeAnimationController;
   final TransformationController _transformationController =
       TransformationController();
 
-  double _manualRotation = 0.0; // radians, accumulated from two-finger twist
+  late AnimationController _snapRotationController;
+  Animation<double>? _snapRotationAnimation;
+  double _manualRotation = 0.0; // radians, current map rotation
+  double _initialRouteRotation = 0.0; // radians, set from first route segment
+  Matrix4? _initialMatrix; // transformation at initial view
   // Two-pointer rotation tracking
   final Map<int, Offset> _activePointers = {};
   double _lastPointerAngle = 0.0;
@@ -68,6 +72,11 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
       vsync: this,
       duration: const Duration(seconds: 10),
     )..repeat();
+
+    _snapRotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
 
     _decodeFloorPlan();
     _filteredDestinations = widget.destinations;
@@ -114,13 +123,56 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
     if (route == null || route.steps.isEmpty) return;
     _hasSetInitialRotation = true;
 
-    // orientationDegrees is the compass bearing of the first segment.
-    // To make it point UP (north of screen), we negate it and correct
-    // for the 90° offset between compass (0=north=up) and atan2 space.
-    final firstStepDeg = route.steps.first.orientationDegrees;
-    // Convert: rotate map so firstStepDeg faces up
-    // "up" on screen = -90° in standard math angles
-    _manualRotation = -(firstStepDeg - 90) * (math.pi / 180);
+    // Step 0 always has from==to (zero distance — the user's standing position).
+    // Skip it and find the first step with actual movement.
+    final movingStep = route.steps.firstWhere(
+      (s) =>
+          (s.to.x - s.from.x).abs() > 0.01 || (s.to.y - s.from.y).abs() > 0.01,
+      orElse: () => route.steps.first,
+    );
+    final from = movingStep.from;
+    final to = movingStep.to;
+
+    // The marker math uses CCW rotation convention. Transform.rotate uses CW.
+    // They work together correctly when _manualRotation is negative.
+    // To make from→to point UP: negate (segmentAngle + π/2).
+    final segmentAngle = math.atan2(to.y - from.y, to.x - from.x);
+    _manualRotation = -(segmentAngle + math.pi / 2);
+    _initialRouteRotation = _manualRotation;
+  }
+
+  /// Smoothly animates rotation AND position back to the initial view.
+  void _snapToInitialRotation() {
+    _snapRotationController.stop();
+
+    final fromRotation = _manualRotation;
+    final toRotation = _initialRouteRotation;
+    final fromMatrix = _transformationController.value.clone();
+    final toMatrix = _initialMatrix ?? _transformationController.value.clone();
+
+    _snapRotationAnimation =
+        Tween<double>(begin: 0.0, end: 1.0).animate(
+          CurvedAnimation(
+            parent: _snapRotationController,
+            curve: Curves.easeInOutCubic,
+          ),
+        )..addListener(() {
+          final t = _snapRotationAnimation!.value;
+          // Interpolate rotation
+          final newRotation = fromRotation + (toRotation - fromRotation) * t;
+          // Interpolate each matrix entry
+          final fromStorage = fromMatrix.storage;
+          final toStorage = toMatrix.storage;
+          final interpolated = Matrix4.fromList(
+            List.generate(
+              16,
+              (i) => fromStorage[i] + (toStorage[i] - fromStorage[i]) * t,
+            ),
+          );
+          setState(() => _manualRotation = newRotation);
+          _transformationController.value = interpolated;
+        });
+    _snapRotationController.forward(from: 0);
   }
 
   void _onSearchChanged() {
@@ -148,12 +200,21 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
     // If route arrives after image is already loaded, set initial rotation now
     if (oldWidget.route != widget.route && _imageSize != null) {
       _setInitialRouteRotation();
+      // Recenter after rotation is applied
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final box = context.findRenderObject() as RenderBox?;
+        if (box == null) return;
+        final containerSize = box.size;
+        _recenterOnUser(containerSize, _imageSize!, initialZoom: 2.0);
+      });
     }
   }
 
   @override
   void dispose() {
     _routeAnimationController.dispose();
+    _snapRotationController.dispose();
     _transformationController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -180,7 +241,8 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
   void _initializeView(Size containerSize, Size imageSize) {
     if (_hasInitializedView || !widget.autoCenterOnUser) return;
     _hasInitializedView = true;
-
+    // Set route rotation first so _recenterOnUser can account for it
+    _setInitialRouteRotation();
     _recenterOnUser(containerSize, imageSize, initialZoom: 2.0);
   }
 
@@ -207,17 +269,39 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
     final scaleX = displayWidth / imageSize.width;
     final scaleY = displayHeight / imageSize.height;
 
+    // User position in the unrotated display coordinate space
+    // (relative to the InteractiveViewer content origin)
     final userDisplayX =
         userPos.dx * scaleX + (containerSize.width - displayWidth) / 2;
     final userDisplayY =
         userPos.dy * scaleY + (containerSize.height - displayHeight) / 2;
 
-    final translateX = containerSize.width / 2 - userDisplayX * initialZoom;
-    final translateY = containerSize.height / 2 - userDisplayY * initialZoom;
+    // Transform.rotate rotates around the display center.
+    // We must rotate the user point by _manualRotation around that center
+    // to find where the user will actually appear on screen.
+    final cx = containerSize.width / 2;
+    final cy = containerSize.height / 2;
+    final dx = userDisplayX - cx;
+    final dy = userDisplayY - cy;
+    final cosA = math.cos(_manualRotation);
+    final sinA = math.sin(_manualRotation);
+    final rotatedUserX = cx + dx * cosA - dy * sinA;
+    final rotatedUserY = cy + dx * sinA + dy * cosA;
 
-    _transformationController.value = Matrix4.identity()
+    // Target: horizontally centered, 75% down (Google Maps style)
+    final targetX = containerSize.width / 2;
+    final targetY = containerSize.height * 0.75;
+
+    final translateX = targetX - rotatedUserX * initialZoom;
+    final translateY = targetY - rotatedUserY * initialZoom;
+
+    final newMatrix = Matrix4.identity()
       ..translate(translateX, translateY)
       ..scale(initialZoom);
+
+    _transformationController.value = newMatrix;
+    // Save as the initial view to return to when snap button is pressed
+    _initialMatrix ??= newMatrix.clone();
   }
 
   @override
@@ -455,6 +539,9 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
                 _hasRecenteredOnUser = false;
                 _recenterOnUser(containerSize, _imageSize!);
               },
+              onSnapRotation: _snapToInitialRotation,
+              isAtInitialRotation:
+                  (_manualRotation - _initialRouteRotation).abs() < 0.01,
             ),
 
             if (_showLegend)
@@ -525,7 +612,8 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
     );
     final relativePoint = Offset(baseX, baseY) - mapCenter;
 
-    // Rotate point
+    // Rotate point around map center (CCW convention matches Transform.rotate
+    // when rotation values are negated, which is how _manualRotation is stored)
     final cosR = math.cos(rotation);
     final sinR = math.sin(rotation);
     final rotatedX = relativePoint.dx * cosR - relativePoint.dy * sinR;

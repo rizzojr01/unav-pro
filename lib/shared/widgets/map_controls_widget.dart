@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 class MapControls extends StatelessWidget {
   final VoidCallback onSearch;
   final VoidCallback onReset;
+  final VoidCallback? onSnapRotation;
+  final bool isAtInitialRotation;
   final IconData? resetIcon;
   final double right;
   final double bottom;
@@ -12,6 +14,8 @@ class MapControls extends StatelessWidget {
     super.key,
     required this.onSearch,
     required this.onReset,
+    this.onSnapRotation,
+    this.isAtInitialRotation = true,
     this.resetIcon,
     this.right = 16,
     this.bottom = 16,
@@ -32,9 +36,9 @@ class MapControls extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           MapControlButton(
-            icon: Icons.explore_outlined,
-            onPressed: () {}, // UI only — no logic
-            tooltip: 'Compass',
+            icon: isAtInitialRotation ? Icons.explore_outlined : Icons.explore,
+            onPressed: onSnapRotation ?? () {},
+            tooltip: 'Snap to route direction',
           ),
           const SizedBox(height: 12),
           MapControlButton(
