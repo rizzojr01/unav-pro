@@ -4,8 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../injection.dart';
 import '../../../../shared/services/device_id_service.dart';
-import '../../../../shared/services/destinations_cache_service.dart';
-import '../../../../shared/services/location_config_service.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../bloc/localization_history_bloc.dart';
@@ -157,7 +155,7 @@ class _LocalizationHistoryPageState extends State<LocalizationHistoryPage> {
                       ),
                     ),
                     title: Text(
-                      _resolveDestinationName(item.destinationId),
+                      item.destinationName ?? item.destinationId,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -214,31 +212,5 @@ class _LocalizationHistoryPageState extends State<LocalizationHistoryPage> {
     } else {
       return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
     }
-  }
-
-  String _resolveDestinationName(String destinationId) {
-    try {
-      final cache = getIt<DestinationsCacheService>();
-      final location = getIt<LocationConfigService>();
-      final cached = cache.getCachedDestinations(
-        place: location.place,
-        building: location.building,
-        floor: location.floor,
-      );
-
-      if (cached != null && cached.isNotEmpty) {
-        try {
-          final match = cached.firstWhere(
-            (d) => d.destinationId == destinationId || d.id == destinationId,
-          );
-          return match.name;
-        } on StateError {
-          // no match found, fall through to return id
-        }
-      }
-    } catch (e) {
-      // ignore and fallback
-    }
-    return destinationId;
   }
 }

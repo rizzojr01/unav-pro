@@ -9,6 +9,9 @@ import '../../../../shared/services/floor_plan_cache_service.dart';
 import '../../../../shared/services/location_config_service.dart';
 import '../../../destination/domain/entities/destination_entity.dart';
 import '../../../locate_me/domain/usecases/get_floor_plan_usecase.dart';
+import '../../../localization_history/domain/entities/localization_history_entity.dart';
+import '../../../localization_history/domain/usecases/save_localization_history_usecase.dart';
+import '../../../../shared/services/device_id_service.dart';
 import '../../domain/usecases/get_route_usecase.dart';
 import 'navigation_event.dart';
 import 'navigation_state.dart';
@@ -19,6 +22,8 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
   final LocationConfigService locationConfigService;
   final FloorPlanCacheService floorPlanCacheService;
   final DestinationsCacheService destinationsCacheService;
+  final SaveLocalizationHistoryUseCase saveLocalizationHistoryUseCase;
+  final DeviceIdService deviceIdService;
 
   NavigationBloc({
     required this.getRouteUseCase,
@@ -26,6 +31,8 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     required this.locationConfigService,
     required this.floorPlanCacheService,
     required this.destinationsCacheService,
+    required this.saveLocalizationHistoryUseCase,
+    required this.deviceIdService,
   }) : super(const NavigationInitial()) {
     on<InitializeNavigationEvent>(_onInitializeNavigation);
   }
@@ -160,6 +167,22 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
       if (cachedDestinations != null) {
         destinations = cachedDestinations;
       }
+
+      // Save locally
+      saveLocalizationHistoryUseCase(
+        LocalizationHistoryEntity(
+          historyId: DateTime.now().millisecondsSinceEpoch,
+          userIdentifier: deviceIdService.getDeviceId(),
+          identifierType: 'device',
+          sessionId: sessionId,
+          destinationId: destinationId,
+          destinationName: event.destination.name,
+          building: building,
+          floor: floor,
+          place: place,
+          createdAt: DateTime.now(),
+        ),
+      );
 
       emit(
         NavigationReady(

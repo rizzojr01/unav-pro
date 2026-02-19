@@ -52,9 +52,11 @@ import 'package:smart_sense/features/locate_me/presentation/bloc/locate_me_bloc.
 
 // Localization History
 import 'package:smart_sense/features/localization_history/data/datasources/localization_history_remote_datasource.dart';
+import 'package:smart_sense/features/localization_history/data/datasources/localization_history_local_datasource.dart';
 import 'package:smart_sense/features/localization_history/data/repositories/localization_history_repository_impl.dart';
 import 'package:smart_sense/features/localization_history/domain/repositories/localization_history_repository.dart';
 import 'package:smart_sense/features/localization_history/domain/usecases/get_user_localization_history_usecase.dart';
+import 'package:smart_sense/features/localization_history/domain/usecases/save_localization_history_usecase.dart';
 import 'package:smart_sense/features/localization_history/presentation/bloc/localization_history_bloc.dart';
 
 // Auth
@@ -91,9 +93,9 @@ Future<void> initializeDependencies() async {
   getIt.registerLazySingleton<LocationConfigService>(
     () => LocationConfigService(getIt()),
   );
-  getIt.registerLazySingleton<DeviceIdService>(
-    () => DeviceIdService(getIt()),
-  );
+  final deviceIdService = DeviceIdService(getIt());
+  await deviceIdService.init();
+  getIt.registerLazySingleton<DeviceIdService>(() => deviceIdService);
   getIt.registerLazySingleton<FloorPlanCacheService>(
     () => FloorPlanCacheService(getIt()),
   );
@@ -217,6 +219,8 @@ Future<void> initializeDependencies() async {
       locationConfigService: getIt(),
       floorPlanCacheService: getIt(),
       destinationsCacheService: getIt(),
+      saveLocalizationHistoryUseCase: getIt(),
+      deviceIdService: getIt(),
     ),
   );
 
@@ -248,15 +252,22 @@ Future<void> initializeDependencies() async {
   getIt.registerLazySingleton<LocalizationHistoryRemoteDataSource>(
     () => LocalizationHistoryRemoteDataSourceImpl(getIt()),
   );
+  getIt.registerLazySingleton<LocalizationHistoryLocalDataSource>(
+    () => LocalizationHistoryLocalDataSourceImpl(sharedPreferences: getIt()),
+  );
   getIt.registerLazySingleton<LocalizationHistoryRepository>(
-    () => LocalizationHistoryRepositoryImpl(remoteDataSource: getIt()),
+    () => LocalizationHistoryRepositoryImpl(
+      remoteDataSource: getIt(),
+      localDataSource: getIt(),
+    ),
   );
   getIt.registerLazySingleton(
     () => GetUserLocalizationHistoryUseCase(repository: getIt()),
   );
+  getIt.registerLazySingleton(
+    () => SaveLocalizationHistoryUseCase(repository: getIt()),
+  );
   getIt.registerFactory(
-    () => LocalizationHistoryBloc(
-      getUserLocalizationHistoryUseCase: getIt(),
-    ),
+    () => LocalizationHistoryBloc(getUserLocalizationHistoryUseCase: getIt()),
   );
 }

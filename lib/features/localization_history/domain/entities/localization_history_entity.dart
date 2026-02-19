@@ -6,6 +6,7 @@ class LocalizationHistoryEntity extends BaseEntity {
   final String identifierType; // 'email' or 'device'
   final String sessionId;
   final String destinationId;
+  final String? destinationName;
   final String building;
   final String floor;
   final String place;
@@ -19,6 +20,7 @@ class LocalizationHistoryEntity extends BaseEntity {
     required this.identifierType,
     required this.sessionId,
     required this.destinationId,
+    this.destinationName,
     required this.building,
     required this.floor,
     required this.place,
@@ -32,16 +34,16 @@ class LocalizationHistoryEntity extends BaseEntity {
 
   @override
   List<Object?> get props => [
-        historyId,
-        userIdentifier,
-        identifierType,
-        sessionId,
-        destinationId,
-        building,
-        floor,
-        place,
-        userPovImageId,
-        unavOutput,
-        createdAt,
-      ];
+    historyId,
+    userIdentifier,
+    identifierType,
+    sessionId,
+    destinationId,
+    building,
+    floor,
+    place,
+    userPovImageId,
+    unavOutput,
+    createdAt,
+  ];
 }

@@ -637,7 +637,7 @@ class _DashboardPageState extends State<DashboardPage>
             children: history.take(3).map((item) {
               // Try to resolve a human-friendly name from cached destinations
               final cache = getIt<DestinationsCacheService>();
-              String resolvedName = item.destinationId;
+              String resolvedName = item.destinationName ?? item.destinationId;
               final cached = cache.getCachedDestinations(
                 place: item.place,
                 building: item.building,

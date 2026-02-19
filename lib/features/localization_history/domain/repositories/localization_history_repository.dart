@@ -4,9 +4,13 @@ import '../entities/localization_history_entity.dart';
 
 abstract class LocalizationHistoryRepository {
   Future<Either<Failure, List<LocalizationHistoryEntity>>>
-      getUserLocalizationHistory({
+  getUserLocalizationHistory({
     required String userIdentifier,
     required String identifierType,
     int limit = 50,
   });
+
+  Future<Either<Failure, void>> saveLocalizationHistory(
+    LocalizationHistoryEntity history,
+  );
 }

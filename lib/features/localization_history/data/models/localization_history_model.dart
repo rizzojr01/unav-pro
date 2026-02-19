@@ -7,6 +7,7 @@ class LocalizationHistoryModel extends LocalizationHistoryEntity {
     required super.identifierType,
     required super.sessionId,
     required super.destinationId,
+    super.destinationName,
     required super.building,
     required super.floor,
     required super.place,
@@ -22,6 +23,7 @@ class LocalizationHistoryModel extends LocalizationHistoryEntity {
       identifierType: json['identifier_type'] as String,
       sessionId: json['session_id'] as String,
       destinationId: json['destination_id'] as String,
+      destinationName: json['destination_name'] as String?,
       building: json['building'] as String,
       floor: json['floor'] as String,
       place: json['place'] as String,
@@ -38,6 +40,7 @@ class LocalizationHistoryModel extends LocalizationHistoryEntity {
       'identifier_type': identifierType,
       'session_id': sessionId,
       'destination_id': destinationId,
+      'destination_name': destinationName,
       'building': building,
       'floor': floor,
       'place': place,
@@ -47,13 +50,16 @@ class LocalizationHistoryModel extends LocalizationHistoryEntity {
     };
   }
 
-  factory LocalizationHistoryModel.fromEntity(LocalizationHistoryEntity entity) {
+  factory LocalizationHistoryModel.fromEntity(
+    LocalizationHistoryEntity entity,
+  ) {
     return LocalizationHistoryModel(
       historyId: entity.historyId,
       userIdentifier: entity.userIdentifier,
       identifierType: entity.identifierType,
       sessionId: entity.sessionId,
       destinationId: entity.destinationId,
+      destinationName: entity.destinationName,
       building: entity.building,
       floor: entity.floor,
       place: entity.place,
@@ -65,7 +71,9 @@ class LocalizationHistoryModel extends LocalizationHistoryEntity {
 
   static List<LocalizationHistoryModel> fromJsonList(List<dynamic> jsonList) {
     return jsonList
-        .map((e) => LocalizationHistoryModel.fromJson(e as Map<String, dynamic>))
+        .map(
+          (e) => LocalizationHistoryModel.fromJson(e as Map<String, dynamic>),
+        )
         .toList();
   }
 }
