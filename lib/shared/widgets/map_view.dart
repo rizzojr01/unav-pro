@@ -405,7 +405,49 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
 
                   // Apply rotation — filter out tiny noise
                   if (delta.abs() > 0.005) {
-                    setState(() => _manualRotation += delta);
+                    // Compute user's current screen position BEFORE rotation
+                    final userPos = _getUserCoords();
+                    final matrix = _transformationController.value;
+
+                    // User position in content (unrotated) space
+                    final baseX = userPos.dx * scaleX + centerOffsetX;
+                    final baseY = userPos.dy * scaleY + centerOffsetY;
+
+                    // Content center (what Transform.rotate pivots around)
+                    final contentCx = constraints.maxWidth / 2;
+                    final contentCy = constraints.maxHeight / 2;
+
+                    // Rotate user point by current rotation to get its position
+                    // in the InteractiveViewer's coordinate space
+                    final cosOld = math.cos(_manualRotation);
+                    final sinOld = math.sin(_manualRotation);
+                    final dxOld = baseX - contentCx;
+                    final dyOld = baseY - contentCy;
+                    final userInViewOldX =
+                        contentCx + dxOld * cosOld - dyOld * sinOld;
+                    final userInViewOldY =
+                        contentCy + dxOld * sinOld + dyOld * cosOld;
+
+                    // Same point after new rotation
+                    final newRotation = _manualRotation + delta;
+                    final cosNew = math.cos(newRotation);
+                    final sinNew = math.sin(newRotation);
+                    final userInViewNewX =
+                        contentCx + dxOld * cosNew - dyOld * sinNew;
+                    final userInViewNewY =
+                        contentCy + dxOld * sinNew + dyOld * cosNew;
+
+                    // The shift in InteractiveViewer space caused by the rotation
+                    final shiftX = userInViewOldX - userInViewNewX;
+                    final shiftY = userInViewOldY - userInViewNewY;
+
+                    // Apply rotation and compensate translation atomically
+                    final zoom = matrix.getMaxScaleOnAxis();
+                    final newMatrix = matrix.clone()
+                      ..translate(shiftX / zoom, shiftY / zoom);
+
+                    setState(() => _manualRotation = newRotation);
+                    _transformationController.value = newMatrix;
                   }
                   _lastPointerAngle = newAngle;
                 }
