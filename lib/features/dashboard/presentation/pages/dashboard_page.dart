@@ -671,7 +671,7 @@ class _DashboardPageState extends State<DashboardPage>
                       context.push('/camera', extra: destination);
                     },
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                 ],
               );
             }).toList(),

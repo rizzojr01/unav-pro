@@ -46,6 +46,7 @@ dependencies:
   flex_color_scheme: ^8.0.2
   camera_macos: ^0.0.9
   device_info_plus: ^12.3.0
+  flutter_compass: ^0.8.1
 
 dev_dependencies:
   flutter_test:

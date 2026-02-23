@@ -15,7 +15,7 @@ class StepIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+  
 
     return Container(
       width: double.infinity,
@@ -150,7 +150,7 @@ class StepIndicator extends StatelessWidget {
 
   Widget _buildLine(BuildContext context, bool isActive) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+     
 
     return Container(
       width: 32,

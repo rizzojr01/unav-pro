@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 
 import '../../features/destination/domain/entities/destination_entity.dart';
 import '../../features/locate_me/domain/entities/user_position_entity.dart';
@@ -62,6 +64,12 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   bool _hasRecenteredOnUser = false;
   bool _hasSetInitialRotation = false;
 
+  // Compass tracking
+  StreamSubscription<CompassEvent>? _compassSubscription;
+  double? _initialCompassHeading; // heading (degrees) when tracking started
+  bool _compassActive = false; // true once the 2.5 s delay fires
+  Timer? _compassStartTimer;
+
   final TextEditingController _searchController = TextEditingController();
   List<DestinationEntity> _filteredDestinations = [];
 
@@ -81,6 +89,55 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     _decodeFloorPlan();
     _filteredDestinations = widget.destinations;
     _searchController.addListener(_onSearchChanged);
+  }
+
+  // ── compass ────────────────────────────────────────────────────────────────
+
+  /// Starts compass tracking after [delay].
+  /// Saves the heading at the moment tracking begins as the baseline,
+  /// then applies: mapRotation = initialRouteRotation − deltaHeading.
+  void _startCompassTracking({
+    Duration delay = const Duration(milliseconds: 2500),
+  }) {
+    _compassStartTimer?.cancel();
+    _compassStartTimer = Timer(delay, () {
+      if (!mounted) return;
+      _compassSubscription?.cancel();
+      _initialCompassHeading = null; // will be set on first event
+      _compassSubscription = FlutterCompass.events?.listen((event) {
+        final heading = event.heading;
+        if (heading == null || !mounted) return;
+
+        // Capture the baseline heading on the very first event
+        _initialCompassHeading ??= heading;
+
+        // Compute how many degrees the user has physically rotated since we
+        // started tracking, using the shortest arc to avoid 0/360 wrap issues.
+        final delta = _shortestArc(heading - _initialCompassHeading!);
+
+        // Rotate the map OPPOSITE to the physical rotation so the arrow stays up.
+        setState(() {
+          _manualRotation = _initialRouteRotation - delta * math.pi / 180.0;
+          _compassActive = true;
+        });
+      });
+    });
+  }
+
+  /// Returns the shortest signed arc (−180..+180) between two headings.
+  double _shortestArc(double delta) {
+    delta = delta % 360;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+    return delta;
+  }
+
+  void _stopCompassTracking() {
+    _compassStartTimer?.cancel();
+    _compassSubscription?.cancel();
+    _compassSubscription = null;
+    _initialCompassHeading = null;
+    if (mounted) setState(() => _compassActive = false);
   }
 
   void _decodeFloorPlan() {
@@ -116,29 +173,27 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         );
   }
 
-  /// Rotates the map so the first route segment points upward on screen.
+  /// Rotates the map so the user's current facing direction points upward on screen.
   void _setInitialRouteRotation() {
     if (_hasSetInitialRotation) return;
     final route = widget.route;
     if (route == null || route.steps.isEmpty) return;
     _hasSetInitialRotation = true;
 
-    // Step 0 always has from==to (zero distance — the user's standing position).
-    // Skip it and find the first step with actual movement.
-    final movingStep = route.steps.firstWhere(
-      (s) =>
-          (s.to.x - s.from.x).abs() > 0.01 || (s.to.y - s.from.y).abs() > 0.01,
-      orElse: () => route.steps.first,
-    );
-    final from = movingStep.from;
-    final to = movingStep.to;
-
-    // The marker math uses CCW rotation convention. Transform.rotate uses CW.
-    // They work together correctly when _manualRotation is negative.
-    // To make from→to point UP: negate (segmentAngle + π/2).
-    final segmentAngle = math.atan2(to.y - from.y, to.x - from.x);
-    _manualRotation = -(segmentAngle + math.pi / 2);
+    // The backend provides `ang` on step 0's `from` — the user's current orientation.
+    // `ang` uses the same convention as atan2: 0° = pointing right (+X in image space).
+    // To make the user's facing direction point UP on screen we apply the same
+    // formula as the atan2 segment method: -(ang_rad + π/2).
+    // The +π/2 shifts the reference from "0°=right" to "0°=up".
+    final userAngleDeg = route.steps.first.from.ang ?? 0.0;
+    _manualRotation = -(userAngleDeg * math.pi / 180.0 + math.pi / 2);
     _initialRouteRotation = _manualRotation;
+
+    // Start compass tracking 2.5 s after the initial view settles.
+    // The delay lets the map animation finish before we hand control to the sensor.
+    if (widget.route != null) {
+      _startCompassTracking();
+    }
   }
 
   /// Smoothly animates rotation AND position back to the initial view.
@@ -213,6 +268,8 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _compassStartTimer?.cancel();
+    _compassSubscription?.cancel();
     _routeAnimationController.dispose();
     _snapRotationController.dispose();
     _transformationController.dispose();
@@ -375,6 +432,8 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                   _gestureStartAngle = _lastPointerAngle;
                   _isTrackingRotation = true;
                   _rotationThresholdMet = false;
+                  // User is manually rotating — pause compass so it doesn't fight the gesture
+                  _stopCompassTracking();
                 }
               },
               onPointerMove: (e) {
@@ -581,10 +640,79 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                 _hasRecenteredOnUser = false;
                 _recenterOnUser(containerSize, _imageSize!);
               },
-              onSnapRotation: _snapToInitialRotation,
+              onSnapRotation: () {
+                _snapToInitialRotation();
+                // Re-enable compass after snapping back to the route orientation
+                _startCompassTracking(delay: const Duration(milliseconds: 800));
+              },
               isAtInitialRotation:
                   (_manualRotation - _initialRouteRotation).abs() < 0.01,
             ),
+
+            // Compass active indicator — top right
+            if (widget.route != null)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: GestureDetector(
+                  onTap: () {
+                    if (_compassActive) {
+                      _stopCompassTracking();
+                    } else {
+                      _startCompassTracking(delay: Duration.zero);
+                    }
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _compassActive
+                          ? theme.colorScheme.primary.withValues(alpha: 0.15)
+                          : theme.colorScheme.surface.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _compassActive
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.outline.withValues(alpha: 0.4),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.explore_rounded,
+                          size: 14,
+                          color: _compassActive
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          _compassActive ? 'Compass ON' : 'Compass OFF',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: _compassActive
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
 
             if (_showLegend)
               Positioned(
