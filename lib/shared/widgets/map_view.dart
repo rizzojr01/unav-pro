@@ -67,8 +67,15 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   // Compass tracking
   StreamSubscription<CompassEvent>? _compassSubscription;
   double? _initialCompassHeading; // heading (degrees) when tracking started
+  double _smoothedHeading = 0.0; // EMA-filtered heading, avoids noise spikes
+  bool _headingInitialized = false;
   bool _compassActive = false; // true once the 2.5 s delay fires
   Timer? _compassStartTimer;
+  bool _touchActive = false; // true while any finger is on screen
+
+  // Low-pass filter strength: 0 = frozen, 1 = raw. ~0.12 smooths noise well
+  // while still tracking real rotation within ~1-2 compass update cycles.
+  static const double _compassAlpha = 0.12;
 
   final TextEditingController _searchController = TextEditingController();
   List<DestinationEntity> _filteredDestinations = [];
@@ -106,20 +113,85 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       _initialCompassHeading = null; // will be set on first event
       _compassSubscription = FlutterCompass.events?.listen((event) {
         final heading = event.heading;
-        if (heading == null || !mounted) return;
+        if (heading == null || !mounted || _touchActive) return;
+
+        // ── Exponential moving average (low-pass) filter ────────────────────
+        // Raw magnetometer is very noisy indoors. EMA keeps the value stable
+        // when stationary while still tracking real rotation smoothly.
+        if (!_headingInitialized) {
+          _smoothedHeading = heading;
+          _headingInitialized = true;
+        } else {
+          // Interpolate using shortest arc to handle the 0↔360° wrap correctly
+          final arc = _shortestArc(heading - _smoothedHeading);
+          _smoothedHeading += _compassAlpha * arc;
+          _smoothedHeading = _smoothedHeading % 360;
+          if (_smoothedHeading < 0) _smoothedHeading += 360;
+        }
+        // ─────────────────────────────────────────────────────────
 
         // Capture the baseline heading on the very first event
-        _initialCompassHeading ??= heading;
+        _initialCompassHeading ??= _smoothedHeading;
 
-        // Compute how many degrees the user has physically rotated since we
-        // started tracking, using the shortest arc to avoid 0/360 wrap issues.
-        final delta = _shortestArc(heading - _initialCompassHeading!);
+        // How many degrees has the user physically rotated since tracking began?
+        final delta = _shortestArc(_smoothedHeading - _initialCompassHeading!);
+        final newRotation = _initialRouteRotation - delta * math.pi / 180.0;
 
-        // Rotate the map OPPOSITE to the physical rotation so the arrow stays up.
-        setState(() {
-          _manualRotation = _initialRouteRotation - delta * math.pi / 180.0;
-          _compassActive = true;
-        });
+        // Apply rotation, keeping the user marker pinned at its current screen position.
+        // We compute how much the user's content-space position shifts when rotation
+        // changes, then compensate the IV translation by exactly that amount.
+        // Matrix4.translate(dx, dy) adds (zoom*dx, zoom*dy) to the screen translation,
+        // so translate(shiftX, shiftY) adds the correct (zoom*shiftX) offset to tx.
+        if (_imageSize != null) {
+          final box = context.findRenderObject() as RenderBox?;
+          if (box != null) {
+            final cSize = box.size;
+            final iAR = _imageSize!.width / _imageSize!.height;
+            final cAR = cSize.width / cSize.height;
+            double dispW, dispH;
+            if (iAR > cAR) {
+              dispW = cSize.width;
+              dispH = cSize.width / iAR;
+            } else {
+              dispH = cSize.height;
+              dispW = cSize.height * iAR;
+            }
+            final sX = dispW / _imageSize!.width;
+            final sY = dispH / _imageSize!.height;
+            final offX = (cSize.width - dispW) / 2;
+            final offY = (cSize.height - dispH) / 2;
+            final userPos = _getUserCoords();
+            // User position in IV content coords (before Transform.rotate)
+            final userCX = userPos.dx * sX + offX;
+            final userCY = userPos.dy * sY + offY;
+            // Transform.rotate pivot = widget center
+            final cx = cSize.width / 2;
+            final cy = cSize.height / 2;
+            final dxU = userCX - cx;
+            final dyU = userCY - cy;
+            // User IV-content position AFTER old rotation
+            final cosOld = math.cos(_manualRotation);
+            final sinOld = math.sin(_manualRotation);
+            final oldX = cx + dxU * cosOld - dyU * sinOld;
+            final oldY = cy + dxU * sinOld + dyU * cosOld;
+            // User IV-content position AFTER new rotation
+            final cosNew = math.cos(newRotation);
+            final sinNew = math.sin(newRotation);
+            final newX = cx + dxU * cosNew - dyU * sinNew;
+            final newY = cy + dxU * sinNew + dyU * cosNew;
+            // Shift in IV content space. translate(shiftX, shiftY) adds
+            // zoom*shiftX to the screen translation — preserving current pan.
+            final shiftX = oldX - newX;
+            final shiftY = oldY - newY;
+            final newMatrix = _transformationController.value.clone()
+              ..translate(shiftX, shiftY);
+            _manualRotation = newRotation;
+            _transformationController.value = newMatrix;
+          }
+        } else {
+          _manualRotation = newRotation;
+        }
+        if (mounted) setState(() => _compassActive = true);
       });
     });
   }
@@ -423,6 +495,9 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
               behavior: HitTestBehavior.translucent,
               onPointerDown: (e) {
                 _activePointers[e.pointer] = e.localPosition;
+                // Suspend compass on ANY touch — prevents flicker during drag/pan
+                _touchActive = true;
+                _compassStartTimer?.cancel();
                 if (_activePointers.length == 2) {
                   final pts = _activePointers.values.toList();
                   _lastPointerAngle = math.atan2(
@@ -513,6 +588,29 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
               },
               onPointerUp: (e) {
                 _activePointers.remove(e.pointer);
+                if (_activePointers.isEmpty) {
+                  // All fingers lifted — resume compass after short settle delay
+                  _touchActive = false;
+                  if (_compassSubscription != null) {
+                    // Subscription still alive; just re-seed baseline so the map
+                    // doesn't snap when compass resumes after a drag.
+                    _compassStartTimer?.cancel();
+                    _compassStartTimer = Timer(
+                      const Duration(milliseconds: 500),
+                      () {
+                        if (mounted) {
+                          // Re-seed: use the already-smoothed heading as the new
+                          // baseline so a noise spike on the first post-touch event
+                          // doesn't cause a sudden map jump.
+                          _initialCompassHeading = _headingInitialized
+                              ? _smoothedHeading
+                              : null;
+                          _initialRouteRotation = _manualRotation;
+                        }
+                      },
+                    );
+                  }
+                }
                 if (_activePointers.length < 2) {
                   _isTrackingRotation = false;
                   _rotationThresholdMet = false;
@@ -520,6 +618,9 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
               },
               onPointerCancel: (e) {
                 _activePointers.remove(e.pointer);
+                if (_activePointers.isEmpty) {
+                  _touchActive = false;
+                }
                 if (_activePointers.length < 2) {
                   _isTrackingRotation = false;
                   _rotationThresholdMet = false;
@@ -799,8 +900,12 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         top: pos.dy - size / 2,
         child: UserPositionMarker(
           size: size,
-          // Arrow is glued to the map: heading + full map rotation so it spins with the map
-          orientationDegrees: (angle + 90) + (rotation * 180 / math.pi),
+          // Compass ON (heading-up): map already rotated so user faces screen-up.
+          // Arrow must be 0° — always pointing straight up, never moves.
+          // Compass OFF: arrow glued to map rotation (original behaviour).
+          orientationDegrees: _compassActive
+              ? 0.0
+              : (angle + 90) + (rotation * 180 / math.pi),
         ),
       );
     }
