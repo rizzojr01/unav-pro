@@ -633,7 +633,9 @@ class _DashboardPageState extends State<DashboardPage>
             );
           }
 
-          return Column(
+          return ListView(
+            physics: const ClampingScrollPhysics(),
+            padding: EdgeInsets.zero,
             children: history.take(3).map((item) {
               // Try to resolve a human-friendly name from cached destinations
               final cache = getIt<DestinationsCacheService>();

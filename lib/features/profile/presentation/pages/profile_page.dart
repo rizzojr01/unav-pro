@@ -496,6 +496,87 @@ class ProfilePage extends StatelessWidget {
                 indent: 68,
                 color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
               ),
+              // ── Multi-Floor Navigation Toggle ──────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.secondaryContainer.withValues(
+                          alpha: 0.35,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.layers_outlined,
+                        color: theme.colorScheme.secondary,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Multi-Floor Navigation',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            locationConfig.multiFloorNavigation
+                                ? 'Route spans multiple floors (unav_multifloor: true)'
+                                : 'Single-floor routing only (unav_multifloor: false)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: locationConfig.multiFloorNavigation,
+                      onChanged: (value) async {
+                        await locationConfig.setMultiFloorNavigation(value);
+                        setState(() {});
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                value
+                                    ? 'Multi-floor navigation enabled'
+                                    : 'Multi-floor navigation disabled',
+                              ),
+                              backgroundColor: theme.colorScheme.secondary,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      activeColor: theme.colorScheme.secondary,
+                    ),
+                  ],
+                ),
+              ),
+              Divider(
+                height: 1,
+                indent: 68,
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+
               // Alternate Sample Image Link
               InkWell(
                 onTap: () => _showAlternateSampleImageSettings(context),

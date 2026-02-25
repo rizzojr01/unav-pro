@@ -25,6 +25,7 @@ class NavigationRepositoryImpl implements NavigationRepository {
     required bool useSampleImage,
     required String base64Image,
     bool saveFrame = false,
+    bool multiFloorNavigation = true,
     Map<String, dynamic>? imageCompression,
     Map<String, dynamic>? userPickedCoordinates,
   }) async {
@@ -38,6 +39,7 @@ class NavigationRepositoryImpl implements NavigationRepository {
         useSampleImage: useSampleImage,
         base64Image: base64Image,
         saveFrame: saveFrame,
+        multiFloorNavigation: multiFloorNavigation,
         imageCompression: imageCompression,
         userPickedCoordinates: userPickedCoordinates,
       );

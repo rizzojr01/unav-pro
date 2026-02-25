@@ -19,6 +19,7 @@ class LocationConfigService {
   static const String _keyMaxWidth = 'image_compression_max_width';
   static const String _keyImageQuality = 'image_compression_quality';
   static const String _keySaveFrame = 'navigation_save_frame';
+  static const String _keyMultiFloor = 'navigation_multifloor';
   static const String _keyUseAlternateSampleImage =
       'use_alternate_sample_image';
   static const String _keyAlternateSampleImagePath =
@@ -74,6 +75,14 @@ class LocationConfigService {
 
   Future<void> setSaveFrame(bool value) async {
     await _prefs.setBool(_keySaveFrame, value);
+  }
+
+  /// Multi-floor navigation — sends `unav_multifloor` in route request
+  bool get multiFloorNavigation =>
+      _prefs.getBool(_keyMultiFloor) ?? true; // on by default
+
+  Future<void> setMultiFloorNavigation(bool value) async {
+    await _prefs.setBool(_keyMultiFloor, value);
   }
 
   /// Get the selected place

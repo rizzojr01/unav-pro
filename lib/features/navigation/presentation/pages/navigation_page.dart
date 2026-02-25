@@ -6,12 +6,17 @@ import '../../../../shared/widgets/step_indicator.dart';
 import '../../../../shared/widgets/custom_loading_view.dart';
 import '../../../../shared/widgets/custom_error_view.dart';
 import '../../../destination/domain/entities/destination_entity.dart';
+import '../../domain/entities/route_entity.dart';
+import '../../domain/entities/multi_floor_navigation_step_entity.dart';
 import '../bloc/navigation_bloc.dart';
 import '../bloc/navigation_event.dart';
 import '../bloc/navigation_state.dart';
-import '../../domain/entities/route_entity.dart';
 import '../../../../shared/widgets/map_view.dart';
 import '../../../locate_me/presentation/widgets/destination_bottom_sheet.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Navigation Page
+// ─────────────────────────────────────────────────────────────────────────────
 
 class NavigationPage extends StatefulWidget {
   final DestinationEntity destination;
@@ -33,8 +38,7 @@ class _NavigationPageState extends State<NavigationPage> {
   @override
   void initState() {
     super.initState();
-    final bloc = context.read<NavigationBloc>();
-    bloc.add(
+    context.read<NavigationBloc>().add(
       InitializeNavigationEvent(
         widget.destination,
         imagePath: widget.imagePath,
@@ -54,12 +58,8 @@ class _NavigationPageState extends State<NavigationPage> {
       builder: (modalContext) => DestinationBottomSheet(
         destination: destination,
         onNavigate: () {
-          if (modalContext.mounted) {
-            Navigator.pop(modalContext);
-          }
-          if (mounted) {
-            context.pushReplacement('/camera', extra: destination);
-          }
+          if (modalContext.mounted) Navigator.pop(modalContext);
+          if (mounted) context.pushReplacement('/camera', extra: destination);
         },
       ),
     );
@@ -74,30 +74,31 @@ class _NavigationPageState extends State<NavigationPage> {
         builder: (context, state) {
           if (state is NavigationInitial || state is NavigationLoading) {
             return const CustomLoadingView(message: 'Initializing Map View...');
-          } else if (state is NavigationReady) {
+          }
+          if (state is NavigationReady) {
             return _NavigationMapView(
               destination: widget.destination,
               imagePath: widget.imagePath,
               currentLocation: state.currentLocation,
               route: state.route,
               floorPlanBase64: state.floorPlanBase64,
+              floorPlansByFloor: state.floorPlansByFloor,
               destinations: state.destinations,
-              onDestinationTap: (destination) =>
-                  _showDestinationBottomSheet(this.context, destination),
+              onDestinationTap: (d) =>
+                  _showDestinationBottomSheet(this.context, d),
               userPickedCoordinates: widget.userPickedCoordinates,
             );
-          } else if (state is NavigationError) {
+          }
+          if (state is NavigationError) {
             return CustomErrorView(
               message: state.message,
-              onRetry: () {
-                context.read<NavigationBloc>().add(
-                  InitializeNavigationEvent(
-                    widget.destination,
-                    imagePath: widget.imagePath,
-                    userPickedCoordinates: widget.userPickedCoordinates,
-                  ),
-                );
-              },
+              onRetry: () => context.read<NavigationBloc>().add(
+                InitializeNavigationEvent(
+                  widget.destination,
+                  imagePath: widget.imagePath,
+                  userPickedCoordinates: widget.userPickedCoordinates,
+                ),
+              ),
               onExit: () => context.pop(),
             );
           }
@@ -108,12 +109,17 @@ class _NavigationPageState extends State<NavigationPage> {
   }
 }
 
-class _NavigationMapView extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+// Multi-floor map view (stateful to track selected floor)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _NavigationMapView extends StatefulWidget {
   final DestinationEntity destination;
   final String? imagePath;
   final dynamic currentLocation;
   final RouteEntity route;
   final String? floorPlanBase64;
+  final Map<String, String> floorPlansByFloor;
   final List<DestinationEntity> destinations;
   final Function(DestinationEntity)? onDestinationTap;
   final Map<String, dynamic>? userPickedCoordinates;
@@ -124,10 +130,83 @@ class _NavigationMapView extends StatelessWidget {
     required this.currentLocation,
     required this.route,
     this.floorPlanBase64,
+    this.floorPlansByFloor = const {},
     this.destinations = const [],
     this.onDestinationTap,
     this.userPickedCoordinates,
   });
+
+  @override
+  State<_NavigationMapView> createState() => _NavigationMapViewState();
+}
+
+class _NavigationMapViewState extends State<_NavigationMapView>
+    with SingleTickerProviderStateMixin {
+  late String _selectedFloor;
+  late AnimationController _floorAnimController;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default to the first floor in the route
+    _selectedFloor = widget.route.multiFloorSteps.isNotEmpty
+        ? widget.route.multiFloorSteps.first.floor
+        : 'unknown';
+
+    _floorAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _floorAnimController.forward();
+  }
+
+  @override
+  void dispose() {
+    _floorAnimController.dispose();
+    super.dispose();
+  }
+
+  // "6_floor" → "6" · "B1_floor" → "B1" · "basement" → "B"
+  String _floorLabel(String floor) {
+    final cleaned = floor.replaceAll('_floor', '').replaceAll('_', ' ').trim();
+    return cleaned.isEmpty ? floor : cleaned;
+  }
+
+  /// Ordered list of floors from the route (top → bottom = highest → lowest)
+  List<MultiFloorNavigationStepEntity> get _orderedFloors {
+    final floors = List<MultiFloorNavigationStepEntity>.from(
+      widget.route.multiFloorSteps,
+    );
+    // Sort descending by numeric part if present
+    floors.sort((a, b) {
+      final aNum = _extractFloorNumber(a.floor);
+      final bNum = _extractFloorNumber(b.floor);
+      if (aNum != null && bNum != null) return bNum.compareTo(aNum);
+      return a.floor.compareTo(b.floor);
+    });
+    return floors;
+  }
+
+  int? _extractFloorNumber(String floor) {
+    final match = RegExp(r'(\d+)').firstMatch(floor);
+    return match != null ? int.tryParse(match.group(1)!) : null;
+  }
+
+  /// Synthetic route showing only the selected floor's steps
+  RouteEntity get _routeForSelectedFloor {
+    final floorSteps = widget.route.multiFloorSteps
+        .where((f) => f.floor == _selectedFloor)
+        .toList();
+    return RouteEntity(
+      entityId: widget.route.entityId,
+      multiFloorSteps: floorSteps,
+    );
+  }
+
+  String get _floorPlanForSelected =>
+      widget.floorPlansByFloor[_selectedFloor] ?? widget.floorPlanBase64 ?? '';
+
+  bool get _isMultiFloor => widget.route.multiFloorSteps.length > 1;
 
   @override
   Widget build(BuildContext context) {
@@ -139,24 +218,220 @@ class _NavigationMapView extends StatelessWidget {
           onBack: () => context.pop(),
         ),
         Expanded(
-          child: MapView(
-            userLocation: currentLocation,
-            route: route,
-            floorPlanBase64: floorPlanBase64 ?? '',
-            destinations: destinations,
-            onDestinationTap: onDestinationTap,
-            onRetry: () {
-              context.read<NavigationBloc>().add(
-                InitializeNavigationEvent(
-                  destination,
-                  imagePath: imagePath,
-                  userPickedCoordinates: userPickedCoordinates,
+          child: Stack(
+            children: [
+              // ── Map ──────────────────────────────────────────────────────
+              MapView(
+                key: ValueKey(_selectedFloor), // rebuild when floor changes
+                userLocation: widget.currentLocation,
+                route: _routeForSelectedFloor,
+                floorPlanBase64: _floorPlanForSelected,
+                destinations: widget.destinations,
+                onDestinationTap: widget.onDestinationTap,
+                onRetry: () => context.read<NavigationBloc>().add(
+                  InitializeNavigationEvent(
+                    widget.destination,
+                    imagePath: widget.imagePath,
+                    userPickedCoordinates: widget.userPickedCoordinates,
+                  ),
                 ),
-              );
-            },
+              ),
+
+              // ── Floor Switcher Panel ──────────────────────────────────────
+              if (_isMultiFloor)
+                Positioned(
+                  right: 16,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: _FloorSwitcherPanel(
+                      floors: _orderedFloors,
+                      selectedFloor: _selectedFloor,
+                      floorLabel: _floorLabel,
+                      onFloorSelected: (floor) {
+                        if (floor == _selectedFloor) return;
+                        setState(() => _selectedFloor = floor);
+                        _floorAnimController.forward(from: 0);
+                      },
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Floor Switcher Panel Widget
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FloorSwitcherPanel extends StatelessWidget {
+  final List<MultiFloorNavigationStepEntity> floors;
+  final String selectedFloor;
+  final String Function(String) floorLabel;
+  final ValueChanged<String> onFloorSelected;
+
+  const _FloorSwitcherPanel({
+    required this.floors,
+    required this.selectedFloor,
+    required this.floorLabel,
+    required this.onFloorSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark
+            ? theme.colorScheme.surface.withValues(alpha: 0.92)
+            : Colors.white.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: 0.15),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 20,
+            offset: const Offset(-2, 4),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header label
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              'Floor',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.onSurfaceVariant,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ),
+
+          // Floor buttons
+          ...floors.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final floorEntity = entry.value;
+            final isSelected = floorEntity.floor == selectedFloor;
+            final label = floorLabel(floorEntity.floor);
+            final isFirst = idx == 0;
+            final isLast = idx == floors.length - 1;
+
+            return _FloorButton(
+              label: label,
+              isSelected: isSelected,
+              isFirst: isFirst,
+              isLast: isLast,
+              onTap: () => onFloorSelected(floorEntity.floor),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _FloorButton extends StatefulWidget {
+  final String label;
+  final bool isSelected;
+  final bool isFirst;
+  final bool isLast;
+  final VoidCallback onTap;
+
+  const _FloorButton({
+    required this.label,
+    required this.isSelected,
+    required this.isFirst,
+    required this.isLast,
+    required this.onTap,
+  });
+
+  @override
+  State<_FloorButton> createState() => _FloorButtonState();
+}
+
+class _FloorButtonState extends State<_FloorButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 120),
+      lowerBound: 0.9,
+      upperBound: 1.0,
+      value: 1.0,
+    );
+    _scaleAnim = _ctrl;
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return GestureDetector(
+      onTapDown: (_) => _ctrl.reverse(),
+      onTapUp: (_) {
+        _ctrl.forward();
+        widget.onTap();
+      },
+      onTapCancel: () => _ctrl.forward(),
+      child: ScaleTransition(
+        scale: _scaleAnim,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          width: 44,
+          height: 44,
+          margin: const EdgeInsets.symmetric(vertical: 2),
+          decoration: BoxDecoration(
+            color: widget.isSelected
+                ? theme.colorScheme.primary
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(
+            child: AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: widget.isSelected
+                    ? FontWeight.w800
+                    : FontWeight.w500,
+                color: widget.isSelected
+                    ? theme.colorScheme.onPrimary
+                    : theme.colorScheme.onSurface,
+                letterSpacing: -0.3,
+              ),
+              child: Text(widget.label),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -144,6 +144,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         useSampleImage: effectiveUseSample,
         base64Image: base64Image,
         saveFrame: locationConfigService.saveFrame,
+        multiFloorNavigation: locationConfigService.multiFloorNavigation,
         imageCompression: {
           'enable_compression': locationConfigService.enableCompression,
           'max_height': locationConfigService.maxHeight,
@@ -156,7 +157,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
 
     routeResult.fold((failure) => emit(NavigationError(failure.message)), (
       route,
-    ) {
+    ) async {
       // Get cached destinations for POI display
       List<DestinationEntity> destinations = [];
       final cachedDestinations = destinationsCacheService.getCachedDestinations(
@@ -184,12 +185,67 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         ),
       );
 
+      // For multi-floor routes, load floor plans for every floor in parallel
+      final Map<String, String> floorPlansByFloor = {};
+      if (floorPlanBase64 != null && floorPlanBase64!.isNotEmpty) {
+        floorPlansByFloor[floor] = floorPlanBase64!;
+      }
+
+      if (route.multiFloorSteps.length > 1) {
+        final otherFloors = route.multiFloorSteps
+            .map((s) => s.floor)
+            .where((f) => f != floor)
+            .toSet()
+            .toList();
+
+        await Future.wait(
+          otherFloors.map((floorKey) async {
+            // Check cache first
+            if (floorPlanCacheService.hasCachedFloorPlan(
+              place: place,
+              building: building,
+              floor: floorKey,
+            )) {
+              final cached = floorPlanCacheService.getCachedFloorPlanBase64(
+                place: place,
+                building: building,
+                floor: floorKey,
+              );
+              if (cached != null && cached.isNotEmpty) {
+                floorPlansByFloor[floorKey] = cached;
+                return;
+              }
+            }
+            // Fetch from API
+            final result = await getFloorPlanUseCase(
+              GetFloorPlanParams(
+                building: building,
+                floor: floorKey,
+                place: place,
+              ),
+            );
+            result.fold((_) {}, (plan) async {
+              if (plan.base64Image.isNotEmpty) {
+                floorPlansByFloor[floorKey] = plan.base64Image;
+                await floorPlanCacheService.cacheFloorPlan(
+                  place: place,
+                  building: building,
+                  floor: floorKey,
+                  base64Image: plan.base64Image,
+                );
+              }
+            });
+          }),
+        );
+      }
+
       emit(
         NavigationReady(
           currentLocation: route.origin,
           route: route,
           floorPlanBase64: floorPlanBase64,
           destinations: destinations,
+          floorPlansByFloor: floorPlansByFloor,
         ),
       );
     });

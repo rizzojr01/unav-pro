@@ -14,6 +14,7 @@ class GetRouteParams {
   final bool useSampleImage;
   final String base64Image;
   final bool saveFrame;
+  final bool multiFloorNavigation;
   final Map<String, dynamic>? imageCompression;
   final Map<String, dynamic>? userPickedCoordinates;
 
@@ -26,6 +27,7 @@ class GetRouteParams {
     required this.useSampleImage,
     required this.base64Image,
     this.saveFrame = false,
+    this.multiFloorNavigation = true,
     this.imageCompression,
     this.userPickedCoordinates,
   });
@@ -48,6 +50,7 @@ class GetRouteUseCase implements UseCase<RouteEntity, GetRouteParams> {
       useSampleImage: params.useSampleImage,
       base64Image: params.base64Image,
       saveFrame: params.saveFrame,
+      multiFloorNavigation: params.multiFloorNavigation,
       imageCompression: params.imageCompression,
       userPickedCoordinates: params.userPickedCoordinates,
     );

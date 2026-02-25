@@ -13,6 +13,7 @@ abstract class NavigationRemoteDataSource {
     required bool useSampleImage,
     required String base64Image,
     bool saveFrame = false,
+    bool multiFloorNavigation = true,
     Map<String, dynamic>? imageCompression,
     Map<String, dynamic>? userPickedCoordinates,
   });
@@ -32,6 +33,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
     required bool useSampleImage,
     required String base64Image,
     bool saveFrame = false,
+    bool multiFloorNavigation = true,
     Map<String, dynamic>? imageCompression,
     Map<String, dynamic>? userPickedCoordinates,
   }) async {
@@ -50,7 +52,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
           'saveframe': saveFrame,
           'shorten_vlm_response': true,
           'speakVlmFirst': true,
-          'unav_multifloor': true,
+          'unav_multifloor': multiFloorNavigation,
           'use_vlm': false,
           if (imageCompression != null) 'image_compression': imageCompression,
           if (userPickedCoordinates != null)
