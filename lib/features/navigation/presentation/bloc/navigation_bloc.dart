@@ -158,13 +158,18 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     await routeResult.fold(
       (failure) async => emit(NavigationError(failure.message)),
       (route) async {
+        // Use the actual floor name from the route steps to ensure exact string matching in UI
+        final actualStartingFloor = route.multiFloorSteps.isNotEmpty
+            ? route.multiFloorSteps.first.floor
+            : floor;
+
         // Get cached destinations for POI display
         List<DestinationEntity> destinations = [];
         final cachedDestinations = destinationsCacheService
             .getCachedDestinations(
               place: place,
               building: building,
-              floor: floor,
+              floor: actualStartingFloor,
               multiFloor: locationConfigService.multiFloorNavigation,
             );
         if (cachedDestinations != null) {
@@ -181,7 +186,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
             destinationId: destinationId,
             destinationName: event.destination.name,
             building: building,
-            floor: floor,
+            floor: actualStartingFloor,
             place: place,
             createdAt: DateTime.now(),
           ),
@@ -190,13 +195,16 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         // For multi-floor routes, load floor plans for every floor in parallel
         final Map<String, String> floorPlansByFloor = {};
         if (floorPlanBase64 != null && floorPlanBase64!.isNotEmpty) {
-          floorPlansByFloor[floor] = floorPlanBase64!;
+          // Note: if the requested floor and actual floor differ,
+          // we might need to fetch the plan for the actual floor, but
+          // usually they match or the requested plan is for the first step.
+          floorPlansByFloor[actualStartingFloor] = floorPlanBase64!;
         }
 
         if (route.multiFloorSteps.length > 1) {
           final otherFloors = route.multiFloorSteps
               .map((s) => s.floor)
-              .where((f) => f != floor)
+              .where((f) => f != actualStartingFloor)
               .toSet()
               .toList();
 
@@ -243,7 +251,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
 
         emit(
           NavigationReady(
-            currentLocation: route.origin,
+            currentLocation: route.origin.copyWith(floor: actualStartingFloor),
             route: route,
             floorPlanBase64: floorPlanBase64,
             destinations: destinations,

@@ -18,6 +18,22 @@ class LocationEntity extends BaseEntity {
   @override
   String? get id => '${x}_${y}_${timestamp?.millisecondsSinceEpoch ?? 0}';
 
+  LocationEntity copyWith({
+    double? x,
+    double? y,
+    double? ang,
+    String? floor,
+    DateTime? timestamp,
+  }) {
+    return LocationEntity(
+      x: x ?? this.x,
+      y: y ?? this.y,
+      ang: ang ?? this.ang,
+      floor: floor ?? this.floor,
+      timestamp: timestamp ?? this.timestamp,
+    );
+  }
+
   @override
   List<Object?> get props => [x, y, ang, floor, timestamp];
 }

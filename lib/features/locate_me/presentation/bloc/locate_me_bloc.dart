@@ -295,7 +295,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
         emit(
           LocateMeReady(
             floorPlan: floorPlan!,
-            userPosition: userPosition,
+            userPosition: userPosition.copyWith(floor: effectiveFloor),
             destinations: destinations!,
             floor: effectiveFloor,
           ),
@@ -450,7 +450,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     emit(
       LocateMeReady(
         floorPlan: floorPlan!,
-        userPosition: userPosition,
+        userPosition: userPosition.copyWith(floor: effectiveFloor),
         destinations: destinations!,
         isManualLocalization: true,
         floor: effectiveFloor,

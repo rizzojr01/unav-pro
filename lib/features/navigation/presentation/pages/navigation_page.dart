@@ -233,7 +233,11 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                 destinations: widget.destinations,
                 onDestinationTap: widget.onDestinationTap,
                 currentFloor: widget.currentLocation.floor,
-                isCheckpoint: _selectedFloor != widget.currentLocation.floor,
+                isCheckpoint:
+                    (_selectedFloor.replaceAll('_floor', '').trim() !=
+                    widget.currentLocation.floor
+                        ?.replaceAll('_floor', '')
+                        .trim()),
                 onRetry: () => context.read<NavigationBloc>().add(
                   InitializeNavigationEvent(
                     widget.destination,

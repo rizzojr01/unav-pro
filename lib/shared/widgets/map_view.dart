@@ -955,7 +955,8 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     }
 
     if (isUser) {
-      final size = (24.0 * zoom).clamp(4.0, 72.0);
+      final baseSize = isCheckpoint ? 16.0 : 22.0;
+      final size = (baseSize * zoom).clamp(4.0, 64.0);
       return Positioned(
         left: pos.dx - size / 2,
         top: pos.dy - size / 2,
@@ -973,7 +974,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     }
 
     if (isTarget) {
-      final size = (24.0 * zoom).clamp(4.0, 72.0);
+      final size = (18.0 * zoom).clamp(4.0, 56.0);
       return Positioned(
         left: pos.dx - size / 2,
         top: pos.dy - size / 2,

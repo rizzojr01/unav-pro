@@ -50,27 +50,41 @@ class UserPositionMarker extends StatelessWidget {
 
           // Main marker body
           Container(
-            width: size * 0.75,
-            height: size * 0.75,
+            width: isCheckpoint ? size * 0.5 : size * 0.75,
+            height: isCheckpoint ? size * 0.5 : size * 0.75,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: bgColor,
-              border: Border.all(color: Colors.white, width: 2),
+              color: isCheckpoint ? Colors.white : bgColor,
+              border: Border.all(
+                color: isCheckpoint ? bgColor : Colors.white,
+                width: isCheckpoint ? 1.5 : 2,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.25),
+                  color: (isCheckpoint ? bgColor : Colors.black).withValues(
+                    alpha: 0.25,
+                  ),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: isCheckpoint
-                ? Container(
-                    width: size * 0.3,
-                    height: size * 0.3,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white,
+                ? Center(
+                    child: Container(
+                      width: size * 0.2,
+                      height: size * 0.2,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: bgColor,
+                        boxShadow: [
+                          BoxShadow(
+                            color: bgColor.withValues(alpha: 0.4),
+                            blurRadius: 2,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
                     ),
                   )
                 : Transform.rotate(
@@ -88,7 +102,7 @@ class UserPositionMarker extends StatelessWidget {
   }
 }
 
-/// Destination marker with flag icon - simple pin style
+/// Destination marker with flag icon - refined pin style
 class DestinationFlagMarker extends StatelessWidget {
   final double size;
   final Color? flagColor;
@@ -112,22 +126,41 @@ class DestinationFlagMarker extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: bgColor,
-          border: Border.all(color: Colors.white, width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.25),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Outer subtle glow
+          Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: bgColor.withValues(alpha: 0.15),
             ),
-          ],
-        ),
-        child: Icon(Icons.flag_rounded, size: size * 0.5, color: fgColor),
+          ),
+          // Main Pin
+          Container(
+            width: size * 0.8,
+            height: size * 0.8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [bgColor, bgColor.withValues(alpha: 0.8)],
+              ),
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Icon(Icons.flag_rounded, size: size * 0.45, color: fgColor),
+          ),
+        ],
       ),
     );
   }
