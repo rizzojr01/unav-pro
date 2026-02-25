@@ -39,7 +39,7 @@ class CameraBloc extends Bloc<CameraEvent, CameraState> {
         filePath: event.filePath!,
         timestamp: DateTime.now(),
       );
-      emit(CameraPhotoCaptured(photo));
+      emit(CameraPhotoCaptured(photo, floor: event.floor));
       return;
     }
 
@@ -48,7 +48,7 @@ class CameraBloc extends Bloc<CameraEvent, CameraState> {
 
     result.fold(
       (failure) => emit(CameraError(failure.message)),
-      (photo) => emit(CameraPhotoCaptured(photo)),
+      (photo) => emit(CameraPhotoCaptured(photo, floor: event.floor)),
     );
   }
 

@@ -185,6 +185,15 @@ class MapSearchOverlay extends StatelessWidget {
               color: theme.colorScheme.onSurface,
             ),
           ),
+          subtitle: destination.floor != null
+              ? Text(
+                  'Floor ${destination.floor!.replaceAll(RegExp(r'[^0-9]'), '')}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                )
+              : null,
           onTap: () => onDestinationTap(destination),
         );
       },

@@ -16,13 +16,23 @@ class DestinationsCacheService {
   DestinationsCacheService(this._prefs);
 
   /// Generate a unique cache key for the given location
-  String _getCacheKey(String place, String building, String floor) {
-    return '$_cacheKeyPrefix${place}_${building}_$floor';
+  String _getCacheKey(
+    String place,
+    String building,
+    String floor,
+    bool multiFloor,
+  ) {
+    return '$_cacheKeyPrefix${place}_${building}_${floor}_$multiFloor';
   }
 
   /// Generate a meta key for storing cache timestamp
-  String _getMetaKey(String place, String building, String floor) {
-    return '$_cacheMetaKeyPrefix${place}_${building}_$floor';
+  String _getMetaKey(
+    String place,
+    String building,
+    String floor,
+    bool multiFloor,
+  ) {
+    return '$_cacheMetaKeyPrefix${place}_${building}_${floor}_$multiFloor';
   }
 
   /// Get cached destinations list
@@ -31,8 +41,9 @@ class DestinationsCacheService {
     required String place,
     required String building,
     required String floor,
+    required bool multiFloor,
   }) {
-    final cacheKey = _getCacheKey(place, building, floor);
+    final cacheKey = _getCacheKey(place, building, floor, multiFloor);
     final jsonString = _prefs.getString(cacheKey);
 
     if (jsonString != null && jsonString.isNotEmpty) {
@@ -43,7 +54,12 @@ class DestinationsCacheService {
             .toList();
       } catch (e) {
         // Invalid cached data, clear it
-        clearCache(place: place, building: building, floor: floor);
+        clearCache(
+          place: place,
+          building: building,
+          floor: floor,
+          multiFloor: multiFloor,
+        );
         return null;
       }
     }
@@ -55,8 +71,9 @@ class DestinationsCacheService {
     required String place,
     required String building,
     required String floor,
+    required bool multiFloor,
   }) {
-    final cacheKey = _getCacheKey(place, building, floor);
+    final cacheKey = _getCacheKey(place, building, floor, multiFloor);
     final cached = _prefs.getString(cacheKey);
     return cached != null && cached.isNotEmpty;
   }
@@ -66,10 +83,11 @@ class DestinationsCacheService {
     required String place,
     required String building,
     required String floor,
+    required bool multiFloor,
     required List<DestinationEntity> destinations,
   }) async {
-    final cacheKey = _getCacheKey(place, building, floor);
-    final metaKey = _getMetaKey(place, building, floor);
+    final cacheKey = _getCacheKey(place, building, floor, multiFloor);
+    final metaKey = _getMetaKey(place, building, floor, multiFloor);
 
     // Convert to JSON list
     final jsonList = destinations
@@ -86,9 +104,10 @@ class DestinationsCacheService {
     required String place,
     required String building,
     required String floor,
+    required bool multiFloor,
   }) async {
-    final cacheKey = _getCacheKey(place, building, floor);
-    final metaKey = _getMetaKey(place, building, floor);
+    final cacheKey = _getCacheKey(place, building, floor, multiFloor);
+    final metaKey = _getMetaKey(place, building, floor, multiFloor);
 
     await _prefs.remove(cacheKey);
     await _prefs.remove(metaKey);
@@ -110,8 +129,9 @@ class DestinationsCacheService {
     required String place,
     required String building,
     required String floor,
+    required bool multiFloor,
   }) {
-    final metaKey = _getMetaKey(place, building, floor);
+    final metaKey = _getMetaKey(place, building, floor, multiFloor);
     final timestamp = _prefs.getInt(metaKey);
     if (timestamp != null) {
       return DateTime.fromMillisecondsSinceEpoch(timestamp);
@@ -124,12 +144,14 @@ class DestinationsCacheService {
     required String place,
     required String building,
     required String floor,
+    required bool multiFloor,
     Duration maxAge = const Duration(days: 7),
   }) {
     final timestamp = getCacheTimestamp(
       place: place,
       building: building,
       floor: floor,
+      multiFloor: multiFloor,
     );
     if (timestamp == null) return true;
 

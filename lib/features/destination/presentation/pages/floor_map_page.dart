@@ -1,11 +1,19 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../injection.dart';
 import '../../../../shared/widgets/step_indicator.dart';
 import '../bloc/floor_map_bloc.dart';
 import '../bloc/floor_map_event.dart';
 import '../bloc/floor_map_state.dart';
 import '../../domain/entities/destination_entity.dart';
+import '../../../../shared/services/location_config_service.dart';
+import '../../../../shared/widgets/floor_plan_selector_widget.dart';
+import '../../../../shared/widgets/custom_loading_view.dart';
+import '../../../../shared/widgets/custom_error_view.dart';
+
+import 'package:flutter/cupertino.dart';
 
 class FloorMapPage extends StatefulWidget {
   const FloorMapPage({super.key});
@@ -15,179 +23,193 @@ class FloorMapPage extends StatefulWidget {
 }
 
 class _FloorMapPageState extends State<FloorMapPage> {
-  final TransformationController _transformationController =
-      TransformationController();
-  Offset? _markerPosition;
+  FixedExtentScrollController? _floorController;
+  late FloorMapBloc _floorMapBloc;
+
+  @override
+  void initState() {
+    super.initState();
+    _floorMapBloc = FloorMapBloc()..add(const FloorMapInitialized());
+  }
 
   @override
   void dispose() {
-    _transformationController.dispose();
+    _floorController?.dispose();
+    _floorMapBloc.close();
     super.dispose();
+  }
+
+  void _syncController(List<String> floors, String selectedFloor) {
+    if (floors.isEmpty) return;
+    final index = floors.indexOf(selectedFloor);
+    if (index >= 0) {
+      if (_floorController == null) {
+        _floorController = FixedExtentScrollController(initialItem: index);
+      } else if (_floorController!.hasClients &&
+          _floorController!.selectedItem != index) {
+        _floorController!.jumpToItem(index);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return BlocProvider(
-      create: (context) => FloorMapBloc()..add(const FloorMapInitialized()),
+    final locationConfig = getIt<LocationConfigService>();
+
+    return BlocProvider.value(
+      value: _floorMapBloc,
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
-        body: Column(
-          children: [
-            StepIndicator(
-              currentStep: 1,
-              title: 'Point to your location on the map',
-              onBack: () {
-                if (mounted) {
-                  context.pop();
-                }
-              },
-            ),
-            Expanded(
-              child: BlocConsumer<FloorMapBloc, FloorMapState>(
-                listener: (context, state) {
-                  if (state is FloorMapMarkerPlaced) {
-                    setState(() {
-                      _markerPosition = state.markerPosition;
-                    });
-                  }
-                },
-                builder: (context, state) {
-                  return Stack(
-                    children: [
-                      _buildFloorMap(context),
-                      if (_markerPosition != null) _buildMarker(context),
-                      if (_markerPosition != null) _buildConfirmButton(context),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFloorMap(BuildContext context) {
-    final theme = Theme.of(context);
-    return InteractiveViewer(
-      transformationController: _transformationController,
-      minScale: 0.5,
-      maxScale: 4.0,
-      child: GestureDetector(
-        onTapUp: (details) {
-          final renderBox = context.findRenderObject() as RenderBox?;
-          if (renderBox != null) {
-            final localPosition = renderBox.globalToLocal(
-              details.globalPosition,
-            );
-            final mapSize = renderBox.size;
-            if (mounted) {
-              context.read<FloorMapBloc>().add(
-                FloorMapTapped(localPosition, mapSize),
-              );
+        body: BlocListener<FloorMapBloc, FloorMapState>(
+          listener: (context, state) {
+            if (state is FloorMapReady) {
+              _syncController(state.availableFloors, state.selectedFloor);
             }
-          }
-        },
-        child: Container(
-          width: double.infinity,
-          height: double.infinity,
-          color: theme.colorScheme.surface,
-          child: Center(
-            child: Container(
-              width: 300,
-              height: 400,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.3,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: theme.colorScheme.outline, width: 2),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+          },
+          child: Stack(
+            children: [
+              Column(
                 children: [
-                  Icon(
-                    Icons.map_rounded,
-                    size: 64,
-                    color: theme.colorScheme.primary,
+                  StepIndicator(
+                    currentStep: 1,
+                    title: 'Point to your location on the map',
+                    onBack: () => context.pop(),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Floor Plan',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.onSurface,
+                  Expanded(
+                    child: BlocBuilder<FloorMapBloc, FloorMapState>(
+                      builder: (context, state) {
+                        if (state is FloorMapLoading) {
+                          return const CustomLoadingView(
+                            message: 'Loading floor plan...',
+                          );
+                        } else if (state is FloorMapReady) {
+                          return FloorPlanSelectorWidget(
+                            base64FloorPlan: state.base64FloorPlan,
+                            onLocationSelected: (x, y) {
+                              final destination = DestinationEntity(
+                                destinationId:
+                                    'manual_${DateTime.now().millisecondsSinceEpoch}',
+                                name: 'Selected Point',
+                                x: x,
+                                y: y,
+                                floor: state.selectedFloor,
+                                address:
+                                    'Manual selection on ${state.selectedFloor}',
+                              );
+                              context.push('/camera', extra: destination);
+                            },
+                            confirmButtonText: 'Set Destination',
+                          );
+                        } else if (state is FloorMapError) {
+                          return CustomErrorView(
+                            message: state.message,
+                            onRetry: () => context.read<FloorMapBloc>().add(
+                              const FloorMapInitialized(),
+                            ),
+                          );
+                        }
+                        return const CustomLoadingView();
+                      },
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Tap anywhere to place your location',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+              if (locationConfig.multiFloorNavigation)
+                BlocBuilder<FloorMapBloc, FloorMapState>(
+                  builder: (context, state) {
+                    if (state is FloorMapReady &&
+                        state.availableFloors.isNotEmpty) {
+                      _syncController(
+                        state.availableFloors,
+                        state.selectedFloor,
+                      );
 
-  Widget _buildMarker(BuildContext context) {
-    final theme = Theme.of(context);
-    return Positioned(
-      left: _markerPosition!.dx - 12,
-      top: _markerPosition!.dy - 24,
-      child: Icon(
-        Icons.location_on_rounded,
-        color: theme.colorScheme.primary,
-        size: 24,
-      ),
-    );
-  }
-
-  Widget _buildConfirmButton(BuildContext context) {
-    final theme = Theme.of(context);
-    return Positioned(
-      bottom: 32,
-      left: 20,
-      right: 20,
-      child: ElevatedButton(
-        onPressed: () {
-          if (mounted) {
-            final state = context.read<FloorMapBloc>().state;
-            if (state is FloorMapMarkerPlaced) {
-              // Create a destination entity with the coordinates
-              final destination = DestinationEntity(
-                destinationId:
-                    'user_location_${DateTime.now().millisecondsSinceEpoch}',
-                name: 'My Location',
-                x: state.x,
-                y: state.y,
-                address: 'User selected location',
-              );
-              context.push('/camera', extra: destination);
-            }
-          }
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: theme.colorScheme.primary,
-          foregroundColor: theme.colorScheme.onPrimary,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+                      return Positioned(
+                        right: 16,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(32),
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                              child: Container(
+                                width: 48,
+                                height: 180,
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.surface.withOpacity(
+                                    0.6,
+                                  ),
+                                  borderRadius: BorderRadius.circular(32),
+                                  border: Border.all(
+                                    color: theme.colorScheme.outlineVariant
+                                        .withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    // Selected Item Indicator Bar
+                                    Container(
+                                      width: 32,
+                                      height: 32,
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.primary
+                                            .withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    CupertinoPicker(
+                                      scrollController: _floorController,
+                                      itemExtent: 38,
+                                      diameterRatio: 0.8,
+                                      squeeze: 1.2,
+                                      magnification: 1.1,
+                                      useMagnifier: true,
+                                      onSelectedItemChanged: (index) {
+                                        final newFloor =
+                                            state.availableFloors[index];
+                                        if (newFloor != state.selectedFloor) {
+                                          context.read<FloorMapBloc>().add(
+                                            FloorMapFloorChanged(newFloor),
+                                          );
+                                        }
+                                      },
+                                      children: state.availableFloors
+                                          .map(
+                                            (f) => Center(
+                                              child: Text(
+                                                f.replaceAll(
+                                                  RegExp(r'[^0-9]'),
+                                                  '',
+                                                ),
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: theme
+                                                      .colorScheme
+                                                      .onSurface,
+                                                ),
+                                              ),
+                                            ),
+                                          )
+                                          .toList(),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+            ],
           ),
-        ),
-        child: const Text(
-          'Confirm Location',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
     );

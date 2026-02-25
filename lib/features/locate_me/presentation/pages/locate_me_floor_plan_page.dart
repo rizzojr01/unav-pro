@@ -49,6 +49,7 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
               extra: {
                 'destination': destination,
                 'manualCoordinates': manualCoordinates,
+                'pickedFloor': (locateState as LocateMeReady).floor,
               },
             );
           }

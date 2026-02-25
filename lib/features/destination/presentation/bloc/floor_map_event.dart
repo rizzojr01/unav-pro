@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:equatable/equatable.dart';
 
 abstract class FloorMapEvent extends Equatable {
@@ -9,17 +8,31 @@ abstract class FloorMapEvent extends Equatable {
 }
 
 class FloorMapInitialized extends FloorMapEvent {
-  const FloorMapInitialized();
-}
+  final String? initialFloor;
 
-class FloorMapTapped extends FloorMapEvent {
-  final Offset position;
-  final Size mapSize;
-
-  const FloorMapTapped(this.position, this.mapSize);
+  const FloorMapInitialized({this.initialFloor});
 
   @override
-  List<Object?> get props => [position, mapSize];
+  List<Object?> get props => [initialFloor];
+}
+
+class FloorMapFloorChanged extends FloorMapEvent {
+  final String floor;
+
+  const FloorMapFloorChanged(this.floor);
+
+  @override
+  List<Object?> get props => [floor];
+}
+
+class FloorMapLocationSelected extends FloorMapEvent {
+  final double x;
+  final double y;
+
+  const FloorMapLocationSelected(this.x, this.y);
+
+  @override
+  List<Object?> get props => [x, y];
 }
 
 class FloorMapMarkerConfirmed extends FloorMapEvent {

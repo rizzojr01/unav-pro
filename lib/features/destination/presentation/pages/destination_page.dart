@@ -261,6 +261,14 @@ class _DestinationTile extends StatelessWidget {
     return floor.replaceAll('_', ' ');
   }
 
+  /// Get just the floor number for the badge
+  String _formatFloorNumber(String floor) {
+    final floorNumber = floor.replaceAll(RegExp(r'[^0-9]'), '');
+    return floorNumber.isNotEmpty
+        ? floorNumber
+        : floor.substring(0, 1).toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -335,13 +343,47 @@ class _DestinationTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      destination.name,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onSurface,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            destination.name,
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        if (destination.floor != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: 0.1,
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: theme.colorScheme.primary.withValues(
+                                  alpha: 0.2,
+                                ),
+                              ),
+                            ),
+                            child: Text(
+                              _formatFloorNumber(destination.floor!),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Row(
@@ -355,7 +397,7 @@ class _DestinationTile extends StatelessWidget {
                         Expanded(
                           child: Text(
                             destination.address ??
-                                '${_formatBuildingName(building)} • ${_formatFloorName(floor)}',
+                                '${_formatBuildingName(building)} • ${_formatFloorName(destination.floor ?? floor)}',
                             style: TextStyle(
                               fontSize: 13,
                               color: theme.colorScheme.onSurfaceVariant,

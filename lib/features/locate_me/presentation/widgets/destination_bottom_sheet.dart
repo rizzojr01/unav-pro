@@ -219,11 +219,13 @@ class DestinationBottomSheet extends StatelessWidget {
   }
 
   String _calculateDistance(DestinationEntity destination) {
+    if (destination.x.isNaN || destination.x.isInfinite) return 'Unknown';
     // Mock calculation - in real app, calculate from user position
     return '${(destination.x / 100).toStringAsFixed(0)} m';
   }
 
   String _calculateTime(DestinationEntity destination) {
+    if (destination.x.isNaN || destination.x.isInfinite) return '--';
     // Mock calculation - in real app, calculate based on distance
     final meters = destination.x / 100;
     final minutes = (meters / 50).ceil(); // Assuming 50m/min walking speed

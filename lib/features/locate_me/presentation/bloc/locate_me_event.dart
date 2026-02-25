@@ -12,21 +12,26 @@ abstract class LocateMeEvent extends Equatable {
 /// Event to capture photo and start localization
 class StartLocalizationEvent extends LocateMeEvent {
   final String capturedImagePath;
+  final String? floor;
 
-  const StartLocalizationEvent({required this.capturedImagePath});
+  const StartLocalizationEvent({required this.capturedImagePath, this.floor});
 
   @override
-  List<Object?> get props => [capturedImagePath];
+  List<Object?> get props => [capturedImagePath, floor];
 }
 
 /// Event to capture photo for preview
 class LocateMeCapturePhotoEvent extends LocateMeEvent {
   final String capturedImagePath;
+  final String? floor;
 
-  const LocateMeCapturePhotoEvent({required this.capturedImagePath});
+  const LocateMeCapturePhotoEvent({
+    required this.capturedImagePath,
+    this.floor,
+  });
 
   @override
-  List<Object?> get props => [capturedImagePath];
+  List<Object?> get props => [capturedImagePath, floor];
 }
 
 /// Event to start localization with sample image (for testing)
@@ -38,14 +43,16 @@ class StartLocalizationWithSampleEvent extends LocateMeEvent {
 class StartLocalizationWithCoordinatesEvent extends LocateMeEvent {
   final double x;
   final double y;
+  final String? floor;
 
   const StartLocalizationWithCoordinatesEvent({
     required this.x,
     required this.y,
+    this.floor,
   });
 
   @override
-  List<Object?> get props => [x, y];
+  List<Object?> get props => [x, y, floor];
 }
 
 /// Event to select a destination from the floor plan

@@ -12,13 +12,20 @@ class InitializeNavigationEvent extends NavigationEvent {
   final DestinationEntity destination;
   final String? imagePath;
   final Map<String, dynamic>? userPickedCoordinates;
+  final String? pickedFloor;
 
   const InitializeNavigationEvent(
     this.destination, {
     this.imagePath,
     this.userPickedCoordinates,
+    this.pickedFloor,
   });
 
   @override
-  List<Object?> get props => [destination, imagePath, userPickedCoordinates];
+  List<Object?> get props => [
+    destination,
+    imagePath,
+    userPickedCoordinates,
+    pickedFloor,
+  ];
 }

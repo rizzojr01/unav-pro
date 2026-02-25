@@ -16,8 +16,14 @@ import '../bloc/camera_state.dart';
 class CameraPage extends StatefulWidget {
   final DestinationEntity? destination;
   final Map<String, dynamic>? manualCoordinates;
+  final String? pickedFloor;
 
-  const CameraPage({super.key, this.destination, this.manualCoordinates});
+  const CameraPage({
+    super.key,
+    this.destination,
+    this.manualCoordinates,
+    this.pickedFloor,
+  });
 
   @override
   State<CameraPage> createState() => _CameraPageState();
@@ -73,6 +79,7 @@ class _CameraPageState extends State<CameraPage>
       return _CameraReadyView(
         tabController: _tabController,
         destination: widget.destination,
+        pickedFloor: widget.pickedFloor,
       );
     } else if (state is CameraPhotoCaptured) {
       // Automatically proceed to navigation for clear images
@@ -83,6 +90,7 @@ class _CameraPageState extends State<CameraPage>
             'destination': widget.destination,
             'imagePath': state.photo.filePath,
             'manualCoordinates': widget.manualCoordinates,
+            'pickedFloor': state.floor ?? widget.pickedFloor,
           },
         );
       });
@@ -99,11 +107,13 @@ class _CameraPageState extends State<CameraPage>
       return _CameraReadyView(
         tabController: _tabController,
         destination: widget.destination,
+        pickedFloor: widget.pickedFloor,
       );
     }
     return _CameraReadyView(
       tabController: _tabController,
       destination: widget.destination,
+      pickedFloor: widget.pickedFloor,
     );
   }
 }
@@ -111,8 +121,13 @@ class _CameraPageState extends State<CameraPage>
 class _CameraReadyView extends StatelessWidget {
   final TabController tabController;
   final DestinationEntity? destination;
+  final String? pickedFloor;
 
-  const _CameraReadyView({required this.tabController, this.destination});
+  const _CameraReadyView({
+    required this.tabController,
+    this.destination,
+    this.pickedFloor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -151,10 +166,13 @@ class _CameraReadyView extends StatelessWidget {
           child: LocationInputView(
             tabController: tabController,
             floorPlanConfirmText: 'Start Navigation',
-            onImageCaptured: (path) {
-              context.read<CameraBloc>().add(CapturePhotoEvent(filePath: path));
+            initialFloor: pickedFloor,
+            onImageCaptured: (path, floor) {
+              context.read<CameraBloc>().add(
+                CapturePhotoEvent(filePath: path, floor: floor),
+              );
             },
-            onLocationSelected: (x, y) {
+            onLocationSelected: (x, y, floor) {
               context.pushReplacement(
                 '/navigation',
                 extra: {
@@ -165,6 +183,7 @@ class _CameraReadyView extends StatelessWidget {
                     'ang': 0.0,
                     'enabled': true,
                   },
+                  'pickedFloor': floor,
                 },
               );
             },

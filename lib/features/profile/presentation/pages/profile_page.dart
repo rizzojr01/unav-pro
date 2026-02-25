@@ -9,6 +9,7 @@ import '../../../../injection.dart';
 import '../../../../shared/presentation/bloc/location_settings_bloc.dart';
 import '../../../../shared/presentation/bloc/location_settings_event.dart';
 import '../../../../shared/presentation/bloc/location_settings_state.dart';
+import '../../../../shared/services/destinations_cache_service.dart';
 import '../../../../shared/services/location_config_service.dart';
 import '../../../../theme/theme_bloc.dart';
 import '../../../../theme/widgets/color_customizer.dart';
@@ -548,6 +549,8 @@ class ProfilePage extends StatelessWidget {
                       value: locationConfig.multiFloorNavigation,
                       onChanged: (value) async {
                         await locationConfig.setMultiFloorNavigation(value);
+                        // Clear destinations cache when multi-floor setting changes
+                        await getIt<DestinationsCacheService>().clearAllCache();
                         setState(() {});
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(

@@ -59,7 +59,10 @@ class _LocateMeCameraPageState extends State<LocateMeCameraPage>
             // Automatically proceed to localization
             WidgetsBinding.instance.addPostFrameCallback((_) {
               context.read<LocateMeBloc>().add(
-                StartLocalizationEvent(capturedImagePath: state.imagePath),
+                StartLocalizationEvent(
+                  capturedImagePath: state.imagePath,
+                  floor: state.floor,
+                ),
               );
             });
             return const CustomLoadingView(
@@ -102,14 +105,21 @@ class _LocateMeCameraPageState extends State<LocateMeCameraPage>
                 ? CustomLoadingView(message: state.message)
                 : LocationInputView(
                     tabController: _tabController,
-                    onImageCaptured: (path) {
+                    onImageCaptured: (path, floor) {
                       context.read<LocateMeBloc>().add(
-                        LocateMeCapturePhotoEvent(capturedImagePath: path),
+                        LocateMeCapturePhotoEvent(
+                          capturedImagePath: path,
+                          floor: floor,
+                        ),
                       );
                     },
-                    onLocationSelected: (x, y) {
+                    onLocationSelected: (x, y, floor) {
                       context.read<LocateMeBloc>().add(
-                        StartLocalizationWithCoordinatesEvent(x: x, y: y),
+                        StartLocalizationWithCoordinatesEvent(
+                          x: x,
+                          y: y,
+                          floor: floor,
+                        ),
                       );
                     },
                   ),

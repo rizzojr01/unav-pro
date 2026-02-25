@@ -1,4 +1,3 @@
-import 'dart:ui';
 import '../../../../core/base/base_state.dart';
 
 abstract class FloorMapState extends BaseState {
@@ -14,29 +13,54 @@ class FloorMapLoading extends FloorMapState {
 }
 
 class FloorMapReady extends FloorMapState {
-  final Offset? markerPosition;
-  final double? latitude;
-  final double? longitude;
+  final String? base64FloorPlan;
+  final List<String> availableFloors;
+  final String selectedFloor;
+  final double? x;
+  final double? y;
 
   const FloorMapReady({
-    this.markerPosition,
-    this.latitude,
-    this.longitude,
+    this.base64FloorPlan,
+    this.availableFloors = const [],
+    this.selectedFloor = '',
+    this.x,
+    this.y,
   });
 
   @override
-  List<Object?> get props => [markerPosition, latitude, longitude];
+  List<Object?> get props => [
+    base64FloorPlan,
+    availableFloors,
+    selectedFloor,
+    x,
+    y,
+  ];
+
+  FloorMapReady copyWith({
+    String? base64FloorPlan,
+    List<String>? availableFloors,
+    String? selectedFloor,
+    double? x,
+    double? y,
+  }) {
+    return FloorMapReady(
+      base64FloorPlan: base64FloorPlan ?? this.base64FloorPlan,
+      availableFloors: availableFloors ?? this.availableFloors,
+      selectedFloor: selectedFloor ?? this.selectedFloor,
+      x: x ?? this.x,
+      y: y ?? this.y,
+    );
+  }
 }
 
 class FloorMapMarkerPlaced extends FloorMapState {
-  final Offset markerPosition;
-  final double x; // longitude
-  final double y; // latitude
+  final double x;
+  final double y;
 
-  const FloorMapMarkerPlaced(this.markerPosition, this.x, this.y);
+  const FloorMapMarkerPlaced(this.x, this.y);
 
   @override
-  List<Object?> get props => [markerPosition, x, y];
+  List<Object?> get props => [x, y];
 }
 
 class FloorMapError extends FloorMapState {

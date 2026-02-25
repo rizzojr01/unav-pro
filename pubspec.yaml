@@ -47,6 +47,8 @@ dependencies:
   camera_macos: ^0.0.9
   device_info_plus: ^12.3.0
   flutter_compass: ^0.8.1
+  fuzzy: ^0.5.1
+  stream_transform: ^2.1.1
 
 dev_dependencies:
   flutter_test:

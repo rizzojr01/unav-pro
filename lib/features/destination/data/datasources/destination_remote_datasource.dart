@@ -1,3 +1,4 @@
+import 'package:fuzzy/fuzzy.dart';
 import '../../../../core/base/base_datasource.dart';
 import '../../../../core/constants/api_routes.dart';
 import '../../../../shared/services/location_config_service.dart';
@@ -26,7 +27,7 @@ class DestinationRemoteDataSourceImpl extends BaseRemoteDataSource
           'place': _locationConfigService.place,
           'device_id': getIt<DeviceIdService>().getDeviceId(),
           'include_coordinates': true,
-          'unav_multifloor': false,
+          'unav_multifloor': _locationConfigService.multiFloorNavigation,
         },
       );
 
@@ -44,14 +45,30 @@ class DestinationRemoteDataSourceImpl extends BaseRemoteDataSource
         return allDestinations;
       }
 
-      return allDestinations
-          .where(
-            (dest) =>
-                dest.name.toLowerCase().contains(query.toLowerCase()) ||
-                (dest.address?.toLowerCase().contains(query.toLowerCase()) ??
-                    false),
-          )
-          .toList();
+      final fuse = Fuzzy<DestinationModel>(
+        allDestinations,
+        options: FuzzyOptions(
+          findAllMatches: true,
+          tokenize: true,
+          threshold: 0.4,
+          keys: [
+            WeightedKey(name: 'name', getter: (dest) => dest.name, weight: 0.6),
+            WeightedKey(
+              name: 'floor',
+              getter: (dest) => dest.floor ?? '',
+              weight: 0.2,
+            ),
+            WeightedKey(
+              name: 'address',
+              getter: (dest) => dest.address ?? '',
+              weight: 0.2,
+            ),
+          ],
+        ),
+      );
+
+      final results = fuse.search(query);
+      return results.map((r) => r.item).toList();
     }, errorMessage: 'Failed to search destinations');
   }
 }

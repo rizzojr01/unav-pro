@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_compass/flutter_compass.dart';
+import 'package:fuzzy/fuzzy.dart';
 
 import '../../features/destination/domain/entities/destination_entity.dart';
 import '../../features/locate_me/domain/entities/user_position_entity.dart';
@@ -22,6 +23,8 @@ class MapView extends StatefulWidget {
   final List<DestinationEntity> destinations;
   final VoidCallback? onRetry;
   final bool autoCenterOnUser;
+  final String? currentFloor;
+  final bool isCheckpoint;
 
   const MapView({
     super.key,
@@ -32,6 +35,8 @@ class MapView extends StatefulWidget {
     this.destinations = const [],
     this.onRetry,
     this.autoCenterOnUser = true,
+    this.currentFloor,
+    this.isCheckpoint = false,
   });
 
   @override
@@ -118,6 +123,11 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         // ── Exponential moving average (low-pass) filter ────────────────────
         // Raw magnetometer is very noisy indoors. EMA keeps the value stable
         // when stationary while still tracking real rotation smoothly.
+        if (heading.isNaN || heading.isInfinite) return;
+
+        // ── Exponential moving average (low-pass) filter ────────────────────
+        // Raw magnetometer is very noisy indoors. EMA keeps the value stable
+        // when stationary while still tracking real rotation smoothly.
         if (!_headingInitialized) {
           _smoothedHeading = heading;
           _headingInitialized = true;
@@ -132,6 +142,9 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
 
         // Capture the baseline heading on the very first event
         _initialCompassHeading ??= _smoothedHeading;
+        if (_initialCompassHeading!.isNaN) {
+          _initialCompassHeading = _smoothedHeading;
+        }
 
         // How many degrees has the user physically rotated since tracking began?
         final delta = _shortestArc(_smoothedHeading - _initialCompassHeading!);
@@ -308,9 +321,28 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       if (query.isEmpty) {
         _filteredDestinations = widget.destinations;
       } else {
-        _filteredDestinations = widget.destinations
-            .where((d) => d.name.toLowerCase().contains(query))
-            .toList();
+        final fuse = Fuzzy<DestinationEntity>(
+          widget.destinations,
+          options: FuzzyOptions(
+            findAllMatches: true,
+            tokenize: true,
+            threshold: 0.4,
+            keys: [
+              WeightedKey(
+                name: 'name',
+                getter: (dest) => dest.name,
+                weight: 0.6,
+              ),
+              WeightedKey(
+                name: 'floor',
+                getter: (dest) => dest.floor ?? '',
+                weight: 0.4,
+              ),
+            ],
+          ),
+        );
+        final results = fuse.search(query);
+        _filteredDestinations = results.map((r) => r.item).toList();
       }
     });
   }
@@ -350,6 +382,17 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   }
 
   Offset _getUserCoords() {
+    // If we are showing a checkpoint floor (not the user's actual physical floor),
+    // and we have a route, show the origin of that floor's route segment as a fixed point.
+    if (widget.isCheckpoint &&
+        widget.route != null &&
+        widget.route!.steps.isNotEmpty) {
+      return Offset(
+        widget.route!.steps.first.from.x,
+        widget.route!.steps.first.from.y,
+      );
+    }
+
     if (widget.userLocation is LocationEntity) {
       return Offset(widget.userLocation.x, widget.userLocation.y);
     } else if (widget.userLocation is UserPositionEntity) {
@@ -729,6 +772,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                       displayHeight,
                       isUser: true,
                       angle: userAngle,
+                      isCheckpoint: widget.isCheckpoint,
                     ),
                   ],
                 );
@@ -868,6 +912,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     bool isUser = false,
     bool isPOI = false,
     bool isTarget = false,
+    bool isCheckpoint = false,
     double angle = 0.0,
     String? name,
     DestinationEntity? destination,
@@ -891,7 +936,23 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     final rotatedY = relativePoint.dx * sinR + relativePoint.dy * cosR;
 
     final finalBasePoint = Offset(rotatedX, rotatedY) + mapCenter;
+
+    // Safety check for NaN values which can cause native crashes
+    if (finalBasePoint.dx.isNaN ||
+        finalBasePoint.dy.isNaN ||
+        finalBasePoint.dx.isInfinite ||
+        finalBasePoint.dy.isInfinite) {
+      return const SizedBox.shrink();
+    }
+
     final pos = MatrixUtils.transformPoint(matrix, finalBasePoint);
+
+    if (pos.dx.isNaN ||
+        pos.dy.isNaN ||
+        pos.dx.isInfinite ||
+        pos.dy.isInfinite) {
+      return const SizedBox.shrink();
+    }
 
     if (isUser) {
       final size = (24.0 * zoom).clamp(4.0, 72.0);
@@ -900,6 +961,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         top: pos.dy - size / 2,
         child: UserPositionMarker(
           size: size,
+          isCheckpoint: isCheckpoint,
           // Compass ON (heading-up): map already rotated so user faces screen-up.
           // Arrow must be 0° — always pointing straight up, never moves.
           // Compass OFF: arrow glued to map rotation (original behaviour).
@@ -1057,13 +1119,26 @@ class RoutePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (coords.isEmpty) return;
 
+    // Filter out any NaN or Infinity coordinates that could cause native crashes
+    final validCoords = coords
+        .where(
+          (c) =>
+              !c.dx.isNaN &&
+              !c.dy.isNaN &&
+              !c.dx.isInfinite &&
+              !c.dy.isInfinite,
+        )
+        .toList();
+
+    if (validCoords.isEmpty) return;
+
     final path = Path();
-    path.moveTo(coords.first.dx * scaleX, coords.first.dy * scaleY);
+    path.moveTo(validCoords.first.dx * scaleX, validCoords.first.dy * scaleY);
 
     // Simple smoothing: if a point is too close to previous, skip it
-    Offset last = coords.first;
-    for (var i = 1; i < coords.length; i++) {
-      final current = coords[i];
+    Offset last = validCoords.first;
+    for (var i = 1; i < validCoords.length; i++) {
+      final current = validCoords[i];
       if ((current - last).distance > 2.0) {
         path.lineTo(current.dx * scaleX, current.dy * scaleY);
         last = current;

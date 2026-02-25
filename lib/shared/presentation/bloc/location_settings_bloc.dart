@@ -164,6 +164,7 @@ class LocationSettingsBloc
             place: oldPlace,
             building: oldBuilding,
             floor: oldFloor,
+            multiFloor: locationConfigService.multiFloorNavigation,
           ),
         ]);
       }

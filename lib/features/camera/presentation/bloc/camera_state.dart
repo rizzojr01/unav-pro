@@ -19,11 +19,12 @@ class CameraCapturing extends CameraState {
 
 class CameraPhotoCaptured extends CameraState {
   final PhotoEntity photo;
+  final String? floor;
 
-  const CameraPhotoCaptured(this.photo);
+  const CameraPhotoCaptured(this.photo, {this.floor});
 
   @override
-  List<Object?> get props => [photo];
+  List<Object?> get props => [photo, floor];
 }
 
 class CameraUploading extends CameraState {

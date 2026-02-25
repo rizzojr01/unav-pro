@@ -56,6 +56,7 @@ class _DashboardPageState extends State<DashboardPage>
       place: locationService.place,
       building: locationService.building,
       floor: locationService.floor,
+      multiFloor: locationService.multiFloorNavigation,
     );
 
     if (cachedDestinations != null && cachedDestinations.isNotEmpty) {
@@ -644,6 +645,7 @@ class _DashboardPageState extends State<DashboardPage>
                 place: item.place,
                 building: item.building,
                 floor: item.floor,
+                multiFloor: getIt<LocationConfigService>().multiFloorNavigation,
               );
               if (cached != null && cached.isNotEmpty) {
                 final matches = cached
@@ -668,6 +670,7 @@ class _DashboardPageState extends State<DashboardPage>
                         name: resolvedName,
                         x: 0,
                         y: 0,
+                        floor: item.floor,
                         address: '${item.building} • ${item.floor}',
                       );
                       context.push('/camera', extra: destination);

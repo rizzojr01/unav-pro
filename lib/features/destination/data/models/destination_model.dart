@@ -6,6 +6,7 @@ class DestinationModel extends DestinationEntity {
     required super.name,
     required super.x,
     required super.y,
+    super.floor,
     super.address,
   });
 
@@ -19,20 +20,29 @@ class DestinationModel extends DestinationEntity {
       name: json['name'] as String,
       x: (xValue as num).toDouble(),
       y: (yValue as num).toDouble(),
+      floor: json['floor'] as String?,
       address: json['address'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {'id': id!, 'name': name, 'x': x, 'y': y, 'address': address};
+    return {
+      'id': destinationId,
+      'name': name,
+      'x': x,
+      'y': y,
+      'floor': floor,
+      'address': address,
+    };
   }
 
   factory DestinationModel.fromEntity(DestinationEntity entity) {
     return DestinationModel(
-      destinationId: entity.id!,
+      destinationId: entity.destinationId,
       name: entity.name,
       x: entity.x,
       y: entity.y,
+      floor: entity.floor,
       address: entity.address,
     );
   }

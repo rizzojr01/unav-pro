@@ -59,13 +59,16 @@ class AppRouter {
           final extra = state.extra;
           DestinationEntity? destination;
           Map<String, dynamic>? manualCoordinates;
+          String? pickedFloor;
 
           if (extra is Map<String, dynamic>) {
             destination = extra['destination'] as DestinationEntity?;
             manualCoordinates =
                 extra['manualCoordinates'] as Map<String, dynamic>?;
+            pickedFloor = extra['pickedFloor'] as String?;
           } else if (extra is DestinationEntity) {
             destination = extra;
+            pickedFloor = destination.floor;
           }
 
           return BlocProvider(
@@ -73,6 +76,7 @@ class AppRouter {
             child: CameraPage(
               destination: destination,
               manualCoordinates: manualCoordinates,
+              pickedFloor: pickedFloor,
             ),
           );
         },
@@ -102,12 +106,14 @@ class AppRouter {
           DestinationEntity? destination;
           String? imagePath;
           Map<String, dynamic>? userPickedCoordinates;
+          String? pickedFloor;
 
           if (extra is Map<String, dynamic>) {
             destination = extra['destination'] as DestinationEntity?;
             imagePath = extra['imagePath'] as String?;
             userPickedCoordinates =
                 extra['manualCoordinates'] as Map<String, dynamic>?;
+            pickedFloor = extra['pickedFloor'] as String?;
           } else if (extra is DestinationEntity) {
             destination = extra;
           }
@@ -124,6 +130,7 @@ class AppRouter {
               destination: destination,
               imagePath: imagePath,
               userPickedCoordinates: userPickedCoordinates,
+              pickedFloor: pickedFloor,
             ),
           );
         },

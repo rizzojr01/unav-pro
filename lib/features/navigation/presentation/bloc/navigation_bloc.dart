@@ -43,7 +43,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
   ) async {
     final place = locationConfigService.place;
     final building = locationConfigService.building;
-    final floor = locationConfigService.floor;
+    final floor = event.pickedFloor ?? locationConfigService.floor;
     final destinationId = event.destination.destinationId;
     final sessionId = 'device_${DateTime.now().millisecondsSinceEpoch}';
     final useSampleImage = locationConfigService.useSampleImage;
@@ -155,99 +155,102 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
       ),
     );
 
-    routeResult.fold((failure) => emit(NavigationError(failure.message)), (
-      route,
-    ) async {
-      // Get cached destinations for POI display
-      List<DestinationEntity> destinations = [];
-      final cachedDestinations = destinationsCacheService.getCachedDestinations(
-        place: place,
-        building: building,
-        floor: floor,
-      );
-      if (cachedDestinations != null) {
-        destinations = cachedDestinations;
-      }
-
-      // Save locally
-      saveLocalizationHistoryUseCase(
-        LocalizationHistoryEntity(
-          historyId: DateTime.now().millisecondsSinceEpoch,
-          userIdentifier: deviceIdService.getDeviceId(),
-          identifierType: 'device',
-          sessionId: sessionId,
-          destinationId: destinationId,
-          destinationName: event.destination.name,
-          building: building,
-          floor: floor,
-          place: place,
-          createdAt: DateTime.now(),
-        ),
-      );
-
-      // For multi-floor routes, load floor plans for every floor in parallel
-      final Map<String, String> floorPlansByFloor = {};
-      if (floorPlanBase64 != null && floorPlanBase64!.isNotEmpty) {
-        floorPlansByFloor[floor] = floorPlanBase64!;
-      }
-
-      if (route.multiFloorSteps.length > 1) {
-        final otherFloors = route.multiFloorSteps
-            .map((s) => s.floor)
-            .where((f) => f != floor)
-            .toSet()
-            .toList();
-
-        await Future.wait(
-          otherFloors.map((floorKey) async {
-            // Check cache first
-            if (floorPlanCacheService.hasCachedFloorPlan(
+    await routeResult.fold(
+      (failure) async => emit(NavigationError(failure.message)),
+      (route) async {
+        // Get cached destinations for POI display
+        List<DestinationEntity> destinations = [];
+        final cachedDestinations = destinationsCacheService
+            .getCachedDestinations(
               place: place,
               building: building,
-              floor: floorKey,
-            )) {
-              final cached = floorPlanCacheService.getCachedFloorPlanBase64(
-                place: place,
-                building: building,
-                floor: floorKey,
-              );
-              if (cached != null && cached.isNotEmpty) {
-                floorPlansByFloor[floorKey] = cached;
-                return;
-              }
-            }
-            // Fetch from API
-            final result = await getFloorPlanUseCase(
-              GetFloorPlanParams(
-                building: building,
-                floor: floorKey,
-                place: place,
-              ),
+              floor: floor,
+              multiFloor: locationConfigService.multiFloorNavigation,
             );
-            result.fold((_) {}, (plan) async {
-              if (plan.base64Image.isNotEmpty) {
-                floorPlansByFloor[floorKey] = plan.base64Image;
-                await floorPlanCacheService.cacheFloorPlan(
+        if (cachedDestinations != null) {
+          destinations = cachedDestinations;
+        }
+
+        // Save locally
+        await saveLocalizationHistoryUseCase(
+          LocalizationHistoryEntity(
+            historyId: DateTime.now().millisecondsSinceEpoch,
+            userIdentifier: deviceIdService.getDeviceId(),
+            identifierType: 'device',
+            sessionId: sessionId,
+            destinationId: destinationId,
+            destinationName: event.destination.name,
+            building: building,
+            floor: floor,
+            place: place,
+            createdAt: DateTime.now(),
+          ),
+        );
+
+        // For multi-floor routes, load floor plans for every floor in parallel
+        final Map<String, String> floorPlansByFloor = {};
+        if (floorPlanBase64 != null && floorPlanBase64!.isNotEmpty) {
+          floorPlansByFloor[floor] = floorPlanBase64!;
+        }
+
+        if (route.multiFloorSteps.length > 1) {
+          final otherFloors = route.multiFloorSteps
+              .map((s) => s.floor)
+              .where((f) => f != floor)
+              .toSet()
+              .toList();
+
+          await Future.wait(
+            otherFloors.map((floorKey) async {
+              // Check cache first
+              if (floorPlanCacheService.hasCachedFloorPlan(
+                place: place,
+                building: building,
+                floor: floorKey,
+              )) {
+                final cached = floorPlanCacheService.getCachedFloorPlanBase64(
                   place: place,
                   building: building,
                   floor: floorKey,
-                  base64Image: plan.base64Image,
                 );
+                if (cached != null && cached.isNotEmpty) {
+                  floorPlansByFloor[floorKey] = cached;
+                  return;
+                }
               }
-            });
-          }),
-        );
-      }
+              // Fetch from API
+              final result = await getFloorPlanUseCase(
+                GetFloorPlanParams(
+                  building: building,
+                  floor: floorKey,
+                  place: place,
+                ),
+              );
+              await result.fold((_) async {}, (plan) async {
+                if (plan.base64Image.isNotEmpty) {
+                  floorPlansByFloor[floorKey] = plan.base64Image;
+                  await floorPlanCacheService.cacheFloorPlan(
+                    place: place,
+                    building: building,
+                    floor: floorKey,
+                    base64Image: plan.base64Image,
+                  );
+                }
+              });
+            }),
+          );
+        }
 
-      emit(
-        NavigationReady(
-          currentLocation: route.origin,
-          route: route,
-          floorPlanBase64: floorPlanBase64,
-          destinations: destinations,
-          floorPlansByFloor: floorPlansByFloor,
-        ),
-      );
-    });
+        emit(
+          NavigationReady(
+            currentLocation: route.origin,
+            route: route,
+            floorPlanBase64: floorPlanBase64,
+            destinations: destinations,
+            floorPlansByFloor: floorPlansByFloor,
+          ),
+        );
+      },
+    );
   }
 }

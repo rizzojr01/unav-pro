@@ -1,20 +1,27 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:camera/camera.dart';
 import 'package:camera_macos/camera_macos.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../features/destination/presentation/bloc/floor_map_bloc.dart';
+import '../../features/destination/presentation/bloc/floor_map_event.dart';
+import '../../features/destination/presentation/bloc/floor_map_state.dart';
+
 import '../../injection.dart';
-import '../services/floor_plan_cache_service.dart';
 import '../services/location_config_service.dart';
 import 'custom_snackbar.dart' as snackbar;
 import 'floor_plan_selector_widget.dart';
 
 class LocationInputView extends StatefulWidget {
   final TabController tabController;
-  final Function(String path) onImageCaptured;
-  final Function(double x, double y) onLocationSelected;
+  final Function(String path, String floor) onImageCaptured;
+  final Function(double x, double y, String floor) onLocationSelected;
   final String floorPlanConfirmText;
+  final String? initialFloor;
 
   const LocationInputView({
     super.key,
@@ -22,6 +29,7 @@ class LocationInputView extends StatefulWidget {
     required this.onImageCaptured,
     required this.onLocationSelected,
     this.floorPlanConfirmText = 'Set My Location',
+    this.initialFloor,
   });
 
   @override
@@ -36,10 +44,36 @@ class _LocationInputViewState extends State<LocationInputView> {
   bool _showGuidance = true;
   String? _errorMessage;
 
+  late FloorMapBloc _floorMapBloc;
+  FixedExtentScrollController? _floorController;
+
   @override
   void initState() {
     super.initState();
     _initializeCamera();
+    _floorMapBloc = FloorMapBloc()
+      ..add(FloorMapInitialized(initialFloor: widget.initialFloor));
+  }
+
+  void _syncFloorController(List<String> floors, String selectedFloor) {
+    if (floors.isEmpty) return;
+    final index = floors.indexOf(selectedFloor);
+    if (index >= 0) {
+      if (_floorController == null) {
+        _floorController = FixedExtentScrollController(initialItem: index);
+      } else if (_floorController!.hasClients &&
+          _floorController!.selectedItem != index) {
+        _floorController!.jumpToItem(index);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    _floorController?.dispose();
+    _floorMapBloc.close();
+    super.dispose();
   }
 
   Future<void> _initializeCamera() async {
@@ -82,12 +116,6 @@ class _LocationInputViewState extends State<LocationInputView> {
     }
   }
 
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
-  }
-
   Future<bool> _isImageClear(String path) async {
     // Placeholder for image quality check (focus/blur/motion)
     // In a production app, we would use a native plugin or TFLite model
@@ -114,7 +142,12 @@ class _LocationInputViewState extends State<LocationInputView> {
             final isClear = await _isImageClear(file.path);
             if (mounted) {
               if (isClear) {
-                widget.onImageCaptured(file.path);
+                String selectedFloor = getIt<LocationConfigService>().floor;
+                if (_floorMapBloc.state is FloorMapReady) {
+                  selectedFloor =
+                      (_floorMapBloc.state as FloorMapReady).selectedFloor;
+                }
+                widget.onImageCaptured(file.path, selectedFloor);
               } else {
                 snackbar.CustomSnackBar.show(
                   context,
@@ -154,7 +187,12 @@ class _LocationInputViewState extends State<LocationInputView> {
 
       if (mounted) {
         if (isClear) {
-          widget.onImageCaptured(image.path);
+          String selectedFloor = getIt<LocationConfigService>().floor;
+          if (_floorMapBloc.state is FloorMapReady) {
+            selectedFloor =
+                (_floorMapBloc.state as FloorMapReady).selectedFloor;
+          }
+          widget.onImageCaptured(image.path, selectedFloor);
         } else {
           snackbar.CustomSnackBar.show(
             context,
@@ -363,19 +401,139 @@ class _LocationInputViewState extends State<LocationInputView> {
   }
 
   Widget _buildFloorPlanTab(ThemeData theme) {
-    final floorPlanCacheService = getIt<FloorPlanCacheService>();
     final locationConfig = getIt<LocationConfigService>();
 
-    final cachedFloorPlan = floorPlanCacheService.getCachedFloorPlanBase64(
-      place: locationConfig.place,
-      building: locationConfig.building,
-      floor: locationConfig.floor,
-    );
+    return BlocProvider.value(
+      value: _floorMapBloc,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: BlocListener<FloorMapBloc, FloorMapState>(
+          listener: (context, state) {
+            if (state is FloorMapReady) {
+              _syncFloorController(state.availableFloors, state.selectedFloor);
+            }
+          },
+          child: Stack(
+            children: [
+              BlocBuilder<FloorMapBloc, FloorMapState>(
+                builder: (context, state) {
+                  if (state is FloorMapLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (state is FloorMapReady) {
+                    return FloorPlanSelectorWidget(
+                      base64FloorPlan: state.base64FloorPlan,
+                      onLocationSelected: (x, y) =>
+                          widget.onLocationSelected(x, y, state.selectedFloor),
+                      confirmButtonText: widget.floorPlanConfirmText,
+                    );
+                  } else if (state is FloorMapError) {
+                    return Center(
+                      child: Text(
+                        'Error: ${state.message}',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+              // Rotary Floor Selector (Integrated into the tab)
+              if (locationConfig.multiFloorNavigation)
+                BlocBuilder<FloorMapBloc, FloorMapState>(
+                  builder: (context, state) {
+                    if (state is FloorMapReady &&
+                        state.availableFloors.isNotEmpty) {
+                      _syncFloorController(
+                        state.availableFloors,
+                        state.selectedFloor,
+                      );
 
-    return FloorPlanSelectorWidget(
-      base64FloorPlan: cachedFloorPlan,
-      onLocationSelected: widget.onLocationSelected,
-      confirmButtonText: widget.floorPlanConfirmText,
+                      return Positioned(
+                        right: 12,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(28),
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                              child: Container(
+                                width: 44,
+                                height: 160,
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.surface.withOpacity(
+                                    0.6,
+                                  ),
+                                  borderRadius: BorderRadius.circular(28),
+                                  border: Border.all(
+                                    color: theme.colorScheme.outlineVariant
+                                        .withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    Container(
+                                      width: 30,
+                                      height: 30,
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.primary
+                                            .withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    CupertinoPicker(
+                                      scrollController: _floorController,
+                                      itemExtent: 34,
+                                      diameterRatio: 0.9,
+                                      squeeze: 1.3,
+                                      magnification: 1.1,
+                                      useMagnifier: true,
+                                      onSelectedItemChanged: (index) {
+                                        final newFloor =
+                                            state.availableFloors[index];
+                                        if (newFloor != state.selectedFloor) {
+                                          _floorMapBloc.add(
+                                            FloorMapFloorChanged(newFloor),
+                                          );
+                                        }
+                                      },
+                                      children: state.availableFloors
+                                          .map(
+                                            (f) => Center(
+                                              child: Text(
+                                                f.replaceAll(
+                                                  RegExp(r'[^0-9]'),
+                                                  '',
+                                                ),
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: theme
+                                                      .colorScheme
+                                                      .onSurface,
+                                                ),
+                                              ),
+                                            ),
+                                          )
+                                          .toList(),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

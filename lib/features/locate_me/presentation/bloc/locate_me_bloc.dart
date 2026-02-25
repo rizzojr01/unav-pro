@@ -53,7 +53,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     LocateMeCapturePhotoEvent event,
     Emitter<LocateMeState> emit,
   ) {
-    emit(LocateMePhotoCaptured(event.capturedImagePath));
+    emit(LocateMePhotoCaptured(event.capturedImagePath, floor: event.floor));
   }
 
   Future<void> _onStartLocalization(
@@ -88,6 +88,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
         emit,
         base64Image,
         useSampleImage: effectiveUseSample,
+        floor: event.floor,
       );
     } catch (e) {
       emit(LocateMeError('Failed to process image: ${e.toString()}'));
@@ -112,7 +113,12 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
 
     try {
       // Skip image processing, use manual coordinates directly
-      await _performLocalizationWithManualCoordinates(emit, event.x, event.y);
+      await _performLocalizationWithManualCoordinates(
+        emit,
+        event.x,
+        event.y,
+        floor: event.floor,
+      );
     } catch (e) {
       emit(LocateMeError('Failed to load floor plan: ${e.toString()}'));
     }
@@ -122,9 +128,12 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     Emitter<LocateMeState> emit,
     String base64Image, {
     bool useSampleImage = false,
+    String? floor,
   }) async {
     // Step 1: Get floor plan (with caching)
     emit(const LocateMeLoading(message: 'Loading floor plan...'));
+
+    final effectiveFloor = floor ?? _floor;
 
     FloorPlanEntity? floorPlan;
     String? floorPlanError;
@@ -133,18 +142,18 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     if (floorPlanCacheService.hasCachedFloorPlan(
       place: _place,
       building: _building,
-      floor: _floor,
+      floor: effectiveFloor,
     )) {
       // Use cached floor plan
       final cachedBase64 = floorPlanCacheService.getCachedFloorPlanBase64(
         place: _place,
         building: _building,
-        floor: _floor,
+        floor: effectiveFloor,
       );
       if (cachedBase64 != null && cachedBase64.isNotEmpty) {
         floorPlan = FloorPlanEntity(
           base64Image: cachedBase64,
-          filename: '${_building}_$_floor.png',
+          filename: '${_building}_$effectiveFloor.png',
         );
       }
     }
@@ -152,21 +161,25 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     // If no cache, fetch from API
     if (floorPlan == null) {
       final floorPlanResult = await getFloorPlanUseCase(
-        GetFloorPlanParams(building: _building, floor: _floor, place: _place),
+        GetFloorPlanParams(
+          building: _building,
+          floor: effectiveFloor,
+          place: _place,
+        ),
       );
 
-      floorPlanResult.fold(
-        (failure) {
+      await floorPlanResult.fold(
+        (failure) async {
           floorPlanError = failure.message;
         },
-        (result) {
+        (result) async {
           floorPlan = result;
           // Cache the floor plan for future use
           if (result.base64Image.isNotEmpty) {
-            floorPlanCacheService.cacheFloorPlan(
+            await floorPlanCacheService.cacheFloorPlan(
               place: _place,
               building: _building,
-              floor: _floor,
+              floor: effectiveFloor,
               base64Image: result.base64Image,
             );
           }
@@ -191,10 +204,10 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     final localizationRequest = LocalizationRequestEntity(
       base64Image: base64Image,
       building: _building,
-      floor: _floor,
+      floor: effectiveFloor,
       place: _place,
       sessionId: sessionId,
-      unavMultifloor: false,
+      unavMultifloor: locationConfigService.multiFloorNavigation,
       useSampleImage: useSampleImage,
       relocalize: false,
       saveframe: locationConfigService.saveFrame,
@@ -226,13 +239,15 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
         if (destinationsCacheService.hasCachedDestinations(
           place: _place,
           building: _building,
-          floor: _floor,
+          floor: effectiveFloor,
+          multiFloor: locationConfigService.multiFloorNavigation,
         )) {
           // Use cached destinations
           destinations = destinationsCacheService.getCachedDestinations(
             place: _place,
             building: _building,
-            floor: _floor,
+            floor: effectiveFloor,
+            multiFloor: locationConfigService.multiFloorNavigation,
           );
         }
 
@@ -241,24 +256,25 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
           final destinationsResult = await getDestinationsUseCase(
             GetDestinationsParams(
               building: _building,
-              floor: _floor,
+              floor: effectiveFloor,
               place: _place,
               includeCoordinates: true,
             ),
           );
 
-          destinationsResult.fold(
-            (failure) {
+          await destinationsResult.fold(
+            (failure) async {
               destinationsError = failure.message;
             },
-            (result) {
+            (result) async {
               destinations = result;
               // Cache the destinations for future use
               if (result.isNotEmpty) {
-                destinationsCacheService.cacheDestinations(
+                await destinationsCacheService.cacheDestinations(
                   place: _place,
                   building: _building,
-                  floor: _floor,
+                  floor: effectiveFloor,
+                  multiFloor: locationConfigService.multiFloorNavigation,
                   destinations: result,
                 );
               }
@@ -281,6 +297,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
             floorPlan: floorPlan!,
             userPosition: userPosition,
             destinations: destinations!,
+            floor: effectiveFloor,
           ),
         );
       },
@@ -290,10 +307,13 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
   Future<void> _performLocalizationWithManualCoordinates(
     Emitter<LocateMeState> emit,
     double x,
-    double y,
-  ) async {
+    double y, {
+    String? floor,
+  }) async {
     // Step 1: Get floor plan (with caching)
     emit(const LocateMeLoading(message: 'Loading floor plan...'));
+
+    final effectiveFloor = floor ?? _floor;
 
     FloorPlanEntity? floorPlan;
     String? floorPlanError;
@@ -302,18 +322,18 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     if (floorPlanCacheService.hasCachedFloorPlan(
       place: _place,
       building: _building,
-      floor: _floor,
+      floor: effectiveFloor,
     )) {
       // Use cached floor plan
       final cachedBase64 = floorPlanCacheService.getCachedFloorPlanBase64(
         place: _place,
         building: _building,
-        floor: _floor,
+        floor: effectiveFloor,
       );
       if (cachedBase64 != null && cachedBase64.isNotEmpty) {
         floorPlan = FloorPlanEntity(
           base64Image: cachedBase64,
-          filename: '${_building}_$_floor.png',
+          filename: '${_building}_$effectiveFloor.png',
         );
       }
     }
@@ -321,21 +341,25 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     // If no cache, fetch from API
     if (floorPlan == null) {
       final floorPlanResult = await getFloorPlanUseCase(
-        GetFloorPlanParams(building: _building, floor: _floor, place: _place),
+        GetFloorPlanParams(
+          building: _building,
+          floor: effectiveFloor,
+          place: _place,
+        ),
       );
 
-      floorPlanResult.fold(
-        (failure) {
+      await floorPlanResult.fold(
+        (failure) async {
           floorPlanError = failure.message;
         },
-        (result) {
+        (result) async {
           floorPlan = result;
           // Cache the floor plan for future use
           if (result.base64Image.isNotEmpty) {
-            floorPlanCacheService.cacheFloorPlan(
+            await floorPlanCacheService.cacheFloorPlan(
               place: _place,
               building: _building,
-              floor: _floor,
+              floor: effectiveFloor,
               base64Image: result.base64Image,
             );
           }
@@ -371,13 +395,15 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     if (destinationsCacheService.hasCachedDestinations(
       place: _place,
       building: _building,
-      floor: _floor,
+      floor: effectiveFloor,
+      multiFloor: locationConfigService.multiFloorNavigation,
     )) {
       // Use cached destinations
       destinations = destinationsCacheService.getCachedDestinations(
         place: _place,
         building: _building,
-        floor: _floor,
+        floor: effectiveFloor,
+        multiFloor: locationConfigService.multiFloorNavigation,
       );
     }
 
@@ -386,24 +412,25 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
       final destinationsResult = await getDestinationsUseCase(
         GetDestinationsParams(
           building: _building,
-          floor: _floor,
+          floor: effectiveFloor,
           place: _place,
           includeCoordinates: true,
         ),
       );
 
-      destinationsResult.fold(
-        (failure) {
+      await destinationsResult.fold(
+        (failure) async {
           destinationsError = failure.message;
         },
-        (result) {
+        (result) async {
           destinations = result;
           // Cache the destinations for future use
           if (result.isNotEmpty) {
-            destinationsCacheService.cacheDestinations(
+            await destinationsCacheService.cacheDestinations(
               place: _place,
               building: _building,
-              floor: _floor,
+              floor: effectiveFloor,
+              multiFloor: locationConfigService.multiFloorNavigation,
               destinations: result,
             );
           }
@@ -426,6 +453,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
         userPosition: userPosition,
         destinations: destinations!,
         isManualLocalization: true,
+        floor: effectiveFloor,
       ),
     );
   }

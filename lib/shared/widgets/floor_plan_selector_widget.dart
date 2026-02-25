@@ -46,6 +46,13 @@ class _FloorPlanSelectorWidgetState extends State<FloorPlanSelectorWidget> {
   }
 
   void _decodeImage() {
+    setState(() {
+      _decodedImage = null;
+    });
+    // Explicitly evict images from cache when switching floors
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
+
     if (widget.base64FloorPlan != null && widget.base64FloorPlan!.isNotEmpty) {
       try {
         _decodedImage = base64Decode(widget.base64FloorPlan!);
@@ -214,6 +221,9 @@ class _FloorPlanSelectorWidgetState extends State<FloorPlanSelectorWidget> {
                   child: Image.memory(
                     _decodedImage!,
                     fit: BoxFit.contain,
+                    // Limit the memory usage of the decoded bitmap.
+                    // 1600 is usually plenty for a floor plan while saving significant RAM.
+                    cacheHeight: 1600,
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
                         color: theme.colorScheme.surfaceContainerHighest,

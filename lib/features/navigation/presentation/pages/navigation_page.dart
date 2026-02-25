@@ -22,12 +22,14 @@ class NavigationPage extends StatefulWidget {
   final DestinationEntity destination;
   final String? imagePath;
   final Map<String, dynamic>? userPickedCoordinates;
+  final String? pickedFloor;
 
   const NavigationPage({
     super.key,
     required this.destination,
     this.imagePath,
     this.userPickedCoordinates,
+    this.pickedFloor,
   });
 
   @override
@@ -43,6 +45,7 @@ class _NavigationPageState extends State<NavigationPage> {
         widget.destination,
         imagePath: widget.imagePath,
         userPickedCoordinates: widget.userPickedCoordinates,
+        pickedFloor: widget.pickedFloor,
       ),
     );
   }
@@ -97,6 +100,7 @@ class _NavigationPageState extends State<NavigationPage> {
                   widget.destination,
                   imagePath: widget.imagePath,
                   userPickedCoordinates: widget.userPickedCoordinates,
+                  pickedFloor: widget.pickedFloor,
                 ),
               ),
               onExit: () => context.pop(),
@@ -228,11 +232,14 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                 floorPlanBase64: _floorPlanForSelected,
                 destinations: widget.destinations,
                 onDestinationTap: widget.onDestinationTap,
+                currentFloor: widget.currentLocation.floor,
+                isCheckpoint: _selectedFloor != widget.currentLocation.floor,
                 onRetry: () => context.read<NavigationBloc>().add(
                   InitializeNavigationEvent(
                     widget.destination,
                     imagePath: widget.imagePath,
                     userPickedCoordinates: widget.userPickedCoordinates,
+                    pickedFloor: _selectedFloor,
                   ),
                 ),
               ),

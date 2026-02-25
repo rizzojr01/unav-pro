@@ -8,6 +8,7 @@ class UserPositionMarker extends StatelessWidget {
   final Color? primaryColor;
   final Color? iconColor;
   final bool showPulse;
+  final bool isCheckpoint;
 
   const UserPositionMarker({
     super.key,
@@ -16,6 +17,7 @@ class UserPositionMarker extends StatelessWidget {
     this.primaryColor,
     this.iconColor,
     this.showPulse = true,
+    this.isCheckpoint = false,
   });
 
   @override
@@ -24,7 +26,10 @@ class UserPositionMarker extends StatelessWidget {
     final fgColor = iconColor ?? Colors.white;
 
     // Convert degrees to radians for rotation
-    final rotationRadians = orientationDegrees * (math.pi / 180);
+    final rotationRadians =
+        orientationDegrees.isNaN || orientationDegrees.isInfinite
+        ? 0.0
+        : orientationDegrees * (math.pi / 180);
 
     return SizedBox(
       width: size,
@@ -59,10 +64,23 @@ class UserPositionMarker extends StatelessWidget {
                 ),
               ],
             ),
-            child: Transform.rotate(
-              angle: rotationRadians,
-              child: Icon(Icons.navigation, size: size * 0.4, color: fgColor),
-            ),
+            child: isCheckpoint
+                ? Container(
+                    width: size * 0.3,
+                    height: size * 0.3,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                    ),
+                  )
+                : Transform.rotate(
+                    angle: rotationRadians,
+                    child: Icon(
+                      Icons.navigation,
+                      size: size * 0.4,
+                      color: fgColor,
+                    ),
+                  ),
           ),
         ],
       ),

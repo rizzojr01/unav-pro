@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:fuzzy/fuzzy.dart';
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../shared/services/destinations_cache_service.dart';
@@ -26,6 +27,7 @@ class DestinationRepositoryImpl implements DestinationRepository {
       final place = locationConfigService.place;
       final building = locationConfigService.building;
       final floor = locationConfigService.floor;
+      final multiFloor = locationConfigService.multiFloorNavigation;
 
       List<DestinationEntity>? allDestinations;
 
@@ -34,11 +36,13 @@ class DestinationRepositoryImpl implements DestinationRepository {
         place: place,
         building: building,
         floor: floor,
+        multiFloor: multiFloor,
       )) {
         allDestinations = destinationsCacheService.getCachedDestinations(
           place: place,
           building: building,
           floor: floor,
+          multiFloor: multiFloor,
         );
       }
 
@@ -53,6 +57,7 @@ class DestinationRepositoryImpl implements DestinationRepository {
             place: place,
             building: building,
             floor: floor,
+            multiFloor: multiFloor,
             destinations: destinations,
           );
         }
@@ -63,14 +68,30 @@ class DestinationRepositoryImpl implements DestinationRepository {
         return Right(allDestinations);
       }
 
-      final filtered = allDestinations
-          .where(
-            (dest) =>
-                dest.name.toLowerCase().contains(query.toLowerCase()) ||
-                (dest.address?.toLowerCase().contains(query.toLowerCase()) ??
-                    false),
-          )
-          .toList();
+      final fuse = Fuzzy<DestinationEntity>(
+        allDestinations,
+        options: FuzzyOptions(
+          findAllMatches: true,
+          tokenize: true,
+          threshold: 0.4,
+          keys: [
+            WeightedKey(name: 'name', getter: (dest) => dest.name, weight: 0.6),
+            WeightedKey(
+              name: 'floor',
+              getter: (dest) => dest.floor ?? '',
+              weight: 0.2,
+            ),
+            WeightedKey(
+              name: 'address',
+              getter: (dest) => dest.address ?? '',
+              weight: 0.2,
+            ),
+          ],
+        ),
+      );
+
+      final results = fuse.search(query);
+      final filtered = results.map((r) => r.item).toList();
 
       return Right(filtered);
     } on ServerException catch (e) {

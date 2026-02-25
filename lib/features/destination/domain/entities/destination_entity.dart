@@ -5,6 +5,7 @@ class DestinationEntity extends BaseEntity {
   final String name;
   final double x;
   final double y;
+  final String? floor;
   final String? address;
 
   const DestinationEntity({
@@ -12,6 +13,7 @@ class DestinationEntity extends BaseEntity {
     required this.name,
     required this.x,
     required this.y,
+    this.floor,
     this.address,
   });
 
@@ -19,5 +21,5 @@ class DestinationEntity extends BaseEntity {
   String? get id => destinationId;
 
   @override
-  List<Object?> get props => [destinationId, name, x, y, address];
+  List<Object?> get props => [destinationId, name, x, y, floor, address];
 }
