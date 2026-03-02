@@ -3,13 +3,13 @@ class AppText {
   AppText._();
 
   // ============ App ============
-  static const String appName = 'SpaceSense';
-  static const String appNameUppercase = 'SPACE SENSE';
+  static const String appName = 'PathLogic';
+  static const String appNameUppercase = 'PATHLOGIC';
   static const String appTagline = 'Indoor Navigation Assistant';
   static const String appTaglineUppercase = 'INDOOR NAVIGATION ASSISTANT';
 
   // ============ Onboarding ============
-  static const String onboardingTitle1 = 'Welcome to SpaceSense';
+  static const String onboardingTitle1 = 'Welcome to PathLogic';
   static const String onboardingDesc1 =
       'You are all set! Let\'s quickly show you how to find your way around.';
 

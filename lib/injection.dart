@@ -216,6 +216,7 @@ Future<void> initializeDependencies() async {
     () => NavigationBloc(
       getRouteUseCase: getIt(),
       getFloorPlanUseCase: getIt(),
+      getDestinationsUseCase: getIt(),
       locationConfigService: getIt(),
       floorPlanCacheService: getIt(),
       destinationsCacheService: getIt(),

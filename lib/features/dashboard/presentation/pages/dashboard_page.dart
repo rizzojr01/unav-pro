@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../injection.dart';
+import '../../../../core/constants/app_text.dart';
 import '../../../../shared/services/destinations_cache_service.dart';
 import '../../../../shared/services/device_id_service.dart';
 import '../../../../shared/services/location_config_service.dart';
@@ -143,7 +144,7 @@ class _DashboardPageState extends State<DashboardPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Unav',
+              AppText.appName,
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
@@ -151,7 +152,7 @@ class _DashboardPageState extends State<DashboardPage>
               ),
             ),
             Text(
-              'Indoor Navigation',
+              AppText.dashboardTagline,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,

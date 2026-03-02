@@ -87,6 +87,7 @@ class _NavigationPageState extends State<NavigationPage> {
               floorPlanBase64: state.floorPlanBase64,
               floorPlansByFloor: state.floorPlansByFloor,
               destinations: state.destinations,
+              destinationsByFloor: state.destinationsByFloor,
               onDestinationTap: (d) =>
                   _showDestinationBottomSheet(this.context, d),
               userPickedCoordinates: widget.userPickedCoordinates,
@@ -125,6 +126,7 @@ class _NavigationMapView extends StatefulWidget {
   final String? floorPlanBase64;
   final Map<String, String> floorPlansByFloor;
   final List<DestinationEntity> destinations;
+  final Map<String, List<DestinationEntity>> destinationsByFloor;
   final Function(DestinationEntity)? onDestinationTap;
   final Map<String, dynamic>? userPickedCoordinates;
 
@@ -136,6 +138,7 @@ class _NavigationMapView extends StatefulWidget {
     this.floorPlanBase64,
     this.floorPlansByFloor = const {},
     this.destinations = const [],
+    this.destinationsByFloor = const {},
     this.onDestinationTap,
     this.userPickedCoordinates,
   });
@@ -212,6 +215,31 @@ class _NavigationMapViewState extends State<_NavigationMapView>
 
   bool get _isMultiFloor => widget.route.multiFloorSteps.length > 1;
 
+  /// Normalise floor key for comparison: "17_floor" → "17"
+  String _normaliseFloor(String f) =>
+      f.replaceAll('_floor', '').replaceAll('_', '').trim().toLowerCase();
+
+  /// Returns destinations for the selected floor, filtered by the
+  /// destination's own floor field as a safety net against cache contamination.
+  List<DestinationEntity> get _destsForSelectedFloor {
+    final normSelected = _normaliseFloor(_selectedFloor);
+
+    // Pull the per-floor list from the map (preferred)
+    final raw =
+        widget.destinationsByFloor[_selectedFloor] ??
+        (widget.route.multiFloorSteps.isNotEmpty &&
+                widget.route.multiFloorSteps.first.floor == _selectedFloor
+            ? widget.destinations
+            : []);
+
+    // Filter by each destination's own floor field so cross-floor POIs
+    // from an unfiltered API response never appear on the wrong map.
+    return raw.where((d) {
+      if (d.floor == null) return true; // no floor info → show on all
+      return _normaliseFloor(d.floor!) == normSelected;
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -230,7 +258,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                 userLocation: widget.currentLocation,
                 route: _routeForSelectedFloor,
                 floorPlanBase64: _floorPlanForSelected,
-                destinations: widget.destinations,
+                destinations: _destsForSelectedFloor,
                 onDestinationTap: widget.onDestinationTap,
                 currentFloor: widget.currentLocation.floor,
                 isCheckpoint:

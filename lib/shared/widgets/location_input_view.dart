@@ -4,6 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:camera_macos/camera_macos.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -491,6 +492,7 @@ class _LocationInputViewState extends State<LocationInputView> {
                                       magnification: 1.1,
                                       useMagnifier: true,
                                       onSelectedItemChanged: (index) {
+                                        HapticFeedback.selectionClick();
                                         final newFloor =
                                             state.availableFloors[index];
                                         if (newFloor != state.selectedFloor) {

@@ -91,7 +91,11 @@ class DestinationBottomSheet extends StatelessWidget {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                _formatFloorName(locationConfigService.floor),
+                                _formatFloorName(
+                                  destination.floor?.isNotEmpty == true
+                                      ? destination.floor!
+                                      : locationConfigService.floor,
+                                ),
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: theme.colorScheme.onSurfaceVariant,

@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../injection.dart';
@@ -169,6 +170,7 @@ class _FloorMapPageState extends State<FloorMapPage> {
                                       magnification: 1.1,
                                       useMagnifier: true,
                                       onSelectedItemChanged: (index) {
+                                        HapticFeedback.selectionClick();
                                         final newFloor =
                                             state.availableFloors[index];
                                         if (newFloor != state.selectedFloor) {

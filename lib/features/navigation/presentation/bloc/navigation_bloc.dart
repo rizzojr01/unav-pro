@@ -9,6 +9,7 @@ import '../../../../shared/services/floor_plan_cache_service.dart';
 import '../../../../shared/services/location_config_service.dart';
 import '../../../destination/domain/entities/destination_entity.dart';
 import '../../../locate_me/domain/usecases/get_floor_plan_usecase.dart';
+import '../../../locate_me/domain/usecases/get_destinations_usecase.dart';
 import '../../../localization_history/domain/entities/localization_history_entity.dart';
 import '../../../localization_history/domain/usecases/save_localization_history_usecase.dart';
 import '../../../../shared/services/device_id_service.dart';
@@ -19,6 +20,7 @@ import 'navigation_state.dart';
 class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
   final GetRouteUseCase getRouteUseCase;
   final GetFloorPlanUseCase getFloorPlanUseCase;
+  final GetDestinationsUseCase getDestinationsUseCase;
   final LocationConfigService locationConfigService;
   final FloorPlanCacheService floorPlanCacheService;
   final DestinationsCacheService destinationsCacheService;
@@ -28,6 +30,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
   NavigationBloc({
     required this.getRouteUseCase,
     required this.getFloorPlanUseCase,
+    required this.getDestinationsUseCase,
     required this.locationConfigService,
     required this.floorPlanCacheService,
     required this.destinationsCacheService,
@@ -163,18 +166,88 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
             ? route.multiFloorSteps.first.floor
             : floor;
 
-        // Get cached destinations for POI display
+        // Get cached destinations for POI display — load for all route floors.
+        // For floors not yet cached, fetch from the API so POIs always show.
         List<DestinationEntity> destinations = [];
-        final cachedDestinations = destinationsCacheService
-            .getCachedDestinations(
+        final Map<String, List<DestinationEntity>> destinationsByFloor = {};
+
+        // Normalise floor string for comparison: "17_floor" → "17"
+        String normaliseFloor(String f) =>
+            f.replaceAll('_floor', '').replaceAll('_', '').trim().toLowerCase();
+
+        // Helper: fetch destinations for a floor (cache-first), filtering the
+        // API response so only POIs belonging to that floor are returned.
+        // The multifloor API returns ALL floors' POIs in one call; we
+        // group them and cache each floor's slice individually.
+        Future<List<DestinationEntity>> fetchDestsForFloor(
+          String floorKey,
+        ) async {
+          // 1. Try cache (already filtered when stored)
+          final cached = destinationsCacheService.getCachedDestinations(
+            place: place,
+            building: building,
+            floor: floorKey,
+            multiFloor: locationConfigService.multiFloorNavigation,
+          );
+          if (cached != null && cached.isNotEmpty) return cached;
+
+          // 2. Fetch from API
+          final result = await getDestinationsUseCase(
+            GetDestinationsParams(
+              building: building,
+              floor: floorKey,
+              place: place,
+              includeCoordinates: true,
+              unavMultifloor: locationConfigService.multiFloorNavigation,
+            ),
+          );
+          final allDests = result.getOrElse(() => []);
+          if (allDests.isEmpty) return [];
+
+          // Group by each destination's own floor field so we can cache and
+          // return only the subset that belongs to the requested floor.
+          final Map<String, List<DestinationEntity>> grouped = {};
+          for (final d in allDests) {
+            final normDest = d.floor != null
+                ? normaliseFloor(d.floor!)
+                : normaliseFloor(floorKey);
+            grouped.putIfAbsent(normDest, () => []).add(d);
+          }
+
+          // Cache each floor's slice under the matching route floor key
+          for (final entry in grouped.entries) {
+            final rawKey = route.multiFloorSteps
+                .map((s) => s.floor)
+                .firstWhere(
+                  (f) => normaliseFloor(f) == entry.key,
+                  orElse: () => floorKey,
+                );
+            await destinationsCacheService.cacheDestinations(
               place: place,
               building: building,
-              floor: actualStartingFloor,
+              floor: rawKey,
               multiFloor: locationConfigService.multiFloorNavigation,
+              destinations: entry.value,
             );
-        if (cachedDestinations != null) {
-          destinations = cachedDestinations;
+          }
+
+          // Return only the slice for the requested floor
+          return grouped[normaliseFloor(floorKey)] ?? [];
         }
+
+        // Load destinations for every floor in parallel
+        await Future.wait(
+          route.multiFloorSteps.map((step) async {
+            final floorKey = step.floor;
+            final dests = await fetchDestsForFloor(floorKey);
+            if (dests.isNotEmpty) {
+              destinationsByFloor[floorKey] = dests;
+              if (floorKey == actualStartingFloor) {
+                destinations = dests;
+              }
+            }
+          }),
+        );
 
         // Save locally
         await saveLocalizationHistoryUseCase(
@@ -256,6 +329,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
             floorPlanBase64: floorPlanBase64,
             destinations: destinations,
             floorPlansByFloor: floorPlansByFloor,
+            destinationsByFloor: destinationsByFloor,
           ),
         );
       },

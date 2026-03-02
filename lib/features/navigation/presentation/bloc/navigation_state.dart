@@ -29,12 +29,16 @@ class NavigationReady extends NavigationState {
   /// floor key → base64 floor plan (populated for multi-floor routes)
   final Map<String, String> floorPlansByFloor;
 
+  /// floor key → destinations list (populated for multi-floor routes)
+  final Map<String, List<DestinationEntity>> destinationsByFloor;
+
   const NavigationReady({
     required this.currentLocation,
     required this.route,
     this.floorPlanBase64,
     this.destinations = const [],
     this.floorPlansByFloor = const {},
+    this.destinationsByFloor = const {},
   });
 
   @override
@@ -44,6 +48,7 @@ class NavigationReady extends NavigationState {
     floorPlanBase64,
     destinations,
     floorPlansByFloor,
+    destinationsByFloor,
   ];
 }
 
