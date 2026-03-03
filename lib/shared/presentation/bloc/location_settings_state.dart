@@ -2,6 +2,9 @@ import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/place_entity.dart';
 
+/// Status of GPS/Wi-Fi auto-detection
+enum AutoDetectStatus { idle, detecting, detected, failed }
+
 abstract class LocationSettingsState extends Equatable {
   const LocationSettingsState();
 
@@ -22,12 +25,16 @@ class LocationSettingsLoaded extends LocationSettingsState {
   final String selectedPlace;
   final String selectedBuilding;
   final String selectedFloor;
+  final AutoDetectStatus autoDetectStatus;
+  final String? autoDetectMessage;
 
   const LocationSettingsLoaded({
     required this.places,
     required this.selectedPlace,
     required this.selectedBuilding,
     required this.selectedFloor,
+    this.autoDetectStatus = AutoDetectStatus.idle,
+    this.autoDetectMessage,
   });
 
   @override
@@ -36,6 +43,8 @@ class LocationSettingsLoaded extends LocationSettingsState {
     selectedPlace,
     selectedBuilding,
     selectedFloor,
+    autoDetectStatus,
+    autoDetectMessage,
   ];
 
   /// Get the selected place entity
@@ -74,12 +83,16 @@ class LocationSettingsLoaded extends LocationSettingsState {
     String? selectedPlace,
     String? selectedBuilding,
     String? selectedFloor,
+    AutoDetectStatus? autoDetectStatus,
+    String? autoDetectMessage,
   }) {
     return LocationSettingsLoaded(
       places: places ?? this.places,
       selectedPlace: selectedPlace ?? this.selectedPlace,
       selectedBuilding: selectedBuilding ?? this.selectedBuilding,
       selectedFloor: selectedFloor ?? this.selectedFloor,
+      autoDetectStatus: autoDetectStatus ?? this.autoDetectStatus,
+      autoDetectMessage: autoDetectMessage,
     );
   }
 }

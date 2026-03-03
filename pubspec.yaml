@@ -38,6 +38,9 @@ dependencies:
   # Location
   geolocator: ^13.0.2
 
+  # WiFi info (for BSSID-based auto-detection)
+  network_info_plus: ^6.0.1
+
   # Utilities
   logger: ^2.5.0
   uuid: ^4.5.1

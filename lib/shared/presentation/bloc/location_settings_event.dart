@@ -41,3 +41,23 @@ class SelectFloorEvent extends LocationSettingsEvent {
 class SaveLocationSettingsEvent extends LocationSettingsEvent {
   const SaveLocationSettingsEvent();
 }
+
+/// Triggers GPS-based auto-detection of place + building
+class AutoDetectByGpsEvent extends LocationSettingsEvent {
+  const AutoDetectByGpsEvent();
+}
+
+/// Triggers Wi-Fi BSSID-based auto-detection of place + building
+class AutoDetectByWifiEvent extends LocationSettingsEvent {
+  const AutoDetectByWifiEvent();
+}
+
+/// Saves the current Wi-Fi BSSID → current place/building mapping
+class SaveWifiMappingEvent extends LocationSettingsEvent {
+  const SaveWifiMappingEvent();
+}
+
+/// Saves the user's current GPS coordinates → current place/building mapping
+class SaveGpsMappingEvent extends LocationSettingsEvent {
+  const SaveGpsMappingEvent();
+}

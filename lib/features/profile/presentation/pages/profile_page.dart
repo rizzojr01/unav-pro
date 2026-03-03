@@ -11,6 +11,7 @@ import '../../../../shared/presentation/bloc/location_settings_event.dart';
 import '../../../../shared/presentation/bloc/location_settings_state.dart';
 import '../../../../shared/services/destinations_cache_service.dart';
 import '../../../../shared/services/location_config_service.dart';
+import '../../../../shared/widgets/auto_detect_location_widget.dart';
 import '../../../../theme/theme_bloc.dart';
 import '../../../../theme/widgets/color_customizer.dart';
 
@@ -1491,6 +1492,15 @@ class _LocationSettingsSheet extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Auto-detect section (GPS + Wi-Fi)
+        const AutoDetectLocationWidget(),
+        const SizedBox(height: 24),
+
+        Divider(
+          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+        const SizedBox(height: 16),
+
         // Place Dropdown
         _buildDropdownSection(
           context: context,

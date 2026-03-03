@@ -25,6 +25,9 @@ class BuildingModel extends BuildingEntity {
     required super.id,
     required super.name,
     required super.floors,
+    super.latitude,
+    super.longitude,
+    super.radiusMeters,
   });
 
   factory BuildingModel.fromJson(Map<String, dynamic> json) {
@@ -33,6 +36,9 @@ class BuildingModel extends BuildingEntity {
       id: json['id'] as String,
       name: json['name'] as String,
       floors: floorsJson.map((f) => FloorModel.fromJson(f)).toList(),
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      radiusMeters: (json['radius_meters'] as num?)?.toDouble(),
     );
   }
 
@@ -45,6 +51,9 @@ class BuildingModel extends BuildingEntity {
             (f) => FloorModel(id: f.id, level: f.level, name: f.name).toJson(),
           )
           .toList(),
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (radiusMeters != null) 'radius_meters': radiusMeters,
     };
   }
 }
