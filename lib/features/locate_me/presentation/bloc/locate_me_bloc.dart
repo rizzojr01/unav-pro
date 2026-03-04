@@ -53,7 +53,13 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     LocateMeCapturePhotoEvent event,
     Emitter<LocateMeState> emit,
   ) {
-    emit(LocateMePhotoCaptured(event.capturedImagePath, floor: event.floor));
+    emit(
+      LocateMePhotoCaptured(
+        event.capturedImagePath,
+        floor: event.floor,
+        heading: event.heading,
+      ),
+    );
   }
 
   Future<void> _onStartLocalization(
@@ -89,6 +95,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
         base64Image,
         useSampleImage: effectiveUseSample,
         floor: event.floor,
+        heading: event.heading,
       );
     } catch (e) {
       emit(LocateMeError('Failed to process image: ${e.toString()}'));
@@ -129,6 +136,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     String base64Image, {
     bool useSampleImage = false,
     String? floor,
+    double? heading,
   }) async {
     // Step 1: Get floor plan (with caching)
     emit(const LocateMeLoading(message: 'Loading floor plan...'));
@@ -214,6 +222,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
       shortenVlmResponse: true,
       speakVlmFirst: true,
       useVlm: false,
+      heading: heading,
       imageCompression: ImageCompressionEntity(
         enableCompression: locationConfigService.enableCompression,
         maxHeight: locationConfigService.maxHeight,

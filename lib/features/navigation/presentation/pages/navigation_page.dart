@@ -26,6 +26,7 @@ class NavigationPage extends StatefulWidget {
   final String? imagePath;
   final Map<String, dynamic>? userPickedCoordinates;
   final String? pickedFloor;
+  final double? heading;
 
   const NavigationPage({
     super.key,
@@ -33,6 +34,7 @@ class NavigationPage extends StatefulWidget {
     this.imagePath,
     this.userPickedCoordinates,
     this.pickedFloor,
+    this.heading,
   });
 
   @override
@@ -49,6 +51,7 @@ class _NavigationPageState extends State<NavigationPage> {
         imagePath: widget.imagePath,
         userPickedCoordinates: widget.userPickedCoordinates,
         pickedFloor: widget.pickedFloor,
+        heading: widget.heading,
       ),
     );
   }
@@ -105,6 +108,7 @@ class _NavigationPageState extends State<NavigationPage> {
                   imagePath: widget.imagePath,
                   userPickedCoordinates: widget.userPickedCoordinates,
                   pickedFloor: widget.pickedFloor,
+                  heading: widget.heading,
                 ),
               ),
               onExit: () => context.pop(),

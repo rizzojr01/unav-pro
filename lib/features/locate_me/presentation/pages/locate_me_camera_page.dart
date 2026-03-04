@@ -105,11 +105,12 @@ class _LocateMeCameraPageState extends State<LocateMeCameraPage>
                 ? CustomLoadingView(message: state.message)
                 : LocationInputView(
                     tabController: _tabController,
-                    onImageCaptured: (path, floor) {
+                    onImageCaptured: (path, floor, heading) {
                       context.read<LocateMeBloc>().add(
                         LocateMeCapturePhotoEvent(
                           capturedImagePath: path,
                           floor: floor,
+                          heading: heading,
                         ),
                       );
                     },

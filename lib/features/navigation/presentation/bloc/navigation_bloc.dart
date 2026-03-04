@@ -12,6 +12,8 @@ import '../../../locate_me/domain/usecases/get_destinations_usecase.dart';
 import '../../../localization_history/domain/entities/localization_history_entity.dart';
 import '../../../localization_history/domain/usecases/save_localization_history_usecase.dart';
 import '../../../../shared/services/device_id_service.dart';
+import '../../../../core/utils/logger.dart';
+import '../../../../injection.dart';
 import '../../domain/usecases/get_route_usecase.dart';
 import 'navigation_event.dart';
 import 'navigation_state.dart';
@@ -81,7 +83,9 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         base64Image = base64Encode(byteData.buffer.asUint8List());
         effectiveUseSample = false;
       } catch (e) {
-        print('NavigationBloc: Alternate image loading failed: $e');
+        getIt<AppLogger>().error(
+          'NavigationBloc: Alternate image loading failed: $e',
+        );
       }
     } else if (event.imagePath != null &&
         event.imagePath!.isNotEmpty &&
@@ -92,7 +96,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
           base64Image = base64Encode(await imageFile.readAsBytes());
         }
       } catch (e) {
-        print('NavigationBloc: Image encoding failed: $e');
+        getIt<AppLogger>().error('NavigationBloc: Image encoding failed: $e');
       }
     }
 
@@ -117,6 +121,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
           'quality': locationConfigService.imageQuality,
         },
         userPickedCoordinates: event.userPickedCoordinates,
+        heading: event.heading,
       ),
     );
 

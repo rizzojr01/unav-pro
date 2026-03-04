@@ -167,9 +167,13 @@ class _CameraReadyView extends StatelessWidget {
             tabController: tabController,
             floorPlanConfirmText: 'Start Navigation',
             initialFloor: pickedFloor,
-            onImageCaptured: (path, floor) {
+            onImageCaptured: (path, floor, heading) {
               context.read<CameraBloc>().add(
-                CapturePhotoEvent(filePath: path, floor: floor),
+                CapturePhotoEvent(
+                  filePath: path,
+                  floor: floor,
+                  heading: heading,
+                ),
               );
             },
             onLocationSelected: (x, y, floor) {
