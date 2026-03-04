@@ -291,7 +291,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
             children: [
               // ── Map ──────────────────────────────────────────────────────
               MapView(
-                key: ValueKey(_selectedFloor), // rebuild when floor changes
+                // Removed ValueKey to sync orientation and state across floors
                 userLocation: widget.currentLocation,
                 route: _routeForSelectedFloor,
                 floorPlanBase64: _floorPlanForSelected,

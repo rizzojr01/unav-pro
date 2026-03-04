@@ -74,9 +74,8 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   double? _initialCompassHeading; // heading (degrees) when tracking started
   double _smoothedHeading = 0.0; // EMA-filtered heading, avoids noise spikes
   bool _headingInitialized = false;
-  bool _compassActive = false; // true once the 2.5 s delay fires
+  bool _compassActive = false; // true once tracking starts
   Timer? _compassStartTimer;
-  bool _touchActive = false; // true while any finger is on screen
 
   // Low-pass filter strength: 0 = frozen, 1 = raw. ~0.12 smooths noise well
   // while still tracking real rotation within ~1-2 compass update cycles.
@@ -108,9 +107,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   /// Starts compass tracking after [delay].
   /// Saves the heading at the moment tracking begins as the baseline,
   /// then applies: mapRotation = initialRouteRotation − deltaHeading.
-  void _startCompassTracking({
-    Duration delay = const Duration(milliseconds: 2500),
-  }) {
+  void _startCompassTracking({Duration delay = Duration.zero}) {
     _compassStartTimer?.cancel();
     _compassStartTimer = Timer(delay, () {
       if (!mounted) return;
@@ -118,7 +115,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       _initialCompassHeading = null; // will be set on first event
       _compassSubscription = FlutterCompass.events?.listen((event) {
         final heading = event.heading;
-        if (heading == null || !mounted || _touchActive) return;
+        if (heading == null || !mounted) return;
 
         // ── Exponential moving average (low-pass) filter ────────────────────
         // Raw magnetometer is very noisy indoors. EMA keeps the value stable
@@ -215,14 +212,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     if (delta > 180) delta -= 360;
     if (delta < -180) delta += 360;
     return delta;
-  }
-
-  void _stopCompassTracking() {
-    _compassStartTimer?.cancel();
-    _compassSubscription?.cancel();
-    _compassSubscription = null;
-    _initialCompassHeading = null;
-    if (mounted) setState(() => _compassActive = false);
   }
 
   void _decodeFloorPlan() {
@@ -351,6 +340,12 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   void didUpdateWidget(MapView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.floorPlanBase64 != widget.floorPlanBase64) {
+      // Floor switched: preserve rotation but reset layout flags
+      setState(() {
+        _imageSize = null;
+        _hasRecenteredOnUser = false;
+        _initialMatrix = null;
+      });
       _decodeFloorPlan();
     }
     if (oldWidget.destinations != widget.destinations) {
@@ -538,9 +533,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
               behavior: HitTestBehavior.translucent,
               onPointerDown: (e) {
                 _activePointers[e.pointer] = e.localPosition;
-                // Suspend compass on ANY touch — prevents flicker during drag/pan
-                _touchActive = true;
-                _compassStartTimer?.cancel();
                 if (_activePointers.length == 2) {
                   final pts = _activePointers.values.toList();
                   _lastPointerAngle = math.atan2(
@@ -550,8 +542,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                   _gestureStartAngle = _lastPointerAngle;
                   _isTrackingRotation = true;
                   _rotationThresholdMet = false;
-                  // User is manually rotating — pause compass so it doesn't fight the gesture
-                  _stopCompassTracking();
                 }
               },
               onPointerMove: (e) {
@@ -631,29 +621,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
               },
               onPointerUp: (e) {
                 _activePointers.remove(e.pointer);
-                if (_activePointers.isEmpty) {
-                  // All fingers lifted — resume compass after short settle delay
-                  _touchActive = false;
-                  if (_compassSubscription != null) {
-                    // Subscription still alive; just re-seed baseline so the map
-                    // doesn't snap when compass resumes after a drag.
-                    _compassStartTimer?.cancel();
-                    _compassStartTimer = Timer(
-                      const Duration(milliseconds: 500),
-                      () {
-                        if (mounted) {
-                          // Re-seed: use the already-smoothed heading as the new
-                          // baseline so a noise spike on the first post-touch event
-                          // doesn't cause a sudden map jump.
-                          _initialCompassHeading = _headingInitialized
-                              ? _smoothedHeading
-                              : null;
-                          _initialRouteRotation = _manualRotation;
-                        }
-                      },
-                    );
-                  }
-                }
                 if (_activePointers.length < 2) {
                   _isTrackingRotation = false;
                   _rotationThresholdMet = false;
@@ -661,9 +628,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
               },
               onPointerCancel: (e) {
                 _activePointers.remove(e.pointer);
-                if (_activePointers.isEmpty) {
-                  _touchActive = false;
-                }
                 if (_activePointers.length < 2) {
                   _isTrackingRotation = false;
                   _rotationThresholdMet = false;
@@ -787,78 +751,14 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
               },
               onSnapRotation: () {
                 _snapToInitialRotation();
-                // Re-enable compass after snapping back to the route orientation
-                _startCompassTracking(delay: const Duration(milliseconds: 800));
+                // Re-enable compass immediately after snapping back
+                _startCompassTracking(delay: Duration.zero);
               },
               isAtInitialRotation:
                   (_manualRotation - _initialRouteRotation).abs() < 0.01,
             ),
 
-            // Compass active indicator — top right
-            if (widget.route != null)
-              Positioned(
-                top: 12,
-                right: 12,
-                child: GestureDetector(
-                  onTap: () {
-                    if (_compassActive) {
-                      _stopCompassTracking();
-                    } else {
-                      _startCompassTracking(delay: Duration.zero);
-                    }
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _compassActive
-                          ? theme.colorScheme.primary.withValues(alpha: 0.15)
-                          : theme.colorScheme.surface.withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: _compassActive
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.outline.withValues(alpha: 0.4),
-                        width: 1.2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.08),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.explore_rounded,
-                          size: 14,
-                          color: _compassActive
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          _compassActive ? 'Compass ON' : 'Compass OFF',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: _compassActive
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
+            // Compass active indicator removed as per requirements - rotation is always on
             if (_showLegend)
               Positioned(
                 left: 16,
