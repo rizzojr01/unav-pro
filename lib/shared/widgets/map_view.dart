@@ -26,6 +26,12 @@ class MapView extends StatefulWidget {
   final String? currentFloor;
   final bool isCheckpoint;
 
+  /// Compass heading (degrees, North-based) captured at the moment the user
+  /// took the localization photo. Pre-seeds the compass baseline so the
+  /// heading-up rotation stays correct even if the user moves the phone
+  /// while the backend is processing and the map is loading.
+  final double? captureHeading;
+
   const MapView({
     super.key,
     required this.userLocation,
@@ -37,6 +43,7 @@ class MapView extends StatefulWidget {
     this.autoCenterOnUser = true,
     this.currentFloor,
     this.isCheckpoint = false,
+    this.captureHeading,
   });
 
   @override
@@ -107,12 +114,21 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   /// Starts compass tracking after [delay].
   /// Saves the heading at the moment tracking begins as the baseline,
   /// then applies: mapRotation = initialRouteRotation − deltaHeading.
-  void _startCompassTracking({Duration delay = Duration.zero}) {
+  void _startCompassTracking({
+    Duration delay = Duration.zero,
+    double? seedHeading,
+  }) {
     _compassStartTimer?.cancel();
     _compassStartTimer = Timer(delay, () {
       if (!mounted) return;
       _compassSubscription?.cancel();
-      _initialCompassHeading = null; // will be set on first event
+      // Pre-seed the compass baseline:
+      // • If seedHeading is provided (capture-time heading), use it directly.
+      //   This anchors the delta calculation to the exact moment the photo was
+      //   taken, so any phone movement DURING map loading is compensated for.
+      // • Otherwise fall back to null, which means the first compass event
+      //   will become the baseline (legacy behaviour).
+      _initialCompassHeading = seedHeading;
       _compassSubscription = FlutterCompass.events?.listen((event) {
         final heading = event.heading;
         if (heading == null || !mounted) return;
@@ -263,10 +279,11 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     _manualRotation = -(userAngleDeg * math.pi / 180.0 + math.pi / 2);
     _initialRouteRotation = _manualRotation;
 
-    // Start compass tracking 2.5 s after the initial view settles.
-    // The delay lets the map animation finish before we hand control to the sensor.
+    // Start compass tracking immediately.
+    // Seed the baseline with the capture-time heading so the map stays
+    // correctly oriented even if the user rotated the phone during loading.
     if (widget.route != null) {
-      _startCompassTracking();
+      _startCompassTracking(seedHeading: widget.captureHeading);
     }
   }
 
@@ -751,8 +768,8 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
               },
               onSnapRotation: () {
                 _snapToInitialRotation();
-                // Re-enable compass immediately after snapping back
-                _startCompassTracking(delay: Duration.zero);
+                // Re-start compass seeded from the capture-time heading
+                _startCompassTracking(seedHeading: widget.captureHeading);
               },
               isAtInitialRotation:
                   (_manualRotation - _initialRouteRotation).abs() < 0.01,

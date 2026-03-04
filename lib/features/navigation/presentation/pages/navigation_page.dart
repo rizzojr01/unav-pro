@@ -97,6 +97,7 @@ class _NavigationPageState extends State<NavigationPage> {
               onDestinationTap: (d) =>
                   _showDestinationBottomSheet(this.context, d),
               userPickedCoordinates: widget.userPickedCoordinates,
+              captureHeading: widget.heading,
             );
           }
           if (state is NavigationError) {
@@ -137,6 +138,11 @@ class _NavigationMapView extends StatefulWidget {
   final Function(DestinationEntity)? onDestinationTap;
   final Map<String, dynamic>? userPickedCoordinates;
 
+  /// Compass heading (degrees, North-based) at the moment the photo was taken.
+  /// Pre-seeds the compass baseline so rotation is correct even if the user
+  /// moved their phone while the map was loading.
+  final double? captureHeading;
+
   const _NavigationMapView({
     required this.destination,
     this.imagePath,
@@ -148,6 +154,7 @@ class _NavigationMapView extends StatefulWidget {
     this.destinationsByFloor = const {},
     this.onDestinationTap,
     this.userPickedCoordinates,
+    this.captureHeading,
   });
 
   @override
@@ -291,7 +298,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
             children: [
               // ── Map ──────────────────────────────────────────────────────
               MapView(
-                // Removed ValueKey to sync orientation and state across floors
+                // No ValueKey here — preserves rotation when switching floors
                 userLocation: widget.currentLocation,
                 route: _routeForSelectedFloor,
                 floorPlanBase64: _floorPlanForSelected,
@@ -303,6 +310,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                     widget.currentLocation.floor
                         ?.replaceAll('_floor', '')
                         .trim()),
+                captureHeading: widget.captureHeading,
                 onRetry: () => context.read<NavigationBloc>().add(
                   InitializeNavigationEvent(
                     widget.destination,
