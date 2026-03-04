@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../injection.dart';
+import '../../../../shared/services/floor_plan_cache_service.dart';
+import '../../../../shared/services/location_config_service.dart';
 import '../../../../shared/widgets/step_indicator.dart';
 import '../../../../shared/widgets/custom_loading_view.dart';
 import '../../../../shared/widgets/custom_error_view.dart';
@@ -152,19 +155,31 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   late String _selectedFloor;
   late AnimationController _floorAnimController;
 
+  /// Local copy of floor plans — sourced from bloc state (pre-downloaded)
+  late Map<String, String> _floorPlansByFloor;
+
   @override
   void initState() {
     super.initState();
-    // Default to the first floor in the route
     _selectedFloor = widget.route.multiFloorSteps.isNotEmpty
         ? widget.route.multiFloorSteps.first.floor
         : 'unknown';
+
+    _floorPlansByFloor = Map<String, String>.from(widget.floorPlansByFloor);
 
     _floorAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 250),
     );
     _floorAnimController.forward();
+  }
+
+  @override
+  void didUpdateWidget(_NavigationMapView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.floorPlansByFloor != widget.floorPlansByFloor) {
+      _floorPlansByFloor = {..._floorPlansByFloor, ...widget.floorPlansByFloor};
+    }
   }
 
   @override
@@ -211,7 +226,25 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   }
 
   String get _floorPlanForSelected =>
-      widget.floorPlansByFloor[_selectedFloor] ?? widget.floorPlanBase64 ?? '';
+      _floorPlansByFloor[_selectedFloor] ?? widget.floorPlanBase64 ?? '';
+
+  /// Looks up the floor plan for [floorKey] from cache.
+  /// All maps are pre-downloaded by MapDownloadService when the building
+  /// is selected, so this is a synchronous cache hit in the normal case.
+  void _ensureFloorPlanLoaded(String floorKey) {
+    if (_floorPlansByFloor[floorKey]?.isNotEmpty == true) return;
+
+    final config = getIt<LocationConfigService>();
+    final cache = getIt<FloorPlanCacheService>();
+    final cached = cache.getCachedFloorPlanBase64(
+      place: config.place,
+      building: config.building,
+      floor: floorKey,
+    );
+    if (cached != null && cached.isNotEmpty) {
+      setState(() => _floorPlansByFloor[floorKey] = cached);
+    }
+  }
 
   bool get _isMultiFloor => widget.route.multiFloorSteps.length > 1;
 
@@ -289,6 +322,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                       floorLabel: _floorLabel,
                       onFloorSelected: (floor) {
                         if (floor == _selectedFloor) return;
+                        _ensureFloorPlanLoaded(floor);
                         setState(() => _selectedFloor = floor);
                         _floorAnimController.forward(from: 0);
                       },

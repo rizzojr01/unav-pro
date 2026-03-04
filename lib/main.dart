@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:smart_sense/app.dart';
+import 'package:smart_sense/core/constants/api_routes.dart';
 import 'package:smart_sense/injection.dart';
+import 'package:smart_sense/shared/services/location_config_service.dart';
+import 'package:smart_sense/shared/services/map_download_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,5 +22,38 @@ void main() async {
   // Initialize dependencies
   await initializeDependencies();
 
+  // Pre-download floor plan images for the current building in the background.
+  // This populates the FloorPlanCacheService so navigation works without
+  // per-floor API calls. Runs fire-and-forget — won't block app startup.
+  _syncMapsInBackground();
+
   runApp(const App());
+}
+
+/// Fire-and-forget map sync. Downloads all floor maps for the currently
+/// configured building using the catalog API and caches them locally.
+void _syncMapsInBackground() {
+  final config = getIt<LocationConfigService>();
+  final downloadService = getIt<MapDownloadService>();
+
+  downloadService
+      .syncMapsForBuilding(
+        place: config.place,
+        building: config.building,
+        baseUrl: ApiRoutes.baseUrl,
+      )
+      .then((result) {
+        if (result.success) {
+          print(
+            '[MapSync] Downloaded ${result.downloadedFloors.length} floors '
+            'for ${config.building}',
+          );
+        } else {
+          print('[MapSync] Failed: ${result.errorMessage}');
+        }
+      })
+      .catchError((e) {
+        print('[MapSync] Error: $e');
+        return null;
+      });
 }

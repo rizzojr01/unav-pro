@@ -8,7 +8,6 @@ import '../../../../shared/services/destinations_cache_service.dart';
 import '../../../../shared/services/floor_plan_cache_service.dart';
 import '../../../../shared/services/location_config_service.dart';
 import '../../../destination/domain/entities/destination_entity.dart';
-import '../../../locate_me/domain/usecases/get_floor_plan_usecase.dart';
 import '../../../locate_me/domain/usecases/get_destinations_usecase.dart';
 import '../../../localization_history/domain/entities/localization_history_entity.dart';
 import '../../../localization_history/domain/usecases/save_localization_history_usecase.dart';
@@ -19,7 +18,6 @@ import 'navigation_state.dart';
 
 class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
   final GetRouteUseCase getRouteUseCase;
-  final GetFloorPlanUseCase getFloorPlanUseCase;
   final GetDestinationsUseCase getDestinationsUseCase;
   final LocationConfigService locationConfigService;
   final FloorPlanCacheService floorPlanCacheService;
@@ -29,7 +27,6 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
 
   NavigationBloc({
     required this.getRouteUseCase,
-    required this.getFloorPlanUseCase,
     required this.getDestinationsUseCase,
     required this.locationConfigService,
     required this.floorPlanCacheService,
@@ -53,59 +50,27 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
 
     emit(const NavigationLoading(message: 'Loading floor plan...'));
 
-    String? floorPlanBase64;
-    String? floorPlanError;
-
-    // Step 1: Check cache first
-    if (floorPlanCacheService.hasCachedFloorPlan(
+    // ── Step 1: Read floor plan from cache (pre-loaded by MapDownloadService) ─
+    // Maps are downloaded when the building is selected; no per-request fetch.
+    final floorPlanBase64 = floorPlanCacheService.getCachedFloorPlanBase64(
       place: place,
       building: building,
       floor: floor,
-    )) {
-      // Use cached floor plan
-      floorPlanBase64 = floorPlanCacheService.getCachedFloorPlanBase64(
-        place: place,
-        building: building,
-        floor: floor,
-      );
-    } else {
-      // Fetch from API
-      final floorPlanResult = await getFloorPlanUseCase(
-        GetFloorPlanParams(building: building, floor: floor, place: place),
-      );
+    );
 
-      await floorPlanResult.fold(
-        (failure) async {
-          floorPlanError = failure.message;
-        },
-        (floorPlan) async {
-          floorPlanBase64 = floorPlan.base64Image;
-          // Cache the floor plan for future use
-          if (floorPlanBase64 != null && floorPlanBase64!.isNotEmpty) {
-            await floorPlanCacheService.cacheFloorPlan(
-              place: place,
-              building: building,
-              floor: floor,
-              base64Image: floorPlanBase64!,
-            );
-          }
-        },
-      );
-    }
-
-    // If floor plan failed and no cache, show error
-    if (floorPlanBase64 == null || floorPlanBase64!.isEmpty) {
+    if (floorPlanBase64 == null || floorPlanBase64.isEmpty) {
       emit(
-        NavigationError(
-          floorPlanError ?? 'Failed to load floor plan. Please try again.',
+        const NavigationError(
+          'Floor map not available. Please go to Settings and re-select your '
+          'building to download the latest maps.',
         ),
       );
       return;
     }
 
+    // ── Step 2: Prepare the localization image ────────────────────────────────
     final useAlternate = locationConfigService.useAlternateSampleImage;
     bool effectiveUseSample = useSampleImage;
-
     String base64Image = '';
 
     if (useAlternate) {
@@ -113,8 +78,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         final byteData = await rootBundle.load(
           locationConfigService.alternateSampleImagePath,
         );
-        final bytes = byteData.buffer.asUint8List();
-        base64Image = base64Encode(bytes);
+        base64Image = base64Encode(byteData.buffer.asUint8List());
         effectiveUseSample = false;
       } catch (e) {
         print('NavigationBloc: Alternate image loading failed: $e');
@@ -125,16 +89,14 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
       try {
         final imageFile = File(event.imagePath!);
         if (await imageFile.exists()) {
-          final imageBytes = await imageFile.readAsBytes();
-          base64Image = base64Encode(imageBytes);
+          base64Image = base64Encode(await imageFile.readAsBytes());
         }
       } catch (e) {
-        // If image encoding fails, continue with empty string
         print('NavigationBloc: Image encoding failed: $e');
       }
     }
 
-    // Step 3: Get route
+    // ── Step 3: Get route ─────────────────────────────────────────────────────
     emit(const NavigationLoading(message: 'Calculating route...'));
 
     final routeResult = await getRouteUseCase(
@@ -161,13 +123,11 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     await routeResult.fold(
       (failure) async => emit(NavigationError(failure.message)),
       (route) async {
-        // Use the actual floor name from the route steps to ensure exact string matching in UI
         final actualStartingFloor = route.multiFloorSteps.isNotEmpty
             ? route.multiFloorSteps.first.floor
             : floor;
 
-        // Get cached destinations for POI display — load for all route floors.
-        // For floors not yet cached, fetch from the API so POIs always show.
+        // ── Step 4: Load destinations from cache for all route floors ─────────
         List<DestinationEntity> destinations = [];
         final Map<String, List<DestinationEntity>> destinationsByFloor = {};
 
@@ -175,14 +135,11 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         String normaliseFloor(String f) =>
             f.replaceAll('_floor', '').replaceAll('_', '').trim().toLowerCase();
 
-        // Helper: fetch destinations for a floor (cache-first), filtering the
-        // API response so only POIs belonging to that floor are returned.
-        // The multifloor API returns ALL floors' POIs in one call; we
-        // group them and cache each floor's slice individually.
+        // Fetch destinations for a floor — cache-first, API fallback.
+        // The multifloor API returns ALL floors; we group and cache per-floor.
         Future<List<DestinationEntity>> fetchDestsForFloor(
           String floorKey,
         ) async {
-          // 1. Try cache (already filtered when stored)
           final cached = destinationsCacheService.getCachedDestinations(
             place: place,
             building: building,
@@ -191,7 +148,6 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
           );
           if (cached != null && cached.isNotEmpty) return cached;
 
-          // 2. Fetch from API
           final result = await getDestinationsUseCase(
             GetDestinationsParams(
               building: building,
@@ -204,8 +160,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
           final allDests = result.getOrElse(() => []);
           if (allDests.isEmpty) return [];
 
-          // Group by each destination's own floor field so we can cache and
-          // return only the subset that belongs to the requested floor.
+          // Group by each destination's own floor field
           final Map<String, List<DestinationEntity>> grouped = {};
           for (final d in allDests) {
             final normDest = d.floor != null
@@ -214,7 +169,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
             grouped.putIfAbsent(normDest, () => []).add(d);
           }
 
-          // Cache each floor's slice under the matching route floor key
+          // Cache each floor's slice
           for (final entry in grouped.entries) {
             final rawKey = route.multiFloorSteps
                 .map((s) => s.floor)
@@ -231,11 +186,9 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
             );
           }
 
-          // Return only the slice for the requested floor
           return grouped[normaliseFloor(floorKey)] ?? [];
         }
 
-        // Load destinations for every floor in parallel
         await Future.wait(
           route.multiFloorSteps.map((step) async {
             final floorKey = step.floor;
@@ -249,7 +202,21 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
           }),
         );
 
-        // Save locally
+        // ── Step 5: Build floorPlansByFloor from cache ────────────────────────
+        // All floor plans were pre-downloaded by MapDownloadService; just read.
+        final Map<String, String> floorPlansByFloor = {};
+        for (final step in route.multiFloorSteps) {
+          final cached = floorPlanCacheService.getCachedFloorPlanBase64(
+            place: place,
+            building: building,
+            floor: step.floor,
+          );
+          if (cached != null && cached.isNotEmpty) {
+            floorPlansByFloor[step.floor] = cached;
+          }
+        }
+
+        // ── Step 6: Save navigation history ──────────────────────────────────
         await saveLocalizationHistoryUseCase(
           LocalizationHistoryEntity(
             historyId: DateTime.now().millisecondsSinceEpoch,
@@ -265,68 +232,12 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
           ),
         );
 
-        // For multi-floor routes, load floor plans for every floor in parallel
-        final Map<String, String> floorPlansByFloor = {};
-        if (floorPlanBase64 != null && floorPlanBase64!.isNotEmpty) {
-          // Note: if the requested floor and actual floor differ,
-          // we might need to fetch the plan for the actual floor, but
-          // usually they match or the requested plan is for the first step.
-          floorPlansByFloor[actualStartingFloor] = floorPlanBase64!;
-        }
-
-        if (route.multiFloorSteps.length > 1) {
-          final otherFloors = route.multiFloorSteps
-              .map((s) => s.floor)
-              .where((f) => f != actualStartingFloor)
-              .toSet()
-              .toList();
-
-          await Future.wait(
-            otherFloors.map((floorKey) async {
-              // Check cache first
-              if (floorPlanCacheService.hasCachedFloorPlan(
-                place: place,
-                building: building,
-                floor: floorKey,
-              )) {
-                final cached = floorPlanCacheService.getCachedFloorPlanBase64(
-                  place: place,
-                  building: building,
-                  floor: floorKey,
-                );
-                if (cached != null && cached.isNotEmpty) {
-                  floorPlansByFloor[floorKey] = cached;
-                  return;
-                }
-              }
-              // Fetch from API
-              final result = await getFloorPlanUseCase(
-                GetFloorPlanParams(
-                  building: building,
-                  floor: floorKey,
-                  place: place,
-                ),
-              );
-              await result.fold((_) async {}, (plan) async {
-                if (plan.base64Image.isNotEmpty) {
-                  floorPlansByFloor[floorKey] = plan.base64Image;
-                  await floorPlanCacheService.cacheFloorPlan(
-                    place: place,
-                    building: building,
-                    floor: floorKey,
-                    base64Image: plan.base64Image,
-                  );
-                }
-              });
-            }),
-          );
-        }
-
         emit(
           NavigationReady(
             currentLocation: route.origin.copyWith(floor: actualStartingFloor),
             route: route,
-            floorPlanBase64: floorPlanBase64,
+            floorPlanBase64:
+                floorPlansByFloor[actualStartingFloor] ?? floorPlanBase64,
             destinations: destinations,
             floorPlansByFloor: floorPlansByFloor,
             destinationsByFloor: destinationsByFloor,

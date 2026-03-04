@@ -12,6 +12,7 @@ import 'package:smart_sense/shared/services/device_id_service.dart';
 import 'package:smart_sense/shared/services/floor_plan_cache_service.dart';
 import 'package:smart_sense/shared/services/destinations_cache_service.dart';
 import 'package:smart_sense/shared/services/recent_destinations_service.dart';
+import 'package:smart_sense/shared/services/map_download_service.dart';
 import 'package:smart_sense/shared/data/datasources/place_remote_datasource.dart';
 import 'package:smart_sense/shared/presentation/bloc/location_settings_bloc.dart';
 
@@ -108,12 +109,16 @@ Future<void> initializeDependencies() async {
   getIt.registerLazySingleton<PlaceRemoteDataSource>(
     () => PlaceRemoteDataSourceImpl(getIt()),
   );
+  getIt.registerLazySingleton<MapDownloadService>(
+    () => MapDownloadService(getIt()),
+  );
   getIt.registerFactory(
     () => LocationSettingsBloc(
       placeRemoteDataSource: getIt(),
       locationConfigService: getIt(),
       floorPlanCacheService: getIt(),
       destinationsCacheService: getIt(),
+      mapDownloadService: getIt(),
     ),
   );
 
@@ -215,7 +220,6 @@ Future<void> initializeDependencies() async {
   getIt.registerFactory(
     () => NavigationBloc(
       getRouteUseCase: getIt(),
-      getFloorPlanUseCase: getIt(),
       getDestinationsUseCase: getIt(),
       locationConfigService: getIt(),
       floorPlanCacheService: getIt(),

@@ -1,4 +1,4 @@
-package com.example.smart_sense
+package com.unav.pathlogic
 
 import io.flutter.embedding.android.FlutterActivity
 

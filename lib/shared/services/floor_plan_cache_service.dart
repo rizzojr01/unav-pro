@@ -94,6 +94,22 @@ class FloorPlanCacheService {
     await _prefs.remove(metaKey);
   }
 
+  /// Clear all cached floor plans for an entire place+building
+  /// (regardless of floor key). Used when syncing fresh maps for a building.
+  Future<void> clearCacheForBuilding({
+    required String place,
+    required String building,
+  }) async {
+    final prefix = '${_cacheKeyPrefix}${place}_${building}_';
+    final metaPrefix = '${_cacheMetaKeyPrefix}${place}_${building}_';
+    final keys = _prefs.getKeys().toList();
+    for (final key in keys) {
+      if (key.startsWith(prefix) || key.startsWith(metaPrefix)) {
+        await _prefs.remove(key);
+      }
+    }
+  }
+
   /// Clear all cached floor plans
   Future<void> clearAllCache() async {
     final keys = _prefs.getKeys();

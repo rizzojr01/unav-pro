@@ -28,7 +28,7 @@ class LocationConfigService {
   LocationConfigService(this._prefs);
 
   /// Get whether to use sample image for localization
-  bool get useSampleImage => _prefs.getBool(_keyUseSampleImage) ?? true;
+  bool get useSampleImage => _prefs.getBool(_keyUseSampleImage) ?? false;
 
   /// Set whether to use sample image for localization
   Future<void> setUseSampleImage(bool value) async {
