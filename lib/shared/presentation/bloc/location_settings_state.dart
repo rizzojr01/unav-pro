@@ -27,6 +27,8 @@ class LocationSettingsLoaded extends LocationSettingsState {
   final String selectedFloor;
   final AutoDetectStatus autoDetectStatus;
   final String? autoDetectMessage;
+  final bool isSyncing;
+  final String? syncMessage;
 
   const LocationSettingsLoaded({
     required this.places,
@@ -35,6 +37,8 @@ class LocationSettingsLoaded extends LocationSettingsState {
     required this.selectedFloor,
     this.autoDetectStatus = AutoDetectStatus.idle,
     this.autoDetectMessage,
+    this.isSyncing = false,
+    this.syncMessage,
   });
 
   @override
@@ -45,6 +49,8 @@ class LocationSettingsLoaded extends LocationSettingsState {
     selectedFloor,
     autoDetectStatus,
     autoDetectMessage,
+    isSyncing,
+    syncMessage,
   ];
 
   /// Get the selected place entity
@@ -85,6 +91,8 @@ class LocationSettingsLoaded extends LocationSettingsState {
     String? selectedFloor,
     AutoDetectStatus? autoDetectStatus,
     String? autoDetectMessage,
+    bool? isSyncing,
+    String? syncMessage,
   }) {
     return LocationSettingsLoaded(
       places: places ?? this.places,
@@ -93,6 +101,8 @@ class LocationSettingsLoaded extends LocationSettingsState {
       selectedFloor: selectedFloor ?? this.selectedFloor,
       autoDetectStatus: autoDetectStatus ?? this.autoDetectStatus,
       autoDetectMessage: autoDetectMessage,
+      isSyncing: isSyncing ?? this.isSyncing,
+      syncMessage: syncMessage ?? this.syncMessage,
     );
   }
 }

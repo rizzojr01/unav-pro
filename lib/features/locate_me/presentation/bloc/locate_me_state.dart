@@ -21,11 +21,12 @@ class LocateMeCameraReady extends LocateMeState {
 class LocateMePhotoCaptured extends LocateMeState {
   final String imagePath;
   final String? floor;
+  final double? heading;
 
-  const LocateMePhotoCaptured(this.imagePath, {this.floor});
+  const LocateMePhotoCaptured(this.imagePath, {this.floor, this.heading});
 
   @override
-  List<Object?> get props => [imagePath, floor];
+  List<Object?> get props => [imagePath, floor, heading];
 }
 
 /// State when processing localization

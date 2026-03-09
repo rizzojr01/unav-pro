@@ -1,5 +1,6 @@
 import '../../../../core/base/base_datasource.dart';
 import '../../../../core/constants/api_routes.dart';
+import '../../../../core/utils/logger.dart';
 import '../../../../shared/services/device_id_service.dart';
 import '../../../../injection.dart';
 import '../../../destination/data/models/destination_model.dart';
@@ -60,6 +61,17 @@ class LocateMeRemoteDataSourceImpl extends BaseRemoteDataSource
       final requestData = request.toJson();
 
       final response = await post(ApiRoutes.localizeUser, data: requestData);
+
+      final logger = getIt<AppLogger>();
+      // Log the orientation returned by the backend
+      final orientation =
+          response['ang'] ??
+          response['result']?['ang'] ??
+          response['result']?['result']?['ang'];
+      if (orientation != null) {
+        logger.info('Backend Orientation (Localization): $orientation°');
+      }
+
       return UserPositionModel.fromJson(response);
     } on LocalizationFailedException catch (e) {
       // Re-throw with the proper error message from the API

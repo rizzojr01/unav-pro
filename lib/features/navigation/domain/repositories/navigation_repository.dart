@@ -15,5 +15,6 @@ abstract class NavigationRepository {
     bool multiFloorNavigation = true,
     Map<String, dynamic>? imageCompression,
     Map<String, dynamic>? userPickedCoordinates,
+    double? heading,
   });
 }

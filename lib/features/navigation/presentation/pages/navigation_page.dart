@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../injection.dart';
+import '../../../../shared/services/floor_plan_cache_service.dart';
+import '../../../../shared/services/location_config_service.dart';
 import '../../../../shared/widgets/step_indicator.dart';
 import '../../../../shared/widgets/custom_loading_view.dart';
 import '../../../../shared/widgets/custom_error_view.dart';
@@ -23,6 +26,7 @@ class NavigationPage extends StatefulWidget {
   final String? imagePath;
   final Map<String, dynamic>? userPickedCoordinates;
   final String? pickedFloor;
+  final double? heading;
 
   const NavigationPage({
     super.key,
@@ -30,6 +34,7 @@ class NavigationPage extends StatefulWidget {
     this.imagePath,
     this.userPickedCoordinates,
     this.pickedFloor,
+    this.heading,
   });
 
   @override
@@ -46,6 +51,7 @@ class _NavigationPageState extends State<NavigationPage> {
         imagePath: widget.imagePath,
         userPickedCoordinates: widget.userPickedCoordinates,
         pickedFloor: widget.pickedFloor,
+        heading: widget.heading,
       ),
     );
   }
@@ -91,6 +97,7 @@ class _NavigationPageState extends State<NavigationPage> {
               onDestinationTap: (d) =>
                   _showDestinationBottomSheet(this.context, d),
               userPickedCoordinates: widget.userPickedCoordinates,
+              captureHeading: widget.heading,
             );
           }
           if (state is NavigationError) {
@@ -102,6 +109,7 @@ class _NavigationPageState extends State<NavigationPage> {
                   imagePath: widget.imagePath,
                   userPickedCoordinates: widget.userPickedCoordinates,
                   pickedFloor: widget.pickedFloor,
+                  heading: widget.heading,
                 ),
               ),
               onExit: () => context.pop(),
@@ -130,6 +138,11 @@ class _NavigationMapView extends StatefulWidget {
   final Function(DestinationEntity)? onDestinationTap;
   final Map<String, dynamic>? userPickedCoordinates;
 
+  /// Compass heading (degrees, North-based) at the moment the photo was taken.
+  /// Pre-seeds the compass baseline so rotation is correct even if the user
+  /// moved their phone while the map was loading.
+  final double? captureHeading;
+
   const _NavigationMapView({
     required this.destination,
     this.imagePath,
@@ -141,6 +154,7 @@ class _NavigationMapView extends StatefulWidget {
     this.destinationsByFloor = const {},
     this.onDestinationTap,
     this.userPickedCoordinates,
+    this.captureHeading,
   });
 
   @override
@@ -152,19 +166,31 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   late String _selectedFloor;
   late AnimationController _floorAnimController;
 
+  /// Local copy of floor plans — sourced from bloc state (pre-downloaded)
+  late Map<String, String> _floorPlansByFloor;
+
   @override
   void initState() {
     super.initState();
-    // Default to the first floor in the route
     _selectedFloor = widget.route.multiFloorSteps.isNotEmpty
         ? widget.route.multiFloorSteps.first.floor
         : 'unknown';
+
+    _floorPlansByFloor = Map<String, String>.from(widget.floorPlansByFloor);
 
     _floorAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 250),
     );
     _floorAnimController.forward();
+  }
+
+  @override
+  void didUpdateWidget(_NavigationMapView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.floorPlansByFloor != widget.floorPlansByFloor) {
+      _floorPlansByFloor = {..._floorPlansByFloor, ...widget.floorPlansByFloor};
+    }
   }
 
   @override
@@ -211,7 +237,25 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   }
 
   String get _floorPlanForSelected =>
-      widget.floorPlansByFloor[_selectedFloor] ?? widget.floorPlanBase64 ?? '';
+      _floorPlansByFloor[_selectedFloor] ?? widget.floorPlanBase64 ?? '';
+
+  /// Looks up the floor plan for [floorKey] from cache.
+  /// All maps are pre-downloaded by MapDownloadService when the building
+  /// is selected, so this is a synchronous cache hit in the normal case.
+  void _ensureFloorPlanLoaded(String floorKey) {
+    if (_floorPlansByFloor[floorKey]?.isNotEmpty == true) return;
+
+    final config = getIt<LocationConfigService>();
+    final cache = getIt<FloorPlanCacheService>();
+    final cached = cache.getCachedFloorPlanBase64(
+      place: config.place,
+      building: config.building,
+      floor: floorKey,
+    );
+    if (cached != null && cached.isNotEmpty) {
+      setState(() => _floorPlansByFloor[floorKey] = cached);
+    }
+  }
 
   bool get _isMultiFloor => widget.route.multiFloorSteps.length > 1;
 
@@ -224,18 +268,31 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   List<DestinationEntity> get _destsForSelectedFloor {
     final normSelected = _normaliseFloor(_selectedFloor);
 
-    // Pull the per-floor list from the map (preferred)
-    final raw =
-        widget.destinationsByFloor[_selectedFloor] ??
-        (widget.route.multiFloorSteps.isNotEmpty &&
-                widget.route.multiFloorSteps.first.floor == _selectedFloor
-            ? widget.destinations
-            : []);
+    // 1. Best case: the floor is indexed directly in destinationsByFloor.
+    List<DestinationEntity>? raw = widget.destinationsByFloor[_selectedFloor];
 
-    // Filter by each destination's own floor field so cross-floor POIs
-    // from an unfiltered API response never appear on the wrong map.
+    // 2. Fallback: scan ALL known per-floor slices + the base destinations list.
+    //    This handles the case where a floor's data exists somewhere in the map
+    //    but wasn't indexed under the exact _selectedFloor key (key format mismatch),
+    //    and also covers non-starting floors that only returned data to the first
+    //    floor's fetch (multifloor API returns all floors in one call).
+    if (raw == null || raw.isEmpty) {
+      final allKnown = [
+        ...widget.destinationsByFloor.values.expand((list) => list),
+        ...widget.destinations,
+      ];
+      raw = allKnown
+          .where(
+            (d) => d.floor != null && _normaliseFloor(d.floor!) == normSelected,
+          )
+          .toSet() // deduplicate in case the same destination appears in both sources
+          .toList();
+    }
+
+    // 3. Final filter pass: strip any destinations whose floor field doesn't
+    //    match the selected floor (prevents cross-floor POI bleed-through).
     return raw.where((d) {
-      if (d.floor == null) return true; // no floor info → show on all
+      if (d.floor == null) return true; // no floor info → show on all floors
       return _normaliseFloor(d.floor!) == normSelected;
     }).toList();
   }
@@ -254,7 +311,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
             children: [
               // ── Map ──────────────────────────────────────────────────────
               MapView(
-                key: ValueKey(_selectedFloor), // rebuild when floor changes
+                // No ValueKey here — preserves rotation when switching floors
                 userLocation: widget.currentLocation,
                 route: _routeForSelectedFloor,
                 floorPlanBase64: _floorPlanForSelected,
@@ -266,6 +323,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                     widget.currentLocation.floor
                         ?.replaceAll('_floor', '')
                         .trim()),
+                captureHeading: widget.captureHeading,
                 onRetry: () => context.read<NavigationBloc>().add(
                   InitializeNavigationEvent(
                     widget.destination,
@@ -289,6 +347,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                       floorLabel: _floorLabel,
                       onFloorSelected: (floor) {
                         if (floor == _selectedFloor) return;
+                        _ensureFloorPlanLoaded(floor);
                         setState(() => _selectedFloor = floor);
                         _floorAnimController.forward(from: 0);
                       },

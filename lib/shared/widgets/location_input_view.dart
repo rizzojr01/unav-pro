@@ -6,7 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 import 'package:path_provider/path_provider.dart';
+import 'dart:async';
+
+import '../../core/utils/logger.dart';
 
 import '../../features/destination/presentation/bloc/floor_map_bloc.dart';
 import '../../features/destination/presentation/bloc/floor_map_event.dart';
@@ -19,7 +23,7 @@ import 'floor_plan_selector_widget.dart';
 
 class LocationInputView extends StatefulWidget {
   final TabController tabController;
-  final Function(String path, String floor) onImageCaptured;
+  final Function(String path, String floor, double? heading) onImageCaptured;
   final Function(double x, double y, String floor) onLocationSelected;
   final String floorPlanConfirmText;
   final String? initialFloor;
@@ -45,6 +49,10 @@ class _LocationInputViewState extends State<LocationInputView> {
   bool _showGuidance = true;
   String? _errorMessage;
 
+  StreamSubscription<CompassEvent>? _compassSubscription;
+  double? _currentHeading;
+  final _logger = getIt<AppLogger>();
+
   late FloorMapBloc _floorMapBloc;
   FixedExtentScrollController? _floorController;
 
@@ -52,8 +60,28 @@ class _LocationInputViewState extends State<LocationInputView> {
   void initState() {
     super.initState();
     _initializeCamera();
+    _initializeCompass();
     _floorMapBloc = FloorMapBloc()
       ..add(FloorMapInitialized(initialFloor: widget.initialFloor));
+  }
+
+  void _initializeCompass() {
+    try {
+      _compassSubscription = FlutterCompass.events?.listen((event) {
+        if (mounted) {
+          setState(() {
+            _currentHeading = event.heading;
+          });
+          if (_currentHeading != null) {
+            _logger.verbose(
+              'Compass Orientation: ${_currentHeading?.toStringAsFixed(2)}°',
+            );
+          }
+        }
+      });
+    } catch (e) {
+      _logger.error('Error initializing compass: $e');
+    }
   }
 
   void _syncFloorController(List<String> floors, String selectedFloor) {
@@ -73,6 +101,7 @@ class _LocationInputViewState extends State<LocationInputView> {
   void dispose() {
     _controller?.dispose();
     _floorController?.dispose();
+    _compassSubscription?.cancel();
     _floorMapBloc.close();
     super.dispose();
   }
@@ -148,7 +177,14 @@ class _LocationInputViewState extends State<LocationInputView> {
                   selectedFloor =
                       (_floorMapBloc.state as FloorMapReady).selectedFloor;
                 }
-                widget.onImageCaptured(file.path, selectedFloor);
+                _logger.info(
+                  'Image Captured with Heading: ${_currentHeading?.toStringAsFixed(2)}°',
+                );
+                widget.onImageCaptured(
+                  file.path,
+                  selectedFloor,
+                  _currentHeading,
+                );
               } else {
                 snackbar.CustomSnackBar.show(
                   context,
@@ -193,7 +229,10 @@ class _LocationInputViewState extends State<LocationInputView> {
             selectedFloor =
                 (_floorMapBloc.state as FloorMapReady).selectedFloor;
           }
-          widget.onImageCaptured(image.path, selectedFloor);
+          _logger.info(
+            'Image Captured with Heading: ${_currentHeading?.toStringAsFixed(2)}°',
+          );
+          widget.onImageCaptured(image.path, selectedFloor, _currentHeading);
         } else {
           snackbar.CustomSnackBar.show(
             context,

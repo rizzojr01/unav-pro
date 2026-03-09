@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/constants/api_routes.dart';
 import '../../data/datasources/place_remote_datasource.dart';
 import '../../domain/entities/gps_mapping_entity.dart';
 import '../../domain/entities/wifi_mapping_entity.dart';
@@ -9,6 +10,7 @@ import '../../services/gps_auto_select_service.dart';
 import '../../services/location_config_service.dart';
 import '../../services/location_service.dart';
 import '../../services/wifi_auto_select_service.dart';
+import '../../services/map_download_service.dart';
 import 'location_settings_event.dart';
 import 'location_settings_state.dart';
 
@@ -21,6 +23,7 @@ class LocationSettingsBloc
   final GpsAutoSelectService gpsAutoSelectService;
   final WifiAutoSelectService wifiAutoSelectService;
   final LocationService locationService;
+  final MapDownloadService mapDownloadService;
 
   LocationSettingsBloc({
     required this.placeRemoteDataSource,
@@ -30,6 +33,7 @@ class LocationSettingsBloc
     required this.gpsAutoSelectService,
     required this.wifiAutoSelectService,
     required this.locationService,
+    required this.mapDownloadService,
   }) : super(const LocationSettingsInitial()) {
     on<LoadLocationSettingsEvent>(_onLoad);
     on<SelectPlaceEvent>(_onSelectPlace);
@@ -148,19 +152,15 @@ class LocationSettingsBloc
   ) async {
     final currentState = state;
     if (currentState is LocationSettingsLoaded) {
-      // Check if location has changed
       final oldPlace = locationConfigService.place;
       final oldBuilding = locationConfigService.building;
-      final oldFloor = locationConfigService.floor;
 
       final newPlace = currentState.selectedPlace;
       final newBuilding = currentState.selectedBuilding;
       final newFloor = currentState.selectedFloor;
 
-      final locationChanged =
-          oldPlace != newPlace ||
-          oldBuilding != newBuilding ||
-          oldFloor != newFloor;
+      final buildingChanged =
+          oldPlace != newPlace || oldBuilding != newBuilding;
 
       // Save the new config
       await locationConfigService.saveConfig(
@@ -169,21 +169,35 @@ class LocationSettingsBloc
         floor: newFloor,
       );
 
-      // If location changed, invalidate caches for the old location
-      if (locationChanged) {
-        await Future.wait([
-          floorPlanCacheService.clearCache(
-            place: oldPlace,
-            building: oldBuilding,
-            floor: oldFloor,
+      // Whenever the building changes, download all floor maps fresh.
+      // This clears the old cache and pre-fetches every floor plan so
+      // LocateMeBloc and NavigationBloc can read from cache without
+      // individual per-floor API calls.
+      if (buildingChanged) {
+        // Clear destinations cache for the old building
+        await destinationsCacheService.clearAllCache();
+
+        emit(
+          currentState.copyWith(
+            isSyncing: true,
+            syncMessage: 'Downloading maps for $newBuilding…',
           ),
-          destinationsCacheService.clearCache(
-            place: oldPlace,
-            building: oldBuilding,
-            floor: oldFloor,
-            multiFloor: locationConfigService.multiFloorNavigation,
+        );
+
+        final result = await mapDownloadService.syncMapsForBuilding(
+          place: newPlace,
+          building: newBuilding,
+          baseUrl: ApiRoutes.baseUrl,
+        );
+
+        emit(
+          currentState.copyWith(
+            isSyncing: false,
+            syncMessage: result.success
+                ? 'Maps ready (${result.downloadedFloors.length} floors)'
+                : 'Map sync failed: ${result.errorMessage}',
           ),
-        ]);
+        );
       }
     }
   }
@@ -199,10 +213,12 @@ class LocationSettingsBloc
     final currentState = state;
     if (currentState is! LocationSettingsLoaded) return;
 
-    emit(currentState.copyWith(
-      autoDetectStatus: AutoDetectStatus.detecting,
-      autoDetectMessage: 'Detecting location via GPS…',
-    ));
+    emit(
+      currentState.copyWith(
+        autoDetectStatus: AutoDetectStatus.detecting,
+        autoDetectMessage: 'Detecting location via GPS…',
+      ),
+    );
 
     try {
       final result = await gpsAutoSelectService.detectNearestBuilding(
@@ -210,10 +226,13 @@ class LocationSettingsBloc
       );
 
       if (result == null) {
-        emit(currentState.copyWith(
-          autoDetectStatus: AutoDetectStatus.failed,
-          autoDetectMessage: 'No nearby building found. Move closer to a building.',
-        ));
+        emit(
+          currentState.copyWith(
+            autoDetectStatus: AutoDetectStatus.failed,
+            autoDetectMessage:
+                'No nearby building found. Move closer to a building.',
+          ),
+        );
         return;
       }
 
@@ -224,24 +243,27 @@ class LocationSettingsBloc
       final matchedBuilding = matchedPlace?.buildings
           .where((b) => b.name == result.building)
           .firstOrNull;
-      final firstFloor = matchedBuilding != null &&
-              matchedBuilding.floors.isNotEmpty
+      final firstFloor =
+          matchedBuilding != null && matchedBuilding.floors.isNotEmpty
           ? matchedBuilding.floors.first
           : null;
 
-      emit(currentState.copyWith(
-        selectedPlace: result.place,
-        selectedBuilding: result.building,
-        selectedFloor: firstFloor?.name ?? currentState.selectedFloor,
-        autoDetectStatus: AutoDetectStatus.detected,
-        autoDetectMessage:
-            'Detected: ${result.place} → ${result.building}',
-      ));
+      emit(
+        currentState.copyWith(
+          selectedPlace: result.place,
+          selectedBuilding: result.building,
+          selectedFloor: firstFloor?.name ?? currentState.selectedFloor,
+          autoDetectStatus: AutoDetectStatus.detected,
+          autoDetectMessage: 'Detected: ${result.place} → ${result.building}',
+        ),
+      );
     } catch (e) {
-      emit(currentState.copyWith(
-        autoDetectStatus: AutoDetectStatus.failed,
-        autoDetectMessage: 'GPS detection failed: ${e.toString()}',
-      ));
+      emit(
+        currentState.copyWith(
+          autoDetectStatus: AutoDetectStatus.failed,
+          autoDetectMessage: 'GPS detection failed: ${e.toString()}',
+        ),
+      );
     }
   }
 
@@ -256,20 +278,24 @@ class LocationSettingsBloc
     final currentState = state;
     if (currentState is! LocationSettingsLoaded) return;
 
-    emit(currentState.copyWith(
-      autoDetectStatus: AutoDetectStatus.detecting,
-      autoDetectMessage: 'Detecting location via Wi-Fi…',
-    ));
+    emit(
+      currentState.copyWith(
+        autoDetectStatus: AutoDetectStatus.detecting,
+        autoDetectMessage: 'Detecting location via Wi-Fi…',
+      ),
+    );
 
     try {
       final bssid = await wifiAutoSelectService.getCurrentBssid();
 
       if (bssid == null) {
-        emit(currentState.copyWith(
-          autoDetectStatus: AutoDetectStatus.failed,
-          autoDetectMessage:
-              'Not connected to Wi-Fi or BSSID unavailable. Check permissions.',
-        ));
+        emit(
+          currentState.copyWith(
+            autoDetectStatus: AutoDetectStatus.failed,
+            autoDetectMessage:
+                'Not connected to Wi-Fi or BSSID unavailable. Check permissions.',
+          ),
+        );
         return;
       }
 
@@ -277,12 +303,14 @@ class LocationSettingsBloc
 
       if (mapping == null) {
         final ssid = await wifiAutoSelectService.getCurrentSsid();
-        emit(currentState.copyWith(
-          autoDetectStatus: AutoDetectStatus.failed,
-          autoDetectMessage:
-              'No mapping found for "${ssid ?? bssid}". '
-              'Select place/building manually, then tap "Save Wi-Fi Mapping".',
-        ));
+        emit(
+          currentState.copyWith(
+            autoDetectStatus: AutoDetectStatus.failed,
+            autoDetectMessage:
+                'No mapping found for "${ssid ?? bssid}". '
+                'Select place/building manually, then tap "Save Wi-Fi Mapping".',
+          ),
+        );
         return;
       }
 
@@ -293,24 +321,28 @@ class LocationSettingsBloc
       final matchedBuilding = matchedPlace?.buildings
           .where((b) => b.name == mapping.buildingName)
           .firstOrNull;
-      final firstFloor = matchedBuilding != null &&
-              matchedBuilding.floors.isNotEmpty
+      final firstFloor =
+          matchedBuilding != null && matchedBuilding.floors.isNotEmpty
           ? matchedBuilding.floors.first
           : null;
 
-      emit(currentState.copyWith(
-        selectedPlace: mapping.placeName,
-        selectedBuilding: mapping.buildingName,
-        selectedFloor: firstFloor?.name ?? currentState.selectedFloor,
-        autoDetectStatus: AutoDetectStatus.detected,
-        autoDetectMessage:
-            'Detected via Wi-Fi: ${mapping.placeName} → ${mapping.buildingName}',
-      ));
+      emit(
+        currentState.copyWith(
+          selectedPlace: mapping.placeName,
+          selectedBuilding: mapping.buildingName,
+          selectedFloor: firstFloor?.name ?? currentState.selectedFloor,
+          autoDetectStatus: AutoDetectStatus.detected,
+          autoDetectMessage:
+              'Detected via Wi-Fi: ${mapping.placeName} → ${mapping.buildingName}',
+        ),
+      );
     } catch (e) {
-      emit(currentState.copyWith(
-        autoDetectStatus: AutoDetectStatus.failed,
-        autoDetectMessage: 'Wi-Fi detection failed: ${e.toString()}',
-      ));
+      emit(
+        currentState.copyWith(
+          autoDetectStatus: AutoDetectStatus.failed,
+          autoDetectMessage: 'Wi-Fi detection failed: ${e.toString()}',
+        ),
+      );
     }
   }
 
@@ -328,11 +360,13 @@ class LocationSettingsBloc
     try {
       final bssid = await wifiAutoSelectService.getCurrentBssid();
       if (bssid == null) {
-        emit(currentState.copyWith(
-          autoDetectStatus: AutoDetectStatus.failed,
-          autoDetectMessage:
-              'Cannot save: not connected to Wi-Fi or BSSID unavailable.',
-        ));
+        emit(
+          currentState.copyWith(
+            autoDetectStatus: AutoDetectStatus.failed,
+            autoDetectMessage:
+                'Cannot save: not connected to Wi-Fi or BSSID unavailable.',
+          ),
+        );
         return;
       }
 
@@ -348,17 +382,21 @@ class LocationSettingsBloc
 
       await wifiAutoSelectService.saveMapping(mapping);
 
-      emit(currentState.copyWith(
-        autoDetectStatus: AutoDetectStatus.detected,
-        autoDetectMessage:
-            'Saved Wi-Fi mapping: "$ssid" → '
-            '${currentState.selectedPlace} / ${currentState.selectedBuilding}',
-      ));
+      emit(
+        currentState.copyWith(
+          autoDetectStatus: AutoDetectStatus.detected,
+          autoDetectMessage:
+              'Saved Wi-Fi mapping: "$ssid" → '
+              '${currentState.selectedPlace} / ${currentState.selectedBuilding}',
+        ),
+      );
     } catch (e) {
-      emit(currentState.copyWith(
-        autoDetectStatus: AutoDetectStatus.failed,
-        autoDetectMessage: 'Failed to save mapping: ${e.toString()}',
-      ));
+      emit(
+        currentState.copyWith(
+          autoDetectStatus: AutoDetectStatus.failed,
+          autoDetectMessage: 'Failed to save mapping: ${e.toString()}',
+        ),
+      );
     }
   }
 
@@ -374,10 +412,12 @@ class LocationSettingsBloc
     if (currentState is! LocationSettingsLoaded) return;
 
     try {
-      emit(currentState.copyWith(
-        autoDetectStatus: AutoDetectStatus.detecting,
-        autoDetectMessage: 'Saving GPS location…',
-      ));
+      emit(
+        currentState.copyWith(
+          autoDetectStatus: AutoDetectStatus.detecting,
+          autoDetectMessage: 'Saving GPS location…',
+        ),
+      );
 
       final position = await locationService.getCurrentLocation();
 
@@ -392,17 +432,21 @@ class LocationSettingsBloc
 
       await gpsAutoSelectService.saveMapping(mapping);
 
-      emit(currentState.copyWith(
-        autoDetectStatus: AutoDetectStatus.detected,
-        autoDetectMessage:
-            'Saved GPS location for '
-            '${currentState.selectedPlace} / ${currentState.selectedBuilding}',
-      ));
+      emit(
+        currentState.copyWith(
+          autoDetectStatus: AutoDetectStatus.detected,
+          autoDetectMessage:
+              'Saved GPS location for '
+              '${currentState.selectedPlace} / ${currentState.selectedBuilding}',
+        ),
+      );
     } catch (e) {
-      emit(currentState.copyWith(
-        autoDetectStatus: AutoDetectStatus.failed,
-        autoDetectMessage: 'Failed to save GPS location: ${e.toString()}',
-      ));
+      emit(
+        currentState.copyWith(
+          autoDetectStatus: AutoDetectStatus.failed,
+          autoDetectMessage: 'Failed to save GPS location: ${e.toString()}',
+        ),
+      );
     }
   }
 }

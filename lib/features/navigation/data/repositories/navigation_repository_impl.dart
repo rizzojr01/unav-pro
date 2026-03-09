@@ -28,6 +28,7 @@ class NavigationRepositoryImpl implements NavigationRepository {
     bool multiFloorNavigation = true,
     Map<String, dynamic>? imageCompression,
     Map<String, dynamic>? userPickedCoordinates,
+    double? heading,
   }) async {
     try {
       final routeModel = await remoteDataSource.getRoute(
@@ -42,6 +43,7 @@ class NavigationRepositoryImpl implements NavigationRepository {
         multiFloorNavigation: multiFloorNavigation,
         imageCompression: imageCompression,
         userPickedCoordinates: userPickedCoordinates,
+        heading: heading,
       );
 
       return Right(routeModel);

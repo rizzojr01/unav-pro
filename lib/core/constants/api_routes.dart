@@ -24,6 +24,9 @@ class ApiRoutes {
   static const String getDestinationsList = '/get_destinations_list';
   static const String getPlaceDetails = '/get_place_details';
 
+  // Map Download Endpoints
+  static const String mapDownloadCatalog = '/map_download/catalog';
+
   // Localization History Endpoints
   static const String localizationHistory = '/localization-history/user';
 

@@ -1,5 +1,7 @@
 import '../../../../core/base/base_datasource.dart';
 import '../../../../core/error/exceptions.dart';
+import '../../../../core/utils/logger.dart';
+import '../../../../injection.dart';
 import 'package:smart_sense/core/constants/api_routes.dart';
 import '../models/route_model.dart';
 
@@ -16,6 +18,7 @@ abstract class NavigationRemoteDataSource {
     bool multiFloorNavigation = true,
     Map<String, dynamic>? imageCompression,
     Map<String, dynamic>? userPickedCoordinates,
+    double? heading,
   });
 }
 
@@ -36,6 +39,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
     bool multiFloorNavigation = true,
     Map<String, dynamic>? imageCompression,
     Map<String, dynamic>? userPickedCoordinates,
+    double? heading,
   }) async {
     return executeCall<RouteModel>(() async {
       final response = await post(
@@ -57,8 +61,28 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
           if (imageCompression != null) 'image_compression': imageCompression,
           if (userPickedCoordinates != null)
             'user_picked_coordinates': userPickedCoordinates,
+          if (heading != null) 'heading': heading,
         },
       );
+
+      final logger = getIt<AppLogger>();
+      // Log only the orientation from the backend
+      dynamic orientation;
+      if (response['ang'] != null) {
+        orientation = response['ang'];
+      } else {
+        final steps = response['multifloor_navigation_steps'] as List<dynamic>?;
+        if (steps != null && steps.isNotEmpty) {
+          final firstFloorSteps = steps.first['steps'] as List<dynamic>?;
+          if (firstFloorSteps != null && firstFloorSteps.isNotEmpty) {
+            orientation = firstFloorSteps.first['from']?['ang'];
+          }
+        }
+      }
+
+      if (orientation != null) {
+        logger.info('Backend Orientation (Route): $orientation°');
+      }
 
       final multiFloorSteps =
           response['multifloor_navigation_steps'] as List<dynamic>?;

@@ -17,6 +17,7 @@ class GetRouteParams {
   final bool multiFloorNavigation;
   final Map<String, dynamic>? imageCompression;
   final Map<String, dynamic>? userPickedCoordinates;
+  final double? heading;
 
   const GetRouteParams({
     required this.destinationId,
@@ -30,6 +31,7 @@ class GetRouteParams {
     this.multiFloorNavigation = true,
     this.imageCompression,
     this.userPickedCoordinates,
+    this.heading,
   });
 }
 

@@ -107,6 +107,7 @@ class AppRouter {
           String? imagePath;
           Map<String, dynamic>? userPickedCoordinates;
           String? pickedFloor;
+          double? heading;
 
           if (extra is Map<String, dynamic>) {
             destination = extra['destination'] as DestinationEntity?;
@@ -114,6 +115,7 @@ class AppRouter {
             userPickedCoordinates =
                 extra['manualCoordinates'] as Map<String, dynamic>?;
             pickedFloor = extra['pickedFloor'] as String?;
+            heading = extra['heading'] as double?;
           } else if (extra is DestinationEntity) {
             destination = extra;
           }
@@ -131,6 +133,7 @@ class AppRouter {
               imagePath: imagePath,
               userPickedCoordinates: userPickedCoordinates,
               pickedFloor: pickedFloor,
+              heading: heading,
             ),
           );
         },

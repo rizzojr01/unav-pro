@@ -99,49 +99,35 @@ class _SplashPageState extends State<SplashPage>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Logo Container with Pulse & Glow
+                        // Logo with animated glow halo
                         Stack(
                           alignment: Alignment.center,
                           children: [
-                            // Outer Glow Effect
+                            // Soft pulsing glow behind the logo
                             Container(
-                              width: 160 * _pulseAnimation.value,
-                              height: 160 * _pulseAnimation.value,
+                              width: 260 * _pulseAnimation.value,
+                              height: 120 * _pulseAnimation.value,
                               decoration: BoxDecoration(
-                                shape: BoxShape.circle,
+                                borderRadius: BorderRadius.circular(60),
                                 color: theme.colorScheme.primary.withValues(
-                                  alpha: 0.05,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              width: 130 * _pulseAnimation.value,
-                              height: 130 * _pulseAnimation.value,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: theme.colorScheme.primary.withValues(
-                                  alpha: 0.1,
+                                  alpha: 0.06,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
                                     color: theme.colorScheme.primary.withValues(
-                                      alpha: 0.15,
+                                      alpha: 0.12,
                                     ),
-                                    blurRadius: 40,
-                                    spreadRadius: 5,
+                                    blurRadius: 48,
+                                    spreadRadius: 8,
                                   ),
                                 ],
                               ),
                             ),
-                            // Premium Logo Icon - App Icon Image
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(24),
-                              child: Image.asset(
-                                'assets/images/app_icon.png',
-                                width: 100,
-                                height: 100,
-                                fit: BoxFit.cover,
-                              ),
+                            // UNav logo (wide horizontal brand asset)
+                            Image.asset(
+                              'assets/images/unav_logo.png',
+                              width: 220,
+                              fit: BoxFit.contain,
                             ),
                           ],
                         ),

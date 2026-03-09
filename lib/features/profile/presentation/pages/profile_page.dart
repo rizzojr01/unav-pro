@@ -972,12 +972,38 @@ class _ImageCompressionSettingsSheet extends StatefulWidget {
       _ImageCompressionSettingsSheetState();
 }
 
+class _Resolution {
+  final int width;
+  final int height;
+  final String label;
+
+  const _Resolution(this.width, this.height, this.label);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _Resolution &&
+          runtimeType == other.runtimeType &&
+          width == other.width &&
+          height == other.height;
+
+  @override
+  int get hashCode => width.hashCode ^ height.hashCode;
+}
+
+const List<_Resolution> _resolutions = [
+  _Resolution(640, 360, '640 x 360 (Default)'),
+  _Resolution(854, 480, '854 x 480'),
+  _Resolution(960, 540, '960 x 540'),
+  _Resolution(1024, 576, '1024 x 576'),
+  _Resolution(1280, 720, '1280 x 720'),
+];
+
 class _ImageCompressionSettingsSheetState
     extends State<_ImageCompressionSettingsSheet> {
-  final _heightController = TextEditingController();
-  final _widthController = TextEditingController();
   late bool _enabled;
   late double _quality;
+  late _Resolution _selectedResolution;
 
   @override
   void initState() {
@@ -985,25 +1011,27 @@ class _ImageCompressionSettingsSheetState
     final config = getIt<LocationConfigService>();
     _enabled = config.enableCompression;
     _quality = config.imageQuality.toDouble();
-    _heightController.text = config.maxHeight.toString();
-    _widthController.text = config.maxWidth.toString();
+
+    final width = config.maxWidth;
+    final height = config.maxHeight;
+
+    _selectedResolution = _resolutions.firstWhere(
+      (r) => r.width == width && r.height == height,
+      orElse: () => _resolutions.first,
+    );
   }
 
   @override
   void dispose() {
-    _heightController.dispose();
-    _widthController.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     final config = getIt<LocationConfigService>();
-    final h = int.tryParse(_heightController.text) ?? 480;
-    final w = int.tryParse(_widthController.text) ?? 640;
 
     await config.setEnableCompression(_enabled);
-    await config.setMaxHeight(h);
-    await config.setMaxWidth(w);
+    await config.setMaxHeight(_selectedResolution.height);
+    await config.setMaxWidth(_selectedResolution.width);
     await config.setImageQuality(_quality.round());
 
     if (mounted) {
@@ -1052,27 +1080,7 @@ class _ImageCompressionSettingsSheetState
             const SizedBox(height: 32),
             _buildToggle(theme),
             const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildTextField(
-                    theme,
-                    'Max Height',
-                    _heightController,
-                    Icons.height,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildTextField(
-                    theme,
-                    'Max Width',
-                    _widthController,
-                    Icons.width_full,
-                  ),
-                ),
-              ],
-            ),
+            _buildResolutionDropdown(theme),
             const SizedBox(height: 32),
             _buildQualitySlider(theme),
             const SizedBox(height: 48),
@@ -1137,17 +1145,12 @@ class _ImageCompressionSettingsSheetState
     );
   }
 
-  Widget _buildTextField(
-    ThemeData theme,
-    String label,
-    TextEditingController controller,
-    IconData icon,
-  ) {
+  Widget _buildResolutionDropdown(ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+          'RESOLUTION',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w900,
@@ -1156,23 +1159,56 @@ class _ImageCompressionSettingsSheetState
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-          decoration: InputDecoration(
-            prefixIcon: Icon(icon, size: 20),
-            filled: true,
-            fillColor: theme.colorScheme.surface,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
+        Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
             ),
-            enabledBorder: OutlineInputBorder(
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<_Resolution>(
+              value: _selectedResolution,
+              isExpanded: true,
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              dropdownColor: theme.colorScheme.surface,
+              icon: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
+              items: _resolutions
+                  .map(
+                    (res) => DropdownMenuItem<_Resolution>(
+                      value: res,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.aspect_ratio_rounded,
+                            size: 20,
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.7,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            res.label,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) {
+                  setState(() => _selectedResolution = v);
+                }
+              },
             ),
           ),
         ),

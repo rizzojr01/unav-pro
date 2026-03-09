@@ -1,0 +1,13 @@
+Analyzing 5 items...                                            
+
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/camera/presentation/widgets/photo_preview_widget.dart:48:34 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/camera/presentation/widgets/photo_preview_widget.dart:49:34 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/camera/presentation/widgets/photo_preview_widget.dart:74:47 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/camera/presentation/widgets/photo_preview_widget.dart:138:68 • deprecated_member_use
+   info • Don't invoke 'print' in production code • lib/features/navigation/presentation/bloc/navigation_bloc.dart:84:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/navigation/presentation/bloc/navigation_bloc.dart:95:9 • avoid_print
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/shared/widgets/location_input_view.dart:504:68 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/shared/widgets/location_input_view.dart:510:42 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/shared/widgets/location_input_view.dart:522:46 • deprecated_member_use
+
+9 issues found. (ran in 2.0s)

@@ -13,25 +13,32 @@ abstract class LocateMeEvent extends Equatable {
 class StartLocalizationEvent extends LocateMeEvent {
   final String capturedImagePath;
   final String? floor;
+  final double? heading;
 
-  const StartLocalizationEvent({required this.capturedImagePath, this.floor});
+  const StartLocalizationEvent({
+    required this.capturedImagePath,
+    this.floor,
+    this.heading,
+  });
 
   @override
-  List<Object?> get props => [capturedImagePath, floor];
+  List<Object?> get props => [capturedImagePath, floor, heading];
 }
 
 /// Event to capture photo for preview
 class LocateMeCapturePhotoEvent extends LocateMeEvent {
   final String capturedImagePath;
   final String? floor;
+  final double? heading;
 
   const LocateMeCapturePhotoEvent({
     required this.capturedImagePath,
     this.floor,
+    this.heading,
   });
 
   @override
-  List<Object?> get props => [capturedImagePath, floor];
+  List<Object?> get props => [capturedImagePath, floor, heading];
 }
 
 /// Event to start localization with sample image (for testing)
