@@ -22,14 +22,28 @@ class BuildingEntity extends Equatable {
   final String name;
   final List<FloorEntity> floors;
 
+  /// GPS coordinates of the building's entrance/center (nullable — set when available from API)
+  final double? latitude;
+  final double? longitude;
+
+  /// Approximate radius in meters within which a user is considered "inside" this building
+  final double? radiusMeters;
+
   const BuildingEntity({
     required this.id,
     required this.name,
     required this.floors,
+    this.latitude,
+    this.longitude,
+    this.radiusMeters,
   });
 
+  /// Returns true if this building has GPS coordinates configured
+  bool get hasGpsCoordinates =>
+      latitude != null && longitude != null && radiusMeters != null;
+
   @override
-  List<Object?> get props => [id, name, floors];
+  List<Object?> get props => [id, name, floors, latitude, longitude, radiusMeters];
 }
 
 /// Entity representing a place with buildings

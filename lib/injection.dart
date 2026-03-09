@@ -12,6 +12,9 @@ import 'package:smart_sense/shared/services/device_id_service.dart';
 import 'package:smart_sense/shared/services/floor_plan_cache_service.dart';
 import 'package:smart_sense/shared/services/destinations_cache_service.dart';
 import 'package:smart_sense/shared/services/recent_destinations_service.dart';
+import 'package:smart_sense/shared/services/location_service.dart';
+import 'package:smart_sense/shared/services/gps_auto_select_service.dart';
+import 'package:smart_sense/shared/services/wifi_auto_select_service.dart';
 import 'package:smart_sense/shared/services/map_download_service.dart';
 import 'package:smart_sense/shared/data/datasources/place_remote_datasource.dart';
 import 'package:smart_sense/shared/presentation/bloc/location_settings_bloc.dart';
@@ -106,6 +109,13 @@ Future<void> initializeDependencies() async {
   getIt.registerLazySingleton<RecentDestinationsService>(
     () => RecentDestinationsService(getIt()),
   );
+  getIt.registerLazySingleton<LocationService>(() => LocationService());
+  getIt.registerLazySingleton<GpsAutoSelectService>(
+    () => GpsAutoSelectService(locationService: getIt(), prefs: getIt()),
+  );
+  getIt.registerLazySingleton<WifiAutoSelectService>(
+    () => WifiAutoSelectService(prefs: getIt()),
+  );
   getIt.registerLazySingleton<PlaceRemoteDataSource>(
     () => PlaceRemoteDataSourceImpl(getIt()),
   );
@@ -118,6 +128,9 @@ Future<void> initializeDependencies() async {
       locationConfigService: getIt(),
       floorPlanCacheService: getIt(),
       destinationsCacheService: getIt(),
+      gpsAutoSelectService: getIt(),
+      wifiAutoSelectService: getIt(),
+      locationService: getIt(),
       mapDownloadService: getIt(),
     ),
   );

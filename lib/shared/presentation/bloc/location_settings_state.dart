@@ -2,6 +2,9 @@ import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/place_entity.dart';
 
+/// Status of GPS/Wi-Fi auto-detection
+enum AutoDetectStatus { idle, detecting, detected, failed }
+
 abstract class LocationSettingsState extends Equatable {
   const LocationSettingsState();
 
@@ -22,6 +25,8 @@ class LocationSettingsLoaded extends LocationSettingsState {
   final String selectedPlace;
   final String selectedBuilding;
   final String selectedFloor;
+  final AutoDetectStatus autoDetectStatus;
+  final String? autoDetectMessage;
   final bool isSyncing;
   final String? syncMessage;
 
@@ -30,6 +35,8 @@ class LocationSettingsLoaded extends LocationSettingsState {
     required this.selectedPlace,
     required this.selectedBuilding,
     required this.selectedFloor,
+    this.autoDetectStatus = AutoDetectStatus.idle,
+    this.autoDetectMessage,
     this.isSyncing = false,
     this.syncMessage,
   });
@@ -40,6 +47,8 @@ class LocationSettingsLoaded extends LocationSettingsState {
     selectedPlace,
     selectedBuilding,
     selectedFloor,
+    autoDetectStatus,
+    autoDetectMessage,
     isSyncing,
     syncMessage,
   ];
@@ -80,6 +89,8 @@ class LocationSettingsLoaded extends LocationSettingsState {
     String? selectedPlace,
     String? selectedBuilding,
     String? selectedFloor,
+    AutoDetectStatus? autoDetectStatus,
+    String? autoDetectMessage,
     bool? isSyncing,
     String? syncMessage,
   }) {
@@ -88,6 +99,8 @@ class LocationSettingsLoaded extends LocationSettingsState {
       selectedPlace: selectedPlace ?? this.selectedPlace,
       selectedBuilding: selectedBuilding ?? this.selectedBuilding,
       selectedFloor: selectedFloor ?? this.selectedFloor,
+      autoDetectStatus: autoDetectStatus ?? this.autoDetectStatus,
+      autoDetectMessage: autoDetectMessage,
       isSyncing: isSyncing ?? this.isSyncing,
       syncMessage: syncMessage ?? this.syncMessage,
     );
