@@ -47,7 +47,9 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     final building = locationConfigService.building;
     final floor = event.pickedFloor ?? locationConfigService.floor;
     final destinationId = event.destination.destinationId;
-    final sessionId = 'device_${DateTime.now().millisecondsSinceEpoch}';
+    // Use the stable device ID as session identifier so the backend always
+    // sees the same user/device across every request from this device.
+    final sessionId = deviceIdService.getDeviceId();
     final useSampleImage = locationConfigService.useSampleImage;
 
     emit(const NavigationLoading(message: 'Loading floor plan...'));

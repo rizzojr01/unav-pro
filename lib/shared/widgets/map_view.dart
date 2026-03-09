@@ -357,11 +357,20 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   void didUpdateWidget(MapView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.floorPlanBase64 != widget.floorPlanBase64) {
-      // Floor switched: preserve rotation but reset layout flags
+      // Floor switched: reset ALL view/rotation state so the new floor is
+      // oriented and centered using its own route data.
+      //
+      // _hasSetInitialRotation and _hasInitializedView MUST be reset here.
+      // If they stay true, _setInitialRouteRotation() exits immediately on
+      // the guard check, leaving the first floor's stale rotation applied to
+      // the second floor's coordinate space — which is what put the checkpoint
+      // marker off-map.
       setState(() {
         _imageSize = null;
         _hasRecenteredOnUser = false;
         _initialMatrix = null;
+        _hasInitializedView = false;
+        _hasSetInitialRotation = false;
       });
       _decodeFloorPlan();
     }

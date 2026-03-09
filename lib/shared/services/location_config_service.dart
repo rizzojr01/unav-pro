@@ -52,9 +52,9 @@ class LocationConfigService {
 
   /// Image Compression Settings
   bool get enableCompression => _prefs.getBool(_keyEnableCompression) ?? false;
-  int get maxHeight => _prefs.getInt(_keyMaxHeight) ?? 480;
+  int get maxHeight => _prefs.getInt(_keyMaxHeight) ?? 360;
   int get maxWidth => _prefs.getInt(_keyMaxWidth) ?? 640;
-  int get imageQuality => _prefs.getInt(_keyImageQuality) ?? 60;
+  int get imageQuality => _prefs.getInt(_keyImageQuality) ?? 100;
   bool get saveFrame => _prefs.getBool(_keySaveFrame) ?? false;
 
   Future<void> setEnableCompression(bool value) async {

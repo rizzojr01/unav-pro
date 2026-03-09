@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../shared/services/destinations_cache_service.dart';
 import '../../../../shared/services/floor_plan_cache_service.dart';
 import '../../../../shared/services/location_config_service.dart';
+import '../../../../shared/services/device_id_service.dart';
 import '../../../destination/domain/entities/destination_entity.dart';
 import '../../domain/entities/floor_plan_entity.dart';
 import '../../domain/entities/localization_request_entity.dart';
@@ -24,6 +25,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
   final LocationConfigService locationConfigService;
   final FloorPlanCacheService floorPlanCacheService;
   final DestinationsCacheService destinationsCacheService;
+  final DeviceIdService deviceIdService;
 
   // Get configuration from service
   String get _building => locationConfigService.building;
@@ -37,6 +39,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     required this.locationConfigService,
     required this.floorPlanCacheService,
     required this.destinationsCacheService,
+    required this.deviceIdService,
   }) : super(const LocateMeInitial()) {
     on<StartLocalizationEvent>(_onStartLocalization);
     on<LocateMeCapturePhotoEvent>(_onCapturePhoto);
@@ -207,7 +210,9 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
 
     // Step 2: Localize user
     emit(const LocateMeLoading(message: 'Determining your position...'));
-    final sessionId = 'session_${DateTime.now().millisecondsSinceEpoch}';
+    // Use the stable device ID as session identifier so the backend always
+    // sees the same user/device across every request from this device.
+    final sessionId = deviceIdService.getDeviceId();
 
     final localizationRequest = LocalizationRequestEntity(
       base64Image: base64Image,

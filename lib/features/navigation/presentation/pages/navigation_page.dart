@@ -268,18 +268,31 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   List<DestinationEntity> get _destsForSelectedFloor {
     final normSelected = _normaliseFloor(_selectedFloor);
 
-    // Pull the per-floor list from the map (preferred)
-    final raw =
-        widget.destinationsByFloor[_selectedFloor] ??
-        (widget.route.multiFloorSteps.isNotEmpty &&
-                widget.route.multiFloorSteps.first.floor == _selectedFloor
-            ? widget.destinations
-            : []);
+    // 1. Best case: the floor is indexed directly in destinationsByFloor.
+    List<DestinationEntity>? raw = widget.destinationsByFloor[_selectedFloor];
 
-    // Filter by each destination's own floor field so cross-floor POIs
-    // from an unfiltered API response never appear on the wrong map.
+    // 2. Fallback: scan ALL known per-floor slices + the base destinations list.
+    //    This handles the case where a floor's data exists somewhere in the map
+    //    but wasn't indexed under the exact _selectedFloor key (key format mismatch),
+    //    and also covers non-starting floors that only returned data to the first
+    //    floor's fetch (multifloor API returns all floors in one call).
+    if (raw == null || raw.isEmpty) {
+      final allKnown = [
+        ...widget.destinationsByFloor.values.expand((list) => list),
+        ...widget.destinations,
+      ];
+      raw = allKnown
+          .where(
+            (d) => d.floor != null && _normaliseFloor(d.floor!) == normSelected,
+          )
+          .toSet() // deduplicate in case the same destination appears in both sources
+          .toList();
+    }
+
+    // 3. Final filter pass: strip any destinations whose floor field doesn't
+    //    match the selected floor (prevents cross-floor POI bleed-through).
     return raw.where((d) {
-      if (d.floor == null) return true; // no floor info → show on all
+      if (d.floor == null) return true; // no floor info → show on all floors
       return _normaliseFloor(d.floor!) == normSelected;
     }).toList();
   }
