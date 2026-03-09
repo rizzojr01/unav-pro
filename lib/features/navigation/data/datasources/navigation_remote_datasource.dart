@@ -52,16 +52,15 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
           'session_id': sessionId,
           'use_sample_image': useSampleImage,
           'base_64_image': base64Image,
-          'relocalize': false,
+          'relocalize': true,
           'saveframe': saveFrame,
           'shorten_vlm_response': true,
           'speakVlmFirst': true,
           'unav_multifloor': multiFloorNavigation,
           'use_vlm': false,
-          if (imageCompression != null) 'image_compression': imageCompression,
-          if (userPickedCoordinates != null)
-            'user_picked_coordinates': userPickedCoordinates,
-          if (heading != null) 'heading': heading,
+          'image_compression': imageCompression,
+          'user_picked_coordinates': userPickedCoordinates,
+          'heading': heading,
         },
       );
 

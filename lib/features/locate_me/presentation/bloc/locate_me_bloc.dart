@@ -222,7 +222,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
       sessionId: sessionId,
       unavMultifloor: locationConfigService.multiFloorNavigation,
       useSampleImage: useSampleImage,
-      relocalize: false,
+      relocalize: true,
       saveframe: locationConfigService.saveFrame,
       shortenVlmResponse: true,
       speakVlmFirst: true,

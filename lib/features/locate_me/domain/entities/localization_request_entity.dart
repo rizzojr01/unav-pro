@@ -45,7 +45,7 @@ class LocalizationRequestEntity extends BaseEntity {
     required this.sessionId,
     this.unavMultifloor = false,
     this.useSampleImage = false,
-    this.relocalize = false,
+    this.relocalize = true,
     this.saveframe = false,
     this.shortenVlmResponse = true,
     this.speakVlmFirst = true,
