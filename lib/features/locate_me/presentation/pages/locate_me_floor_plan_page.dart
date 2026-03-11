@@ -32,26 +32,22 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
           }
           if (mounted) {
             final locateState = context.read<LocateMeBloc>().state;
-            Map<String, dynamic>? manualCoordinates;
-
-            if (locateState is LocateMeReady &&
-                locateState.isManualLocalization) {
-              manualCoordinates = {
-                'x': locateState.userPosition.x,
-                'y': locateState.userPosition.y,
-                'ang': locateState.userPosition.angle,
-                'enabled': true,
-              };
+            if (locateState is LocateMeReady) {
+              context.push(
+                '/navigation',
+                extra: {
+                  'destination': destination,
+                  'manualCoordinates': {
+                    'x': locateState.userPosition.x,
+                    'y': locateState.userPosition.y,
+                    'ang': locateState.userPosition.angle,
+                    'enabled': true,
+                  },
+                  'pickedFloor': locateState.floor,
+                  'heading': locateState.userPosition.angle,
+                },
+              );
             }
-
-            context.push(
-              '/camera',
-              extra: {
-                'destination': destination,
-                'manualCoordinates': manualCoordinates,
-                'pickedFloor': (locateState as LocateMeReady).floor,
-              },
-            );
           }
         },
       ),
