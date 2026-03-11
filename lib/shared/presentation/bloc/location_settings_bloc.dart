@@ -437,7 +437,7 @@ class LocationSettingsBloc
       final mapping = GpsMappingEntity(
         latitude: position.latitude,
         longitude: position.longitude,
-        radiusMeters: 50.0,
+        radiusMeters: 150.0,
         placeName: currentState.selectedPlace,
         buildingName: currentState.selectedBuilding,
         createdAt: DateTime.now(),
