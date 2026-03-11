@@ -236,27 +236,34 @@ class LocationSettingsBloc
         return;
       }
 
-      // Auto-select the matched place and building, reset floor to first available
-      final matchedPlace = currentState.places
-          .where((p) => p.name == result.place)
-          .firstOrNull;
-      final matchedBuilding = matchedPlace?.buildings
-          .where((b) => b.name == result.building)
-          .firstOrNull;
-      final firstFloor =
-          matchedBuilding != null && matchedBuilding.floors.isNotEmpty
-          ? matchedBuilding.floors.first
-          : null;
+      // Auto-select the matched place and building
+      // Only reset floor if place or building actually changed
+      final placeChanged = result.place != currentState.selectedPlace;
+      final buildingChanged = result.building != currentState.selectedBuilding;
 
-      emit(
-        currentState.copyWith(
-          selectedPlace: result.place,
-          selectedBuilding: result.building,
-          selectedFloor: firstFloor?.name ?? currentState.selectedFloor,
-          autoDetectStatus: AutoDetectStatus.detected,
-          autoDetectMessage: 'Detected: ${result.place} → ${result.building}',
-        ),
-      );
+      String selectedFloor = currentState.selectedFloor;
+      if (placeChanged || buildingChanged) {
+        final matchedPlace = currentState.places
+            .where((p) => p.name == result.place)
+            .firstOrNull;
+        final matchedBuilding = matchedPlace?.buildings
+            .where((b) => b.name == result.building)
+            .firstOrNull;
+        final firstFloor = matchedBuilding != null &&
+                matchedBuilding.floors.isNotEmpty
+            ? matchedBuilding.floors.first
+            : null;
+        selectedFloor = firstFloor?.name ?? currentState.selectedFloor;
+      }
+
+      emit(currentState.copyWith(
+        selectedPlace: result.place,
+        selectedBuilding: result.building,
+        selectedFloor: selectedFloor,
+        autoDetectStatus: AutoDetectStatus.detected,
+        autoDetectMessage:
+            'Detected: ${result.place} → ${result.building}',
+      ));
     } catch (e) {
       emit(
         currentState.copyWith(
@@ -315,27 +322,33 @@ class LocationSettingsBloc
       }
 
       // Auto-select the matched place and building
-      final matchedPlace = currentState.places
-          .where((p) => p.name == mapping.placeName)
-          .firstOrNull;
-      final matchedBuilding = matchedPlace?.buildings
-          .where((b) => b.name == mapping.buildingName)
-          .firstOrNull;
-      final firstFloor =
-          matchedBuilding != null && matchedBuilding.floors.isNotEmpty
-          ? matchedBuilding.floors.first
-          : null;
+      // Only reset floor if place or building actually changed
+      final placeChanged = mapping.placeName != currentState.selectedPlace;
+      final buildingChanged = mapping.buildingName != currentState.selectedBuilding;
 
-      emit(
-        currentState.copyWith(
-          selectedPlace: mapping.placeName,
-          selectedBuilding: mapping.buildingName,
-          selectedFloor: firstFloor?.name ?? currentState.selectedFloor,
-          autoDetectStatus: AutoDetectStatus.detected,
-          autoDetectMessage:
-              'Detected via Wi-Fi: ${mapping.placeName} → ${mapping.buildingName}',
-        ),
-      );
+      String selectedFloor = currentState.selectedFloor;
+      if (placeChanged || buildingChanged) {
+        final matchedPlace = currentState.places
+            .where((p) => p.name == mapping.placeName)
+            .firstOrNull;
+        final matchedBuilding = matchedPlace?.buildings
+            .where((b) => b.name == mapping.buildingName)
+            .firstOrNull;
+        final firstFloor = matchedBuilding != null &&
+                matchedBuilding.floors.isNotEmpty
+            ? matchedBuilding.floors.first
+            : null;
+        selectedFloor = firstFloor?.name ?? currentState.selectedFloor;
+      }
+
+      emit(currentState.copyWith(
+        selectedPlace: mapping.placeName,
+        selectedBuilding: mapping.buildingName,
+        selectedFloor: selectedFloor,
+        autoDetectStatus: AutoDetectStatus.detected,
+        autoDetectMessage:
+            'Detected via Wi-Fi: ${mapping.placeName} → ${mapping.buildingName}',
+      ));
     } catch (e) {
       emit(
         currentState.copyWith(
