@@ -9,6 +9,7 @@ import '../../../../shared/widgets/step_indicator.dart';
 import '../../../../shared/widgets/custom_loading_view.dart';
 import '../../../../shared/widgets/custom_error_view.dart';
 import '../../../destination/domain/entities/destination_entity.dart';
+import '../../domain/entities/location_entity.dart';
 import '../../domain/entities/route_entity.dart';
 import '../../domain/entities/multi_floor_navigation_step_entity.dart';
 import '../bloc/navigation_bloc.dart';
@@ -59,6 +60,7 @@ class _NavigationPageState extends State<NavigationPage> {
   void _showDestinationBottomSheet(
     BuildContext context,
     DestinationEntity destination,
+    LocationEntity? currentLocation,
   ) {
     showModalBottomSheet(
       context: context,
@@ -68,7 +70,28 @@ class _NavigationPageState extends State<NavigationPage> {
         destination: destination,
         onNavigate: () {
           if (modalContext.mounted) Navigator.pop(modalContext);
-          if (mounted) context.pushReplacement('/camera', extra: destination);
+
+          // If we have a current location from the existing route session,
+          // reuse those coordinates to recalculate a new route without
+          // forcing the user to take another photo.
+          if (currentLocation != null) {
+            context.read<NavigationBloc>().add(
+              InitializeNavigationEvent(
+                destination,
+                userPickedCoordinates: {
+                  'x': currentLocation.x,
+                  'y': currentLocation.y,
+                  'ang': currentLocation.ang,
+                  'floor': currentLocation.floor,
+                },
+                pickedFloor: currentLocation.floor,
+                // Passing null for imagePath/heading as we use coordinates
+              ),
+            );
+          } else {
+            // Fallback to original behaviour if coordinates aren't available
+            if (mounted) context.pushReplacement('/camera', extra: destination);
+          }
         },
       ),
     );
@@ -94,8 +117,11 @@ class _NavigationPageState extends State<NavigationPage> {
               floorPlansByFloor: state.floorPlansByFloor,
               destinations: state.destinations,
               destinationsByFloor: state.destinationsByFloor,
-              onDestinationTap: (d) =>
-                  _showDestinationBottomSheet(this.context, d),
+              onDestinationTap: (d) => _showDestinationBottomSheet(
+                this.context,
+                d,
+                state.currentLocation,
+              ),
               userPickedCoordinates: widget.userPickedCoordinates,
               captureHeading: widget.heading,
             );
