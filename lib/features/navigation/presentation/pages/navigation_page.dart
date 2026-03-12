@@ -330,7 +330,8 @@ class _NavigationMapViewState extends State<_NavigationMapView>
         StepIndicator(
           currentStep: 3,
           title: 'Direct Guidance',
-          onBack: () => context.pop(),
+          onBack: () =>
+              context.pushReplacement('/camera', extra: widget.destination),
         ),
         Expanded(
           child: Stack(
@@ -358,6 +359,10 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                     pickedFloor: _selectedFloor,
                   ),
                 ),
+                onRelocalize: () => context.pushReplacement(
+                  '/camera',
+                  extra: widget.destination,
+                ),
               ),
 
               // ── Floor Switcher Panel ──────────────────────────────────────
@@ -374,8 +379,11 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                       onFloorSelected: (floor) {
                         if (floor == _selectedFloor) return;
                         _ensureFloorPlanLoaded(floor);
-                        setState(() => _selectedFloor = floor);
-                        _floorAnimController.forward(from: 0);
+                        setState(() {
+                          _selectedFloor = floor;
+                          _floorAnimController.reset();
+                          _floorAnimController.forward();
+                        });
                       },
                     ),
                   ),

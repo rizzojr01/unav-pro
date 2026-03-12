@@ -1,9 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import '../../../../core/utils/image_utils.dart';
 import '../../../../shared/services/destinations_cache_service.dart';
 import '../../../../shared/services/floor_plan_cache_service.dart';
 import '../../../../shared/services/location_config_service.dart';
@@ -86,10 +85,19 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
         base64Image = base64Encode(bytes);
         effectiveUseSample = false;
       } else if (event.capturedImagePath.isNotEmpty && !useSampleImage) {
-        final imageFile = File(event.capturedImagePath);
-        if (await imageFile.exists()) {
-          final imageBytes = await imageFile.readAsBytes();
-          base64Image = base64Encode(imageBytes);
+        if (locationConfigService.enableCompression) {
+          base64Image = await ImageUtils.compressAndEncodeImage(
+            event.capturedImagePath,
+            maxWidth: locationConfigService.maxWidth,
+            maxHeight: locationConfigService.maxHeight,
+            quality: locationConfigService.imageQuality,
+          );
+        } else {
+          final imageFile = File(event.capturedImagePath);
+          if (await imageFile.exists()) {
+            final imageBytes = await imageFile.readAsBytes();
+            base64Image = base64Encode(imageBytes);
+          }
         }
       }
 

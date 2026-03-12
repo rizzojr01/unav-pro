@@ -104,9 +104,11 @@ class _DashboardPageState extends State<DashboardPage>
               // Non-scrollable Content
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
+                  padding: const EdgeInsets.only(
+                    left: 24,
+                    right: 24,
+                    top: 16,
+                    bottom: 0,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -636,7 +638,7 @@ class _DashboardPageState extends State<DashboardPage>
           }
 
           return ListView(
-            physics: const ClampingScrollPhysics(),
+            physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
             children: history.take(3).map((item) {
               // Try to resolve a human-friendly name from cached destinations

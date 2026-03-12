@@ -5,8 +5,10 @@ class MapControls extends StatelessWidget {
   final VoidCallback onSearch;
   final VoidCallback onReset;
   final VoidCallback? onSnapRotation;
+  final VoidCallback? onRelocalize;
   final bool isAtInitialRotation;
   final IconData? resetIcon;
+  final IconData? relocalizeIcon;
   final double right;
   final double bottom;
 
@@ -15,8 +17,10 @@ class MapControls extends StatelessWidget {
     required this.onSearch,
     required this.onReset,
     this.onSnapRotation,
+    this.onRelocalize,
     this.isAtInitialRotation = true,
     this.resetIcon,
+    this.relocalizeIcon,
     this.right = 16,
     this.bottom = 16,
   });
@@ -46,6 +50,14 @@ class MapControls extends StatelessWidget {
             onPressed: onReset,
             tooltip: 'Reset view',
           ),
+          if (onRelocalize != null) ...[
+            const SizedBox(height: 12),
+            MapControlButton(
+              icon: relocalizeIcon ?? Icons.camera_alt,
+              onPressed: onRelocalize!,
+              tooltip: 'Relocalize (Capture new photo)',
+            ),
+          ],
         ],
       ),
     );

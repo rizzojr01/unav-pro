@@ -22,6 +22,7 @@ class MapView extends StatefulWidget {
   final Function(DestinationEntity)? onDestinationTap;
   final List<DestinationEntity> destinations;
   final VoidCallback? onRetry;
+  final VoidCallback? onRelocalize;
   final bool autoCenterOnUser;
   final String? currentFloor;
   final bool isCheckpoint;
@@ -40,6 +41,7 @@ class MapView extends StatefulWidget {
     this.onDestinationTap,
     this.destinations = const [],
     this.onRetry,
+    this.onRelocalize,
     this.autoCenterOnUser = true,
     this.currentFloor,
     this.isCheckpoint = false,
@@ -67,7 +69,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   bool _isTrackingRotation = false;
   bool _rotationThresholdMet = false; // only rotate after intentional twist
   static const double _rotationThreshold = 0.12; // ~7 degrees dead zone
-  bool _showLegend = true;
+  bool _showLegend = false;
   Uint8List? _floorPlanBytes;
   Size? _imageSize;
   bool _hasImageError = false;
@@ -782,6 +784,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
               },
               isAtInitialRotation:
                   (_manualRotation - _initialRouteRotation).abs() < 0.01,
+              onRelocalize: widget.onRelocalize,
             ),
 
             // Compass active indicator removed as per requirements - rotation is always on

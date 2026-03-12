@@ -81,6 +81,14 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
                       const ResetLocateMeEvent(),
                     );
                   },
+                  onRelocalize: () {
+                    if (mounted) {
+                      context.read<LocateMeBloc>().add(
+                        const ResetLocateMeEvent(),
+                      );
+                      context.pop();
+                    }
+                  },
                   autoCenterOnUser: true,
                 ),
               ),
