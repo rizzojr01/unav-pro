@@ -367,14 +367,11 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   Widget build(BuildContext context) {
     return Column(
       children: [
-        GestureDetector(
-          onLongPress: _showDebugNudgeSheet,
-          child: StepIndicator(
-            currentStep: 3,
-            title: 'Direct Guidance',
-            onBack: () =>
-                context.pushReplacement('/camera', extra: widget.destination),
-          ),
+        StepIndicator(
+          currentStep: 3,
+          title: 'Direct Guidance',
+          onBack: () =>
+              context.pushReplacement('/camera', extra: widget.destination),
         ),
         Expanded(
           child: Stack(
@@ -406,6 +403,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                   '/camera',
                   extra: widget.destination,
                 ),
+                onDebug: _showDebugNudgeSheet,
               ),
 
               // ── Floor Switcher Panel ──────────────────────────────────────
