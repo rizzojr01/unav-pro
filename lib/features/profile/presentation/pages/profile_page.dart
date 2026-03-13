@@ -992,11 +992,11 @@ class _Resolution {
 }
 
 const List<_Resolution> _resolutions = [
-  _Resolution(640, 360, '640 x 360 (Default)'),
-  _Resolution(854, 480, '854 x 480'),
-  _Resolution(960, 540, '960 x 540'),
-  _Resolution(1024, 576, '1024 x 576'),
-  _Resolution(1280, 720, '1280 x 720'),
+  _Resolution(360, 640, '360 x 640 (Default)'),
+  _Resolution(480, 854, '480 x 854'),
+  _Resolution(540, 960, '540 x 960'),
+  _Resolution(576, 1024, '576 x 1024'),
+  _Resolution(720, 1280, '720 x 1280'),
 ];
 
 class _ImageCompressionSettingsSheetState
@@ -1533,7 +1533,9 @@ class _LocationSettingsSheet extends StatelessWidget {
         const SizedBox(height: 24),
 
         Divider(
-          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
+          color: Theme.of(
+            context,
+          ).colorScheme.outlineVariant.withValues(alpha: 0.3),
         ),
         const SizedBox(height: 16),
 

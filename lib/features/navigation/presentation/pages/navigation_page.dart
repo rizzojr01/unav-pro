@@ -17,6 +17,7 @@ import '../bloc/navigation_event.dart';
 import '../bloc/navigation_state.dart';
 import '../../../../shared/widgets/map_view.dart';
 import '../../../locate_me/presentation/widgets/destination_bottom_sheet.dart';
+import '../../../locate_me/domain/entities/user_position_entity.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Navigation Page
@@ -192,6 +193,10 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   late String _selectedFloor;
   late AnimationController _floorAnimController;
 
+  /// Debug offsets for coordinate adjustment
+  double _debugOffsetX = 0;
+  double _debugOffsetY = 0;
+
   /// Local copy of floor plans — sourced from bloc state (pre-downloaded)
   late Map<String, String> _floorPlansByFloor;
 
@@ -223,6 +228,41 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   void dispose() {
     _floorAnimController.dispose();
     super.dispose();
+  }
+
+  void _showDebugNudgeSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _DebugCoordinateNudgeSheet(
+        initialX: _debugOffsetX,
+        initialY: _debugOffsetY,
+        onUpdate: (x, y) {
+          setState(() {
+            _debugOffsetX = x;
+            _debugOffsetY = y;
+          });
+        },
+      ),
+    );
+  }
+
+  /// Returns the user location with debug offsets applied
+  dynamic get _nudgedLocation {
+    final original = widget.currentLocation;
+    if (original is LocationEntity) {
+      return original.copyWith(
+        x: original.x + _debugOffsetX,
+        y: original.y + _debugOffsetY,
+      );
+    } else if (original is UserPositionEntity) {
+      return original.copyWith(
+        x: original.x + _debugOffsetX,
+        y: original.y + _debugOffsetY,
+      );
+    }
+    return original;
   }
 
   // "6_floor" → "6" · "B1_floor" → "B1" · "basement" → "B"
@@ -327,11 +367,14 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   Widget build(BuildContext context) {
     return Column(
       children: [
-        StepIndicator(
-          currentStep: 3,
-          title: 'Direct Guidance',
-          onBack: () =>
-              context.pushReplacement('/camera', extra: widget.destination),
+        GestureDetector(
+          onLongPress: _showDebugNudgeSheet,
+          child: StepIndicator(
+            currentStep: 3,
+            title: 'Direct Guidance',
+            onBack: () =>
+                context.pushReplacement('/camera', extra: widget.destination),
+          ),
         ),
         Expanded(
           child: Stack(
@@ -339,7 +382,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
               // ── Map ──────────────────────────────────────────────────────
               MapView(
                 // No ValueKey here — preserves rotation when switching floors
-                userLocation: widget.currentLocation,
+                userLocation: _nudgedLocation,
                 route: _routeForSelectedFloor,
                 floorPlanBase64: _floorPlanForSelected,
                 destinations: _destsForSelectedFloor,
@@ -561,6 +604,242 @@ class _FloorButtonState extends State<_FloorButton>
               ),
               child: Text(widget.label),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DebugCoordinateNudgeSheet extends StatefulWidget {
+  final double initialX;
+  final double initialY;
+  final Function(double x, double y) onUpdate;
+
+  const _DebugCoordinateNudgeSheet({
+    required this.initialX,
+    required this.initialY,
+    required this.onUpdate,
+  });
+
+  @override
+  State<_DebugCoordinateNudgeSheet> createState() =>
+      _DebugCoordinateNudgeSheetState();
+}
+
+class _DebugCoordinateNudgeSheetState
+    extends State<_DebugCoordinateNudgeSheet> {
+  late TextEditingController _xController;
+  late TextEditingController _yController;
+
+  @override
+  void initState() {
+    super.initState();
+    _xController = TextEditingController(text: widget.initialX.toString());
+    _yController = TextEditingController(text: widget.initialY.toString());
+  }
+
+  void _increment(bool isX, double delta) {
+    if (isX) {
+      final current = double.tryParse(_xController.text) ?? 0;
+      final newVal = current + delta;
+      _xController.text = newVal.toStringAsFixed(1);
+      widget.onUpdate(newVal, double.tryParse(_yController.text) ?? 0);
+    } else {
+      final current = double.tryParse(_yController.text) ?? 0;
+      final newVal = current + delta;
+      _yController.text = newVal.toStringAsFixed(1);
+      widget.onUpdate(double.tryParse(_xController.text) ?? 0, newVal);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        top: 24,
+        left: 24,
+        right: 24,
+        bottom: 24 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Coordinate Nudge (Debug)',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 32),
+          _buildNudgeField('X Offset', _xController, true, theme),
+          const SizedBox(height: 20),
+          _buildNudgeField('Y Offset', _yController, false, theme),
+          const SizedBox(height: 40),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: theme.colorScheme.onPrimary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Text(
+                'CLOSE',
+                style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNudgeField(
+    String label,
+    TextEditingController controller,
+    bool isX,
+    ThemeData theme,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            color: theme.colorScheme.onSurfaceVariant,
+            letterSpacing: 1.5,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            _CounterButton(
+              icon: Icons.remove_rounded,
+              onTap: () => _increment(isX, -5),
+              isSecondary: true,
+            ),
+            const SizedBox(width: 8),
+            _CounterButton(
+              icon: Icons.remove_rounded,
+              onTap: () => _increment(isX, -1),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Container(
+                height: 56,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.3,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.5,
+                    ),
+                  ),
+                ),
+                child: TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  onChanged: (s) {
+                    final val = double.tryParse(s) ?? 0;
+                    if (isX) {
+                      widget.onUpdate(
+                        val,
+                        double.tryParse(_yController.text) ?? 0,
+                      );
+                    } else {
+                      widget.onUpdate(
+                        double.tryParse(_xController.text) ?? 0,
+                        val,
+                      );
+                    }
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            _CounterButton(
+              icon: Icons.add_rounded,
+              onTap: () => _increment(isX, 1),
+            ),
+            const SizedBox(width: 8),
+            _CounterButton(
+              icon: Icons.add_rounded,
+              onTap: () => _increment(isX, 5),
+              isSecondary: true,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CounterButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isSecondary;
+
+  const _CounterButton({
+    required this.icon,
+    required this.onTap,
+    this.isSecondary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: isSecondary
+          ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+          : theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 44,
+          height: 44,
+          child: Icon(
+            icon,
+            size: isSecondary ? 18 : 24,
+            color: isSecondary
+                ? theme.colorScheme.onSurfaceVariant
+                : theme.colorScheme.primary,
           ),
         ),
       ),
