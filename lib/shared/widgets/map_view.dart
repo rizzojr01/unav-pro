@@ -27,6 +27,7 @@ class MapView extends StatefulWidget {
   final bool autoCenterOnUser;
   final String? currentFloor;
   final bool isCheckpoint;
+  final double mapControlsRightOffset;
 
   /// Compass heading (degrees, North-based) captured at the moment the user
   /// took the localization photo. Pre-seeds the compass baseline so the
@@ -48,6 +49,7 @@ class MapView extends StatefulWidget {
     this.currentFloor,
     this.isCheckpoint = false,
     this.captureHeading,
+    this.mapControlsRightOffset = 0,
   });
 
   @override
@@ -381,8 +383,16 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     if (oldWidget.destinations != widget.destinations) {
       _filteredDestinations = widget.destinations;
     }
-    // If route arrives after image is already loaded, set initial rotation now
-    if (oldWidget.route != widget.route && _imageSize != null) {
+    // If route arrives for the first time or identity changes, set initial rotation/view.
+    // We compare entityId to avoid recentering when only debug offsets are updated.
+    final bool routeStateChanged =
+        oldWidget.route == null && widget.route != null;
+    final bool routeIdentityChanged =
+        oldWidget.route != null &&
+        widget.route != null &&
+        oldWidget.route!.entityId != widget.route!.entityId;
+
+    if ((routeStateChanged || routeIdentityChanged) && _imageSize != null) {
       _setInitialRouteRotation();
       // Recenter after rotation is applied
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -774,6 +784,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
             ),
 
             MapControls(
+              right: 16 + widget.mapControlsRightOffset,
               onSearch: () => setState(() => _isSearching = true),
               onReset: () {
                 _hasRecenteredOnUser = false;

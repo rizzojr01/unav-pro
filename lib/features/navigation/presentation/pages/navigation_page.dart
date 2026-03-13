@@ -12,6 +12,7 @@ import '../../../destination/domain/entities/destination_entity.dart';
 import '../../domain/entities/location_entity.dart';
 import '../../domain/entities/route_entity.dart';
 import '../../domain/entities/multi_floor_navigation_step_entity.dart';
+import '../../domain/entities/navigation_step_entity.dart';
 import '../bloc/navigation_bloc.dart';
 import '../bloc/navigation_event.dart';
 import '../bloc/navigation_state.dart';
@@ -291,11 +292,36 @@ class _NavigationMapViewState extends State<_NavigationMapView>
     return match != null ? int.tryParse(match.group(1)!) : null;
   }
 
-  /// Synthetic route showing only the selected floor's steps
+  /// Synthetic route showing only the selected floor's steps, with debug offsets applied
   RouteEntity get _routeForSelectedFloor {
     final floorSteps = widget.route.multiFloorSteps
         .where((f) => f.floor == _selectedFloor)
+        .map((fStep) {
+          // Apply debug offsets to every point in the route steps for this floor
+          final nudgedSteps = fStep.steps.map((s) {
+            return NavigationStepEntity(
+              from: s.from.copyWith(
+                x: s.from.x + _debugOffsetX,
+                y: s.from.y + _debugOffsetY,
+              ),
+              to: s.to.copyWith(
+                x: s.to.x + _debugOffsetX,
+                y: s.to.y + _debugOffsetY,
+              ),
+              distanceMeters: s.distanceMeters,
+              distanceFeet: s.distanceFeet,
+              orientationDegrees: s.orientationDegrees,
+              compassDirection: s.compassDirection,
+            );
+          }).toList();
+
+          return MultiFloorNavigationStepEntity(
+            floor: fStep.floor,
+            steps: nudgedSteps,
+          );
+        })
         .toList();
+
     return RouteEntity(
       entityId: widget.route.entityId,
       multiFloorSteps: floorSteps,
@@ -404,6 +430,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                   extra: widget.destination,
                 ),
                 onDebug: _showDebugNudgeSheet,
+                mapControlsRightOffset: 0,
               ),
 
               // ── Floor Switcher Panel ──────────────────────────────────────
@@ -411,7 +438,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                 Positioned(
                   right: 16,
                   top: 0,
-                  bottom: 0,
+                  bottom: 120, // Moved up to clear room for map controls
                   child: Center(
                     child: _FloorSwitcherPanel(
                       floors: _orderedFloors,
@@ -660,10 +687,10 @@ class _DebugCoordinateNudgeSheetState
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(
-        top: 24,
-        left: 24,
-        right: 24,
-        bottom: 24 + MediaQuery.of(context).viewInsets.bottom,
+        top: 16,
+        left: 20,
+        right: 20,
+        bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -678,37 +705,18 @@ class _DebugCoordinateNudgeSheetState
           ),
           const SizedBox(height: 24),
           Text(
-            'Coordinate Nudge (Debug)',
+            'Coordinate Nudge',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 15,
               fontWeight: FontWeight.w900,
               letterSpacing: 0.5,
               color: theme.colorScheme.onSurface,
             ),
           ),
-          const SizedBox(height: 32),
-          _buildNudgeField('X Offset', _xController, true, theme),
           const SizedBox(height: 20),
+          _buildNudgeField('X Offset', _xController, true, theme),
+          const SizedBox(height: 12),
           _buildNudgeField('Y Offset', _yController, false, theme),
-          const SizedBox(height: 40),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
-                foregroundColor: theme.colorScheme.onPrimary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: const Text(
-                'CLOSE',
-                style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -745,15 +753,15 @@ class _DebugCoordinateNudgeSheetState
               icon: Icons.remove_rounded,
               onTap: () => _increment(isX, -1),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
               child: Container(
-                height: 56,
+                height: 48,
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHighest.withValues(
                     alpha: 0.3,
                   ),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: theme.colorScheme.outlineVariant.withValues(
                       alpha: 0.5,
@@ -765,7 +773,7 @@ class _DebugCoordinateNudgeSheetState
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                   decoration: const InputDecoration(
