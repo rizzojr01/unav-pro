@@ -7,6 +7,7 @@ import 'package:smart_sense/theme/app_theme.dart';
 import 'package:smart_sense/theme/theme_bloc.dart';
 import 'package:smart_sense/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:smart_sense/features/auth/presentation/bloc/auth_event.dart';
+import 'package:smart_sense/shared/widgets/fcm_banner_overlay.dart';
 
 class App extends StatelessWidget {
   const App({super.key});
@@ -22,15 +23,17 @@ class App extends StatelessWidget {
       ],
       child: BlocBuilder<ThemeBloc, ThemeState>(
         builder: (context, state) {
-          return MaterialApp.router(
-            title: AppText.appName,
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.light(state.palette.scheme),
-            darkTheme: AppTheme.light(
-              state.palette.scheme,
-            ), // Always use light theme
-            themeMode: ThemeMode.light, // Force light theme
-            routerConfig: AppRouter.router,
+          return FcmBannerOverlay(
+            child: MaterialApp.router(
+              title: AppText.appName,
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.light(state.palette.scheme),
+              darkTheme: AppTheme.light(
+                state.palette.scheme,
+              ), // Always use light theme
+              themeMode: ThemeMode.light, // Force light theme
+              routerConfig: AppRouter.router,
+            ),
           );
         },
       ),

@@ -3,6 +3,7 @@ import '../../../../core/base/base_datasource.dart';
 import '../../../../core/constants/api_routes.dart';
 import '../../../../shared/services/location_config_service.dart';
 import '../../../../shared/services/device_id_service.dart';
+import '../../../../shared/services/fcm_service.dart';
 import '../../../../injection.dart';
 import '../models/destination_model.dart';
 
@@ -19,6 +20,7 @@ class DestinationRemoteDataSourceImpl extends BaseRemoteDataSource
   @override
   Future<List<DestinationModel>> searchDestinations(String query) async {
     return executeCall<List<DestinationModel>>(() async {
+      final fcmToken = getIt<FcmService>().token;
       final response = await post(
         ApiRoutes.getDestinationsList,
         data: {
@@ -28,6 +30,7 @@ class DestinationRemoteDataSourceImpl extends BaseRemoteDataSource
           'device_id': getIt<DeviceIdService>().getDeviceId(),
           'include_coordinates': true,
           'unav_multifloor': _locationConfigService.multiFloorNavigation,
+          if (fcmToken != null) 'fcm_token': fcmToken,
         },
       );
 

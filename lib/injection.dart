@@ -16,6 +16,7 @@ import 'package:smart_sense/shared/services/location_service.dart';
 import 'package:smart_sense/shared/services/gps_auto_select_service.dart';
 import 'package:smart_sense/shared/services/wifi_auto_select_service.dart';
 import 'package:smart_sense/shared/services/map_download_service.dart';
+import 'package:smart_sense/shared/services/fcm_service.dart';
 import 'package:smart_sense/shared/data/datasources/place_remote_datasource.dart';
 import 'package:smart_sense/shared/presentation/bloc/location_settings_bloc.dart';
 
@@ -122,6 +123,7 @@ Future<void> initializeDependencies() async {
   getIt.registerLazySingleton<MapDownloadService>(
     () => MapDownloadService(getIt()),
   );
+  getIt.registerLazySingleton<FcmService>(() => FcmService(logger: getIt()));
   getIt.registerFactory(
     () => LocationSettingsBloc(
       placeRemoteDataSource: getIt(),
