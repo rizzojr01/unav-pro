@@ -13,6 +13,8 @@ import '../../features/navigation/domain/entities/location_entity.dart';
 import '../../features/navigation/domain/entities/route_entity.dart';
 import 'map_controls_widget.dart';
 import 'map_markers.dart';
+import '../../injection.dart';
+import '../services/map_download_service.dart';
 import 'map_search_overlay.dart';
 
 class MapView extends StatefulWidget {
@@ -23,7 +25,6 @@ class MapView extends StatefulWidget {
   final List<DestinationEntity> destinations;
   final VoidCallback? onRetry;
   final VoidCallback? onRelocalize;
-  final VoidCallback? onDebug;
   final bool autoCenterOnUser;
   final String? currentFloor;
   final bool isCheckpoint;
@@ -44,7 +45,6 @@ class MapView extends StatefulWidget {
     this.destinations = const [],
     this.onRetry,
     this.onRelocalize,
-    this.onDebug,
     this.autoCenterOnUser = true,
     this.currentFloor,
     this.isCheckpoint = false,
@@ -798,7 +798,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
               isAtInitialRotation:
                   (_manualRotation - _initialRouteRotation).abs() < 0.01,
               onRelocalize: widget.onRelocalize,
-              onDebug: widget.onDebug,
             ),
 
             // Compass active indicator removed as per requirements - rotation is always on
@@ -835,6 +834,83 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                   widget.onDestinationTap?.call(d);
                 },
               ),
+
+            // ── Map Sync Status Indicator ──────────────────────────────────
+            ValueListenableBuilder<MapSyncStatus>(
+              valueListenable: getIt<MapDownloadService>().syncStatus,
+              builder: (context, status, _) {
+                if (!status.isSyncing && status.errorMessage == null) {
+                  return const SizedBox.shrink();
+                }
+
+                return Positioned(
+                  top: 12,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: (status.errorMessage != null
+                                ? Colors.red.withValues(alpha: 0.9)
+                                : theme.colorScheme.primaryContainer.withValues(
+                                  alpha: 0.9,
+                                ))
+                            .withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (status.isSyncing)
+                            const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white70,
+                                ),
+                              ),
+                            )
+                          else
+                            Icon(
+                              status.errorMessage != null
+                                  ? Icons.error_outline
+                                  : Icons.check_circle_outline,
+                              size: 16,
+                              color: theme.colorScheme.onPrimaryContainer,
+                            ),
+                          const SizedBox(width: 8),
+                          Text(
+                            status.isSyncing
+                                ? 'Updating maps...'
+                                : (status.errorMessage != null
+                                    ? 'Map sync failed'
+                                    : 'Maps updated'),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
           ],
         );
       },

@@ -1,11 +1,41 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 
 import '../../core/constants/api_routes.dart';
 import 'floor_plan_cache_service.dart';
+
+/// Current status of the map synchronization process.
+class MapSyncStatus {
+  final bool isSyncing;
+  final String? errorMessage;
+  final int downloadedCount;
+  final DateTime? lastSyncTime;
+
+  const MapSyncStatus({
+    this.isSyncing = false,
+    this.errorMessage,
+    this.downloadedCount = 0,
+    this.lastSyncTime,
+  });
+
+  MapSyncStatus copyWith({
+    bool? isSyncing,
+    String? errorMessage,
+    int? downloadedCount,
+    DateTime? lastSyncTime,
+  }) {
+    return MapSyncStatus(
+      isSyncing: isSyncing ?? this.isSyncing,
+      errorMessage: errorMessage, // Reset if null
+      downloadedCount: downloadedCount ?? this.downloadedCount,
+      lastSyncTime: lastSyncTime ?? this.lastSyncTime,
+    );
+  }
+}
 
 /// Result of a map catalog download attempt.
 class MapDownloadResult {
@@ -20,6 +50,7 @@ class MapDownloadResult {
   });
 }
 
+
 /// Service that syncs all floor-plan images for a building using the
 /// `/map_download/catalog` API.
 ///
@@ -31,6 +62,10 @@ class MapDownloadResult {
 ///     no per-request floor-plan fetching needed.
 class MapDownloadService {
   final FloorPlanCacheService _cache;
+
+  /// Observable sync status for UI listeners.
+  final ValueNotifier<MapSyncStatus> syncStatus =
+      ValueNotifier(const MapSyncStatus());
 
   // Separate Dio instance for raw image downloads (bytes, no JSON interceptors)
   late final Dio _dio;
@@ -65,6 +100,12 @@ class MapDownloadService {
     required String building,
     required String baseUrl,
   }) async {
+    syncStatus.value = syncStatus.value.copyWith(
+      isSyncing: true,
+      errorMessage: null,
+      downloadedCount: 0,
+    );
+
     try {
       // ── 1. Fetch catalog ──────────────────────────────────────────────────
       final catalogDio = Dio(
@@ -140,17 +181,33 @@ class MapDownloadService {
         }),
       );
 
-      return MapDownloadResult(
+      final result = MapDownloadResult(
         success: downloadedFloors.isNotEmpty,
         downloadedFloors: downloadedFloors,
         errorMessage: errors.isNotEmpty ? errors.join('; ') : null,
       );
+
+      syncStatus.value = syncStatus.value.copyWith(
+        isSyncing: false,
+        errorMessage: result.errorMessage,
+        downloadedCount: downloadedFloors.length,
+        lastSyncTime: DateTime.now(),
+      );
+
+      return result;
     } catch (e) {
-      return MapDownloadResult(
+      final result = MapDownloadResult(
         success: false,
         downloadedFloors: [],
         errorMessage: 'Catalog fetch failed: $e',
       );
+
+      syncStatus.value = syncStatus.value.copyWith(
+        isSyncing: false,
+        errorMessage: result.errorMessage,
+      );
+
+      return result;
     }
   }
 }

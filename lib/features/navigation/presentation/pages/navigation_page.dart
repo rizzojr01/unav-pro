@@ -12,13 +12,11 @@ import '../../../destination/domain/entities/destination_entity.dart';
 import '../../domain/entities/location_entity.dart';
 import '../../domain/entities/route_entity.dart';
 import '../../domain/entities/multi_floor_navigation_step_entity.dart';
-import '../../domain/entities/navigation_step_entity.dart';
 import '../bloc/navigation_bloc.dart';
 import '../bloc/navigation_event.dart';
 import '../bloc/navigation_state.dart';
 import '../../../../shared/widgets/map_view.dart';
 import '../../../locate_me/presentation/widgets/destination_bottom_sheet.dart';
-import '../../../locate_me/domain/entities/user_position_entity.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Navigation Page
@@ -194,10 +192,6 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   late String _selectedFloor;
   late AnimationController _floorAnimController;
 
-  /// Debug offsets for coordinate adjustment
-  double _debugOffsetX = 0;
-  double _debugOffsetY = 0;
-
   /// Local copy of floor plans — sourced from bloc state (pre-downloaded)
   late Map<String, String> _floorPlansByFloor;
 
@@ -231,40 +225,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
     super.dispose();
   }
 
-  void _showDebugNudgeSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => _DebugCoordinateNudgeSheet(
-        initialX: _debugOffsetX,
-        initialY: _debugOffsetY,
-        onUpdate: (x, y) {
-          setState(() {
-            _debugOffsetX = x;
-            _debugOffsetY = y;
-          });
-        },
-      ),
-    );
-  }
 
-  /// Returns the user location with debug offsets applied
-  dynamic get _nudgedLocation {
-    final original = widget.currentLocation;
-    if (original is LocationEntity) {
-      return original.copyWith(
-        x: original.x + _debugOffsetX,
-        y: original.y + _debugOffsetY,
-      );
-    } else if (original is UserPositionEntity) {
-      return original.copyWith(
-        x: original.x + _debugOffsetX,
-        y: original.y + _debugOffsetY,
-      );
-    }
-    return original;
-  }
 
   // "6_floor" → "6" · "B1_floor" → "B1" · "basement" → "B"
   String _floorLabel(String floor) {
@@ -292,34 +253,10 @@ class _NavigationMapViewState extends State<_NavigationMapView>
     return match != null ? int.tryParse(match.group(1)!) : null;
   }
 
-  /// Synthetic route showing only the selected floor's steps, with debug offsets applied
+  /// Synthetic route showing only the selected floor's steps
   RouteEntity get _routeForSelectedFloor {
     final floorSteps = widget.route.multiFloorSteps
         .where((f) => f.floor == _selectedFloor)
-        .map((fStep) {
-          // Apply debug offsets to every point in the route steps for this floor
-          final nudgedSteps = fStep.steps.map((s) {
-            return NavigationStepEntity(
-              from: s.from.copyWith(
-                x: s.from.x + _debugOffsetX,
-                y: s.from.y + _debugOffsetY,
-              ),
-              to: s.to.copyWith(
-                x: s.to.x + _debugOffsetX,
-                y: s.to.y + _debugOffsetY,
-              ),
-              distanceMeters: s.distanceMeters,
-              distanceFeet: s.distanceFeet,
-              orientationDegrees: s.orientationDegrees,
-              compassDirection: s.compassDirection,
-            );
-          }).toList();
-
-          return MultiFloorNavigationStepEntity(
-            floor: fStep.floor,
-            steps: nudgedSteps,
-          );
-        })
         .toList();
 
     return RouteEntity(
@@ -405,7 +342,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
               // ── Map ──────────────────────────────────────────────────────
               MapView(
                 // No ValueKey here — preserves rotation when switching floors
-                userLocation: _nudgedLocation,
+                userLocation: widget.currentLocation,
                 route: _routeForSelectedFloor,
                 floorPlanBase64: _floorPlanForSelected,
                 destinations: _destsForSelectedFloor,
@@ -429,7 +366,6 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                   '/camera',
                   extra: widget.destination,
                 ),
-                onDebug: _showDebugNudgeSheet,
                 mapControlsRightOffset: 0,
               ),
 
@@ -636,219 +572,3 @@ class _FloorButtonState extends State<_FloorButton>
   }
 }
 
-class _DebugCoordinateNudgeSheet extends StatefulWidget {
-  final double initialX;
-  final double initialY;
-  final Function(double x, double y) onUpdate;
-
-  const _DebugCoordinateNudgeSheet({
-    required this.initialX,
-    required this.initialY,
-    required this.onUpdate,
-  });
-
-  @override
-  State<_DebugCoordinateNudgeSheet> createState() =>
-      _DebugCoordinateNudgeSheetState();
-}
-
-class _DebugCoordinateNudgeSheetState
-    extends State<_DebugCoordinateNudgeSheet> {
-  late TextEditingController _xController;
-  late TextEditingController _yController;
-
-  @override
-  void initState() {
-    super.initState();
-    _xController = TextEditingController(text: widget.initialX.toString());
-    _yController = TextEditingController(text: widget.initialY.toString());
-  }
-
-  void _increment(bool isX, double delta) {
-    if (isX) {
-      final current = double.tryParse(_xController.text) ?? 0;
-      final newVal = current + delta;
-      _xController.text = newVal.toStringAsFixed(1);
-      widget.onUpdate(newVal, double.tryParse(_yController.text) ?? 0);
-    } else {
-      final current = double.tryParse(_yController.text) ?? 0;
-      final newVal = current + delta;
-      _yController.text = newVal.toStringAsFixed(1);
-      widget.onUpdate(double.tryParse(_xController.text) ?? 0, newVal);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: EdgeInsets.only(
-        top: 16,
-        left: 20,
-        right: 20,
-        bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Coordinate Nudge',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.5,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 20),
-          _buildNudgeField('X Offset', _xController, true, theme),
-          const SizedBox(height: 12),
-          _buildNudgeField('Y Offset', _yController, false, theme),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNudgeField(
-    String label,
-    TextEditingController controller,
-    bool isX,
-    ThemeData theme,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
-            color: theme.colorScheme.onSurfaceVariant,
-            letterSpacing: 1.5,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            _CounterButton(
-              icon: Icons.remove_rounded,
-              onTap: () => _increment(isX, -5),
-              isSecondary: true,
-            ),
-            const SizedBox(width: 8),
-            _CounterButton(
-              icon: Icons.remove_rounded,
-              onTap: () => _increment(isX, -1),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Container(
-                height: 48,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.3,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.5,
-                    ),
-                  ),
-                ),
-                child: TextField(
-                  controller: controller,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  onChanged: (s) {
-                    final val = double.tryParse(s) ?? 0;
-                    if (isX) {
-                      widget.onUpdate(
-                        val,
-                        double.tryParse(_yController.text) ?? 0,
-                      );
-                    } else {
-                      widget.onUpdate(
-                        double.tryParse(_xController.text) ?? 0,
-                        val,
-                      );
-                    }
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            _CounterButton(
-              icon: Icons.add_rounded,
-              onTap: () => _increment(isX, 1),
-            ),
-            const SizedBox(width: 8),
-            _CounterButton(
-              icon: Icons.add_rounded,
-              onTap: () => _increment(isX, 5),
-              isSecondary: true,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _CounterButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool isSecondary;
-
-  const _CounterButton({
-    required this.icon,
-    required this.onTap,
-    this.isSecondary = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: isSecondary
-          ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
-          : theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 44,
-          height: 44,
-          child: Icon(
-            icon,
-            size: isSecondary ? 18 : 24,
-            color: isSecondary
-                ? theme.colorScheme.onSurfaceVariant
-                : theme.colorScheme.primary,
-          ),
-        ),
-      ),
-    );
-  }
-}

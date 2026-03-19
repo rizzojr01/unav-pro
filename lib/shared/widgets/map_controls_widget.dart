@@ -6,7 +6,6 @@ class MapControls extends StatelessWidget {
   final VoidCallback onReset;
   final VoidCallback? onSnapRotation;
   final VoidCallback? onRelocalize;
-  final VoidCallback? onDebug;
   final bool isAtInitialRotation;
   final IconData? resetIcon;
   final IconData? relocalizeIcon;
@@ -19,7 +18,6 @@ class MapControls extends StatelessWidget {
     required this.onReset,
     this.onSnapRotation,
     this.onRelocalize,
-    this.onDebug,
     this.isAtInitialRotation = true,
     this.resetIcon,
     this.relocalizeIcon,
@@ -35,14 +33,6 @@ class MapControls extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (onDebug != null) ...[
-            MapControlButton(
-              icon: Icons.bug_report_outlined,
-              onPressed: onDebug!,
-              tooltip: 'Debug: Nudge coordinates',
-            ),
-            const SizedBox(height: 12),
-          ],
           MapControlButton(
             icon: Icons.search,
             onPressed: onSearch,
