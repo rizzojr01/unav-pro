@@ -2,6 +2,7 @@ import '../../../../core/base/base_datasource.dart';
 import '../../../../core/constants/api_routes.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../shared/services/device_id_service.dart';
+import '../../../../shared/services/fcm_service.dart';
 import '../../../../injection.dart';
 import '../../../destination/data/models/destination_model.dart';
 import '../models/floor_plan_model.dart';
@@ -59,6 +60,11 @@ class LocateMeRemoteDataSourceImpl extends BaseRemoteDataSource
   ) async {
     try {
       final requestData = request.toJson();
+      // Add FCM token for backend push notifications
+      final fcmToken = getIt<FcmService>().token;
+      if (fcmToken != null) {
+        requestData['fcm_token'] = fcmToken;
+      }
 
       final response = await post(ApiRoutes.localizeUser, data: requestData);
 
@@ -93,6 +99,7 @@ class LocateMeRemoteDataSourceImpl extends BaseRemoteDataSource
     bool unavMultifloor = false,
   }) async {
     return executeCall<List<DestinationModel>>(() async {
+      final fcmToken = getIt<FcmService>().token;
       final response = await post(
         ApiRoutes.getDestinationsList,
         data: {
@@ -102,6 +109,7 @@ class LocateMeRemoteDataSourceImpl extends BaseRemoteDataSource
           'device_id': deviceId ?? getIt<DeviceIdService>().getDeviceId(),
           'include_coordinates': includeCoordinates,
           'unav_multifloor': unavMultifloor,
+          if (fcmToken != null) 'fcm_token': fcmToken,
         },
       );
       return DestinationModel.fromJsonList(response);

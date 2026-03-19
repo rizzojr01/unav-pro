@@ -2,6 +2,7 @@ import '../../../../core/base/base_datasource.dart';
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../injection.dart';
+import '../../../../shared/services/fcm_service.dart';
 import 'package:smart_sense/core/constants/api_routes.dart';
 import '../models/route_model.dart';
 
@@ -42,6 +43,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
     double? heading,
   }) async {
     return executeCall<RouteModel>(() async {
+      final fcmToken = getIt<FcmService>().token;
       final response = await post(
         ApiRoutes.getRoute,
         data: {
@@ -61,6 +63,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
           'image_compression': imageCompression,
           'user_picked_coordinates': userPickedCoordinates,
           'heading': heading,
+          if (fcmToken != null) 'fcm_token': fcmToken,
         },
       );
 
