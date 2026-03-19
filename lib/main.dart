@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:smart_sense/app.dart';
 import 'package:smart_sense/core/constants/api_routes.dart';
 import 'package:smart_sense/injection.dart';
+import 'package:smart_sense/core/utils/logger.dart';
+import 'package:smart_sense/shared/services/fcm_service.dart';
 import 'package:smart_sense/shared/services/location_config_service.dart';
 import 'package:smart_sense/shared/services/map_download_service.dart';
 
@@ -13,6 +16,9 @@ void main() async {
   // Load environment variables
   await dotenv.load(fileName: ".env");
 
+  // Initialize Firebase
+  await Firebase.initializeApp();
+
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -21,6 +27,14 @@ void main() async {
 
   // Initialize dependencies
   await initializeDependencies();
+
+  // Initialize FCM (get token + start listening for data messages)
+  // FCM is non-critical — app should still work without push notifications
+  try {
+    await getIt<FcmService>().init();
+  } catch (e) {
+    getIt<AppLogger>().error('FCM initialization failed', error: e);
+  }
 
   // Pre-download floor plan images for the current building in the background.
   // This populates the FloorPlanCacheService so navigation works without
