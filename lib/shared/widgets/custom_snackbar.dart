@@ -37,6 +37,7 @@ class CustomSnackBar {
         ? theme.colorScheme.onSurface
         : theme.colorScheme.surface;
 
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
