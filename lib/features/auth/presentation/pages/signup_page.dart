@@ -59,6 +59,7 @@ class _SignupPageState extends State<SignupPage> {
         if (state is Authenticated) {
           context.go(AppRouter.dashboard);
         } else if (state is AuthFailure) {
+          ScaffoldMessenger.of(context).clearSnackBars();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message),

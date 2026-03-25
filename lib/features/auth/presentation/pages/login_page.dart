@@ -70,6 +70,7 @@ class _LoginPageState extends State<LoginPage> {
         if (state is Authenticated) {
           _navigateAfterLogin();
         } else if (state is AuthFailure) {
+          ScaffoldMessenger.of(context).clearSnackBars();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message),

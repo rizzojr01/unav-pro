@@ -28,6 +28,7 @@ class AutoDetectLocationWidget extends StatelessWidget {
         if (message == null) return;
 
         final isSuccess = state.autoDetectStatus == AutoDetectStatus.detected;
+        ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
