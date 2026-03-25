@@ -86,13 +86,14 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   StreamSubscription<CompassEvent>? _compassSubscription;
   double? _initialCompassHeading; // heading (degrees) when tracking started
   double _smoothedHeading = 0.0; // EMA-filtered heading, avoids noise spikes
+  double _lastAppliedHeading = 0.0; // Heading value that last triggered a redraw
   bool _headingInitialized = false;
   bool _compassActive = false; // true once tracking starts
   Timer? _compassStartTimer;
 
-  // Low-pass filter strength: 0 = frozen, 1 = raw. ~0.12 smooths noise well
-  // while still tracking real rotation within ~1-2 compass update cycles.
-  static const double _compassAlpha = 0.12;
+  // Configuration for rotation stability
+  static const double _rotationThresholdDegrees = 2.0; // Min change to trigger update
+  static const double _baseCompassAlpha = 0.12; // Smoothing factor
 
   final TextEditingController _searchController = TextEditingController();
   List<DestinationEntity> _filteredDestinations = [];
@@ -149,21 +150,52 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         // when stationary while still tracking real rotation smoothly.
         if (!_headingInitialized) {
           _smoothedHeading = heading;
+          _lastAppliedHeading = heading;
           _headingInitialized = true;
         } else {
+          // ── Adaptive Alpha ─────────────────────────────────────────────────
+          // Smaller movements are filtered more aggressively for stability.
+          // Larger, faster movements use a higher alpha for responsiveness.
+          final rawArc = _shortestArc(heading - _smoothedHeading).abs();
+          double alpha = _baseCompassAlpha;
+          if (rawArc < 5) {
+            alpha = _baseCompassAlpha * 0.5; // slow changes = high smoothing
+          } else if (rawArc > 20) {
+            alpha = _baseCompassAlpha * 1.5; // fast changes = low smoothing
+          }
+
+          // If accuracy is poor, aggressively dampen the signal
+          final accuracy = event.accuracy;
+          if (accuracy == null || accuracy > 10 || accuracy < 0) {
+            alpha *= 0.5;
+          }
+
           // Interpolate using shortest arc to handle the 0↔360° wrap correctly
           final arc = _shortestArc(heading - _smoothedHeading);
-          _smoothedHeading += _compassAlpha * arc;
+          _smoothedHeading += alpha * arc;
           _smoothedHeading = _smoothedHeading % 360;
           if (_smoothedHeading < 0) _smoothedHeading += 360;
         }
-        // ─────────────────────────────────────────────────────────
 
         // Capture the baseline heading on the very first event
         _initialCompassHeading ??= _smoothedHeading;
         if (_initialCompassHeading!.isNaN) {
           _initialCompassHeading = _smoothedHeading;
         }
+
+        // ── Angular Dead-Zone (Hysteresis) ───────────────────────────────────
+        // Only update the map rotation if the user has physically turned enough
+        // to pass the threshold. This stops the map from jittering/shimmering.
+        final diffFromLastApplied =
+            _shortestArc(_smoothedHeading - _lastAppliedHeading).abs();
+
+        if (diffFromLastApplied < _rotationThresholdDegrees) {
+          // Not enough movement yet — keep the map steady
+          return;
+        }
+
+        // Update the 'applied' marker to prevent multiple small updates
+        _lastAppliedHeading = _smoothedHeading;
 
         // How many degrees has the user physically rotated since tracking began?
         final delta = _shortestArc(_smoothedHeading - _initialCompassHeading!);
