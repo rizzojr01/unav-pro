@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:smart_sense/app.dart';
 import 'package:smart_sense/core/constants/api_routes.dart';
@@ -10,6 +12,8 @@ import 'package:smart_sense/shared/services/fcm_service.dart';
 import 'package:smart_sense/shared/services/location_config_service.dart';
 import 'package:smart_sense/shared/services/map_download_service.dart';
 
+import 'package:smart_sense/firebase_options.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -17,7 +21,18 @@ void main() async {
   await dotenv.load(fileName: ".env");
 
   // Initialize Firebase
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Pass all unhandled errors from the framework to Crashlytics.
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterError;
+
+  // Pass all errors outside of Flutter framework to Crashlytics.
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
 
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([

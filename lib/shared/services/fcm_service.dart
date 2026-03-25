@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../../core/utils/logger.dart';
 
@@ -67,8 +68,25 @@ class FcmService {
     );
 
     // Get the FCM device token
-    _token = await messaging.getToken();
-    _logger.info('FCM token obtained');
+    try {
+      // On iOS/macOS, getToken() will fail if the APNS token isn't ready.
+      // This often happens on first launch or if testing on a simulator.
+      if (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS) {
+        final apnsToken = await messaging.getAPNSToken();
+        if (apnsToken == null) {
+          _logger.warning('APNS token not ready yet. FCM token retrieval delayed.');
+          // Don't wait forever, just notify that it will be picked up on refresh
+          return;
+        }
+      }
+
+      _token = await messaging.getToken();
+      _logger.info('FCM token obtained');
+    } catch (e) {
+      _logger.error('FCM token retrieval failed: $e');
+      // Non-fatal, application can still run but might miss push features.
+    }
 
     // Listen for token refreshes
     _tokenRefreshSub = messaging.onTokenRefresh.listen((newToken) {

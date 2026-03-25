@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import '../../../../shared/widgets/map_view.dart';
 import '../../../destination/domain/entities/destination_entity.dart';
 import '../bloc/locate_me_bloc.dart';
@@ -131,11 +132,17 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
               color: theme.colorScheme.onSurface,
             ),
           ),
-          const Expanded(
-            child: Text(
-              'Your Location',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Expanded(
+            child: GestureDetector(
+              onLongPress: () {
+                FirebaseCrashlytics.instance.log('Manual crash triggered by user');
+                FirebaseCrashlytics.instance.crash();
+              },
+              child: const Text(
+                'Your Location',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
             ),
           ),
           IconButton(
