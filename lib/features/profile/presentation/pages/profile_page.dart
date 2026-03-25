@@ -410,6 +410,7 @@ class ProfilePage extends StatelessWidget {
                         await locationConfig.setUseSampleImage(value);
                         setState(() {});
                         if (context.mounted) {
+                          ScaffoldMessenger.of(context).clearSnackBars();
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -554,6 +555,7 @@ class ProfilePage extends StatelessWidget {
                         await getIt<DestinationsCacheService>().clearAllCache();
                         setState(() {});
                         if (context.mounted) {
+                          ScaffoldMessenger.of(context).clearSnackBars();
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -1595,6 +1597,7 @@ class _LocationSettingsSheet extends StatelessWidget {
                 const SaveLocationSettingsEvent(),
               );
               Navigator.pop(context);
+              messenger.clearSnackBars();
               messenger.showSnackBar(
                 SnackBar(
                   content: const Text('Location settings saved'),
