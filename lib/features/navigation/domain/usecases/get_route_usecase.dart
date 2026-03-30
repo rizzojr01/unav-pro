@@ -18,6 +18,7 @@ class GetRouteParams {
   final Map<String, dynamic>? imageCompression;
   final Map<String, dynamic>? userPickedCoordinates;
   final double? heading;
+  final double offsetInMeters;
 
   const GetRouteParams({
     required this.destinationId,
@@ -32,6 +33,7 @@ class GetRouteParams {
     this.imageCompression,
     this.userPickedCoordinates,
     this.heading,
+    this.offsetInMeters = 0.0,
   });
 }
 
@@ -55,6 +57,7 @@ class GetRouteUseCase implements UseCase<RouteEntity, GetRouteParams> {
       multiFloorNavigation: params.multiFloorNavigation,
       imageCompression: params.imageCompression,
       userPickedCoordinates: params.userPickedCoordinates,
+      offsetInMeters: params.offsetInMeters,
     );
   }
 }

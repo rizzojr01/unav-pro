@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import '../../../../shared/widgets/map_view.dart';
+import '../../../../shared/widgets/offset_settings_modal.dart';
 import '../../../destination/domain/entities/destination_entity.dart';
 import '../bloc/locate_me_bloc.dart';
 import '../bloc/locate_me_event.dart';
@@ -71,26 +72,42 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
             children: [
               _buildHeader(context, theme),
               Expanded(
-                child: MapView(
-                  userLocation: state.userPosition,
-                  floorPlanBase64: state.floorPlan.base64Image,
-                  destinations: state.destinations,
-                  onDestinationTap: (destination) =>
-                      _showDestinationBottomSheet(context, destination),
-                  onRetry: () {
-                    context.read<LocateMeBloc>().add(
-                      const ResetLocateMeEvent(),
-                    );
-                  },
-                  onRelocalize: () {
-                    if (mounted) {
-                      context.read<LocateMeBloc>().add(
-                        const ResetLocateMeEvent(),
-                      );
-                      context.pop();
-                    }
-                  },
-                  autoCenterOnUser: true,
+                child: Stack(
+                  children: [
+                    MapView(
+                      userLocation: state.userPosition,
+                      floorPlanBase64: state.floorPlan.base64Image,
+                      destinations: state.destinations,
+                      onDestinationTap: (destination) =>
+                          _showDestinationBottomSheet(context, destination),
+                      onRetry: () {
+                        context.read<LocateMeBloc>().add(
+                          const ResetLocateMeEvent(),
+                        );
+                      },
+                      onRelocalize: () {
+                        if (mounted) {
+                          context.read<LocateMeBloc>().add(
+                            const ResetLocateMeEvent(),
+                          );
+                          context.pop();
+                        }
+                      },
+                      autoCenterOnUser: true,
+                    ),
+                    // Offset Settings Button
+                    Positioned(
+                      left: 16,
+                      bottom: 80, // Positioned above the info button in MapView
+                      child: FloatingActionButton.small(
+                        onPressed: () => showOffsetSettingsModal(context),
+                        backgroundColor: theme.colorScheme.surface,
+                        foregroundColor: theme.colorScheme.primary,
+                        heroTag: 'offset_settings_fab_locate_me',
+                        child: const Icon(Icons.settings_input_component),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

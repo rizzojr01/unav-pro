@@ -14,6 +14,7 @@ class LocalizationRequestModel extends LocalizationRequestEntity {
     super.shortenVlmResponse,
     super.speakVlmFirst,
     super.useVlm,
+    super.offsetInMeters,
     super.imageCompression,
   });
 
@@ -31,6 +32,7 @@ class LocalizationRequestModel extends LocalizationRequestEntity {
       'shorten_vlm_response': shortenVlmResponse,
       'speakVlmFirst': speakVlmFirst,
       'use_vlm': useVlm,
+      'offset_in_meters': offsetInMeters,
       if (imageCompression != null)
         'image_compression': {
           'enable_compression': imageCompression!.enableCompression,
@@ -57,6 +59,7 @@ class LocalizationRequestModel extends LocalizationRequestEntity {
       shortenVlmResponse: entity.shortenVlmResponse,
       speakVlmFirst: entity.speakVlmFirst,
       useVlm: entity.useVlm,
+      offsetInMeters: entity.offsetInMeters,
       imageCompression: entity.imageCompression,
     );
   }

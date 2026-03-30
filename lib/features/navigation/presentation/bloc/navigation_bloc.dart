@@ -134,6 +134,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         },
         userPickedCoordinates: event.userPickedCoordinates,
         heading: event.heading,
+        offsetInMeters: locationConfigService.offsetInMeters,
       ),
     );
 

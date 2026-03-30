@@ -20,6 +20,7 @@ abstract class NavigationRemoteDataSource {
     Map<String, dynamic>? imageCompression,
     Map<String, dynamic>? userPickedCoordinates,
     double? heading,
+    double offsetInMeters = 0.0,
   });
 }
 
@@ -41,6 +42,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
     Map<String, dynamic>? imageCompression,
     Map<String, dynamic>? userPickedCoordinates,
     double? heading,
+    double offsetInMeters = 0.0,
   }) async {
     return executeCall<RouteModel>(() async {
       final fcmToken = getIt<FcmService>().token;
@@ -60,6 +62,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
           'speakVlmFirst': true,
           'unav_multifloor': multiFloorNavigation,
           'use_vlm': false,
+          'offset_in_meters': offsetInMeters,
           'image_compression': imageCompression,
           'user_picked_coordinates': userPickedCoordinates,
           'heading': heading,

@@ -24,6 +24,7 @@ class LocationConfigService {
       'use_alternate_sample_image';
   static const String _keyAlternateSampleImagePath =
       'alternate_sample_image_path';
+  static const String _keyOffsetInMeters = 'navigation_offset_in_meters';
 
   LocationConfigService(this._prefs);
 
@@ -83,6 +84,13 @@ class LocationConfigService {
 
   Future<void> setMultiFloorNavigation(bool value) async {
     await _prefs.setBool(_keyMultiFloor, value);
+  }
+
+  /// Offset in meters for navigation and localization
+  double get offsetInMeters => _prefs.getDouble(_keyOffsetInMeters) ?? 0.0;
+
+  Future<void> setOffsetInMeters(double value) async {
+    await _prefs.setDouble(_keyOffsetInMeters, value);
   }
 
   /// Get the selected place

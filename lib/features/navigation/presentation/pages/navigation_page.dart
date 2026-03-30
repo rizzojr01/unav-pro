@@ -8,6 +8,7 @@ import '../../../../shared/services/location_config_service.dart';
 import '../../../../shared/widgets/step_indicator.dart';
 import '../../../../shared/widgets/custom_loading_view.dart';
 import '../../../../shared/widgets/custom_error_view.dart';
+import '../../../../shared/widgets/offset_settings_modal.dart';
 import '../../../destination/domain/entities/destination_entity.dart';
 import '../../domain/entities/location_entity.dart';
 import '../../domain/entities/route_entity.dart';
@@ -328,6 +329,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       children: [
         StepIndicator(
@@ -392,6 +394,19 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                     ),
                   ),
                 ),
+
+              // ── Offset Settings Button ────────────────────────────────────
+              Positioned(
+                left: 16,
+                bottom: 80, // Positioned above the info button in MapView
+                child: FloatingActionButton.small(
+                  onPressed: () => showOffsetSettingsModal(context),
+                  backgroundColor: theme.colorScheme.surface,
+                  foregroundColor: theme.colorScheme.primary,
+                  heroTag: 'offset_settings_fab_navigation',
+                  child: const Icon(Icons.height),
+                ),
+              ),
             ],
           ),
         ),
@@ -571,4 +586,3 @@ class _FloorButtonState extends State<_FloorButton>
     );
   }
 }
-

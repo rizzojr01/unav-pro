@@ -13,6 +13,7 @@ import '../../../../shared/services/location_config_service.dart';
 import '../../../../shared/widgets/floor_plan_selector_widget.dart';
 import '../../../../shared/widgets/custom_loading_view.dart';
 import '../../../../shared/widgets/custom_error_view.dart';
+import '../../../../shared/widgets/offset_settings_modal.dart';
 
 import 'package:flutter/cupertino.dart';
 
@@ -78,40 +79,56 @@ class _FloorMapPageState extends State<FloorMapPage> {
                     onBack: () => context.pop(),
                   ),
                   Expanded(
-                    child: BlocBuilder<FloorMapBloc, FloorMapState>(
-                      builder: (context, state) {
-                        if (state is FloorMapLoading) {
-                          return const CustomLoadingView(
-                            message: 'Loading floor plan...',
-                          );
-                        } else if (state is FloorMapReady) {
-                          return FloorPlanSelectorWidget(
-                            base64FloorPlan: state.base64FloorPlan,
-                            onLocationSelected: (x, y) {
-                              final destination = DestinationEntity(
-                                destinationId:
-                                    'manual_${DateTime.now().millisecondsSinceEpoch}',
-                                name: 'Selected Point',
-                                x: x,
-                                y: y,
-                                floor: state.selectedFloor,
-                                address:
-                                    'Manual selection on ${state.selectedFloor}',
+                    child: Stack(
+                      children: [
+                        BlocBuilder<FloorMapBloc, FloorMapState>(
+                          builder: (context, state) {
+                            if (state is FloorMapLoading) {
+                              return const CustomLoadingView(
+                                message: 'Loading floor plan...',
                               );
-                              context.push('/camera', extra: destination);
-                            },
-                            confirmButtonText: 'Set Destination',
-                          );
-                        } else if (state is FloorMapError) {
-                          return CustomErrorView(
-                            message: state.message,
-                            onRetry: () => context.read<FloorMapBloc>().add(
-                              const FloorMapInitialized(),
-                            ),
-                          );
-                        }
-                        return const CustomLoadingView();
-                      },
+                            } else if (state is FloorMapReady) {
+                              return FloorPlanSelectorWidget(
+                                base64FloorPlan: state.base64FloorPlan,
+                                onLocationSelected: (x, y) {
+                                  final destination = DestinationEntity(
+                                    destinationId:
+                                        'manual_${DateTime.now().millisecondsSinceEpoch}',
+                                    name: 'Selected Point',
+                                    x: x,
+                                    y: y,
+                                    floor: state.selectedFloor,
+                                    address:
+                                        'Manual selection on ${state.selectedFloor}',
+                                  );
+                                  context.push('/camera', extra: destination);
+                                },
+                                confirmButtonText: 'Set Destination',
+                              );
+                            } else if (state is FloorMapError) {
+                              return CustomErrorView(
+                                message: state.message,
+                                onRetry: () => context.read<FloorMapBloc>().add(
+                                  const FloorMapInitialized(),
+                                ),
+                              );
+                            }
+                            return const CustomLoadingView();
+                          },
+                        ),
+                        // Offset Settings Button
+                        Positioned(
+                          left: 16,
+                          bottom: 110, // Above the confirm button
+                          child: FloatingActionButton.small(
+                            onPressed: () => showOffsetSettingsModal(context),
+                            backgroundColor: theme.colorScheme.surface,
+                            foregroundColor: theme.colorScheme.primary,
+                            heroTag: 'offset_settings_fab',
+                            child: const Icon(Icons.settings_input_component),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

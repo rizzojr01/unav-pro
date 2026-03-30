@@ -236,6 +236,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
       speakVlmFirst: true,
       useVlm: false,
       heading: heading,
+      offsetInMeters: locationConfigService.offsetInMeters,
       imageCompression: ImageCompressionEntity(
         enableCompression: locationConfigService.enableCompression,
         maxHeight: locationConfigService.maxHeight,
