@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:fuzzy/fuzzy.dart';
 
@@ -82,18 +83,20 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   bool _hasRecenteredOnUser = false;
   bool _hasSetInitialRotation = false;
 
-  // Compass tracking
+  // Compass tracking and smooth interpolation
   StreamSubscription<CompassEvent>? _compassSubscription;
   double? _initialCompassHeading; // heading (degrees) when tracking started
   double _smoothedHeading = 0.0; // EMA-filtered heading, avoids noise spikes
-  double _lastAppliedHeading = 0.0; // Heading value that last triggered a redraw
+  double _targetRotation = 0.0; // The rotation we want to reach (radians)
+  late Ticker _rotationTicker;
   bool _headingInitialized = false;
   bool _compassActive = false; // true once tracking starts
   Timer? _compassStartTimer;
 
   // Configuration for rotation stability
-  static const double _rotationThresholdDegrees = 2.0; // Min change to trigger update
-  static const double _baseCompassAlpha = 0.12; // Smoothing factor
+  static const double _baseCompassAlpha = 0.12; // Smoothing factor for sensor
+  static const double _tickerLerpFactor =
+      0.15; // Speed of inter-frame smoothing
 
   final TextEditingController _searchController = TextEditingController();
   List<DestinationEntity> _filteredDestinations = [];
@@ -114,6 +117,81 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     _decodeFloorPlan();
     _filteredDestinations = widget.destinations;
     _searchController.addListener(_onSearchChanged);
+
+    _rotationTicker = createTicker((_) {
+      if (_manualRotation == _targetRotation) return;
+
+      // Smoothly interpolate rotation using shortest arc in radians
+      double diff = _targetRotation - _manualRotation;
+      while (diff < -math.pi) diff += 2 * math.pi;
+      while (diff > math.pi) diff -= 2 * math.pi;
+
+      if (diff.abs() < 0.001) {
+        _applyManualRotation(_targetRotation);
+      } else {
+        _applyManualRotation(_manualRotation + diff * _tickerLerpFactor);
+      }
+    })..start();
+  }
+
+  /// Updates [_manualRotation] and modifies the [TransformationController] to
+  /// keep the user marker at its current screen position during the change.
+  void _applyManualRotation(double newRotation) {
+    if (_imageSize == null) {
+      setState(() => _manualRotation = newRotation);
+      return;
+    }
+
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) {
+      setState(() => _manualRotation = newRotation);
+      return;
+    }
+
+    final cSize = box.size;
+    final iAR = _imageSize!.width / _imageSize!.height;
+    final cAR = cSize.width / cSize.height;
+    double dispW, dispH;
+    if (iAR > cAR) {
+      dispW = cSize.width;
+      dispH = cSize.width / iAR;
+    } else {
+      dispH = cSize.height;
+      dispW = cSize.height * iAR;
+    }
+    final sX = dispW / _imageSize!.width;
+    final sY = dispH / _imageSize!.height;
+    final offX = (cSize.width - dispW) / 2;
+    final offY = (cSize.height - dispH) / 2;
+    final userPos = _getUserCoords();
+
+    final userCX = userPos.dx * sX + offX;
+    final userCY = userPos.dy * sY + offY;
+    final cx = cSize.width / 2;
+    final cy = cSize.height / 2;
+    final dxU = userCX - cx;
+    final dyU = userCY - cy;
+
+    final cosOld = math.cos(_manualRotation);
+    final sinOld = math.sin(_manualRotation);
+    final oldX = cx + dxU * cosOld - dyU * sinOld;
+    final oldY = cy + dxU * sinOld + dyU * cosOld;
+
+    final cosNew = math.cos(newRotation);
+    final sinNew = math.sin(newRotation);
+    final newX = cx + dxU * cosNew - dyU * sinNew;
+    final newY = cy + dxU * sinNew + dyU * cosNew;
+
+    final shiftX = oldX - newX;
+    final shiftY = oldY - newY;
+
+    final newMatrix = _transformationController.value.clone()
+      ..translate(shiftX, shiftY);
+
+    setState(() {
+      _manualRotation = newRotation;
+      _transformationController.value = newMatrix;
+    });
   }
 
   // ── compass ────────────────────────────────────────────────────────────────
@@ -140,9 +218,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         final heading = event.heading;
         if (heading == null || !mounted) return;
 
-        // ── Exponential moving average (low-pass) filter ────────────────────
-        // Raw magnetometer is very noisy indoors. EMA keeps the value stable
-        // when stationary while still tracking real rotation smoothly.
         if (heading.isNaN || heading.isInfinite) return;
 
         // ── Exponential moving average (low-pass) filter ────────────────────
@@ -150,7 +225,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         // when stationary while still tracking real rotation smoothly.
         if (!_headingInitialized) {
           _smoothedHeading = heading;
-          _lastAppliedHeading = heading;
           _headingInitialized = true;
         } else {
           // ── Adaptive Alpha ─────────────────────────────────────────────────
@@ -183,79 +257,14 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
           _initialCompassHeading = _smoothedHeading;
         }
 
-        // ── Angular Dead-Zone (Hysteresis) ───────────────────────────────────
-        // Only update the map rotation if the user has physically turned enough
-        // to pass the threshold. This stops the map from jittering/shimmering.
-        final diffFromLastApplied =
-            _shortestArc(_smoothedHeading - _lastAppliedHeading).abs();
-
-        if (diffFromLastApplied < _rotationThresholdDegrees) {
-          // Not enough movement yet — keep the map steady
-          return;
-        }
-
-        // Update the 'applied' marker to prevent multiple small updates
-        _lastAppliedHeading = _smoothedHeading;
-
         // How many degrees has the user physically rotated since tracking began?
         final delta = _shortestArc(_smoothedHeading - _initialCompassHeading!);
-        final newRotation = _initialRouteRotation - delta * math.pi / 180.0;
 
-        // Apply rotation, keeping the user marker pinned at its current screen position.
-        // We compute how much the user's content-space position shifts when rotation
-        // changes, then compensate the IV translation by exactly that amount.
-        // Matrix4.translate(dx, dy) adds (zoom*dx, zoom*dy) to the screen translation,
-        // so translate(shiftX, shiftY) adds the correct (zoom*shiftX) offset to tx.
-        if (_imageSize != null) {
-          final box = context.findRenderObject() as RenderBox?;
-          if (box != null) {
-            final cSize = box.size;
-            final iAR = _imageSize!.width / _imageSize!.height;
-            final cAR = cSize.width / cSize.height;
-            double dispW, dispH;
-            if (iAR > cAR) {
-              dispW = cSize.width;
-              dispH = cSize.width / iAR;
-            } else {
-              dispH = cSize.height;
-              dispW = cSize.height * iAR;
-            }
-            final sX = dispW / _imageSize!.width;
-            final sY = dispH / _imageSize!.height;
-            final offX = (cSize.width - dispW) / 2;
-            final offY = (cSize.height - dispH) / 2;
-            final userPos = _getUserCoords();
-            // User position in IV content coords (before Transform.rotate)
-            final userCX = userPos.dx * sX + offX;
-            final userCY = userPos.dy * sY + offY;
-            // Transform.rotate pivot = widget center
-            final cx = cSize.width / 2;
-            final cy = cSize.height / 2;
-            final dxU = userCX - cx;
-            final dyU = userCY - cy;
-            // User IV-content position AFTER old rotation
-            final cosOld = math.cos(_manualRotation);
-            final sinOld = math.sin(_manualRotation);
-            final oldX = cx + dxU * cosOld - dyU * sinOld;
-            final oldY = cy + dxU * sinOld + dyU * cosOld;
-            // User IV-content position AFTER new rotation
-            final cosNew = math.cos(newRotation);
-            final sinNew = math.sin(newRotation);
-            final newX = cx + dxU * cosNew - dyU * sinNew;
-            final newY = cy + dxU * sinNew + dyU * cosNew;
-            // Shift in IV content space. translate(shiftX, shiftY) adds
-            // zoom*shiftX to the screen translation — preserving current pan.
-            final shiftX = oldX - newX;
-            final shiftY = oldY - newY;
-            final newMatrix = _transformationController.value.clone()
-              ..translate(shiftX, shiftY);
-            _manualRotation = newRotation;
-            _transformationController.value = newMatrix;
-          }
-        } else {
-          _manualRotation = newRotation;
-        }
-        if (mounted) setState(() => _compassActive = true);
+        // Update the target rotation. The Ticker will smoothly interpolate
+        // _manualRotation to reach this value.
+        _targetRotation = _initialRouteRotation - delta * math.pi / 180.0;
+
+        if (mounted && !_compassActive) setState(() => _compassActive = true);
       });
     });
   }
@@ -308,18 +317,11 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     if (route == null || route.steps.isEmpty) return;
     _hasSetInitialRotation = true;
 
-    // The backend provides `ang` on step 0's `from` — the user's current orientation.
-    // `ang` uses the same convention as atan2: 0° = pointing right (+X in image space).
-    // To make the user's facing direction point UP on screen we apply the same
-    // formula as the atan2 segment method: -(ang_rad + π/2).
-    // The +π/2 shifts the reference from "0°=right" to "0°=up".
     final userAngleDeg = route.steps.first.from.ang ?? 0.0;
     _manualRotation = -(userAngleDeg * math.pi / 180.0 + math.pi / 2);
     _initialRouteRotation = _manualRotation;
+    _targetRotation = _manualRotation;
 
-    // Start compass tracking immediately.
-    // Seed the baseline with the capture-time heading so the map stays
-    // correctly oriented even if the user rotated the phone during loading.
     if (widget.route != null) {
       _startCompassTracking(seedHeading: widget.captureHeading);
     }
@@ -441,6 +443,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   void dispose() {
     _compassStartTimer?.cancel();
     _compassSubscription?.cancel();
+    _rotationTicker.dispose();
     _routeAnimationController.dispose();
     _snapRotationController.dispose();
     _transformationController.dispose();
@@ -886,12 +889,12 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: (status.errorMessage != null
-                                ? Colors.red.withValues(alpha: 0.9)
-                                : theme.colorScheme.primaryContainer.withValues(
-                                  alpha: 0.9,
-                                ))
-                            .withOpacity(0.9),
+                        color:
+                            (status.errorMessage != null
+                                    ? Colors.red.withValues(alpha: 0.9)
+                                    : theme.colorScheme.primaryContainer
+                                          .withValues(alpha: 0.9))
+                                .withOpacity(0.9),
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
@@ -928,8 +931,8 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                             status.isSyncing
                                 ? 'Updating maps...'
                                 : (status.errorMessage != null
-                                    ? 'Map sync failed'
-                                    : 'Maps updated'),
+                                      ? 'Map sync failed'
+                                      : 'Maps updated'),
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
