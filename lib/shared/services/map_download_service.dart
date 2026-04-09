@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -6,6 +5,8 @@ import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 
 import '../../core/constants/api_routes.dart';
+import '../../core/utils/logger.dart';
+import '../../injection.dart';
 import 'floor_plan_cache_service.dart';
 
 /// Current status of the map synchronization process.
@@ -13,12 +14,14 @@ class MapSyncStatus {
   final bool isSyncing;
   final String? errorMessage;
   final int downloadedCount;
+  final int totalCount;
   final DateTime? lastSyncTime;
 
   const MapSyncStatus({
     this.isSyncing = false,
     this.errorMessage,
     this.downloadedCount = 0,
+    this.totalCount = 0,
     this.lastSyncTime,
   });
 
@@ -26,12 +29,14 @@ class MapSyncStatus {
     bool? isSyncing,
     String? errorMessage,
     int? downloadedCount,
+    int? totalCount,
     DateTime? lastSyncTime,
   }) {
     return MapSyncStatus(
       isSyncing: isSyncing ?? this.isSyncing,
-      errorMessage: errorMessage, // Reset if null
+      errorMessage: errorMessage,
       downloadedCount: downloadedCount ?? this.downloadedCount,
+      totalCount: totalCount ?? this.totalCount,
       lastSyncTime: lastSyncTime ?? this.lastSyncTime,
     );
   }
@@ -50,32 +55,25 @@ class MapDownloadResult {
   });
 }
 
-
 /// Service that syncs all floor-plan images for a building using the
 /// `/map_download/catalog` API.
-///
-/// Workflow:
-///  1. POST /map_download/catalog → get list of floors + download URLs
-///  2. For each floor whose image is not yet cached, download the PNG
-///     via the individual `download_url` and store it in [FloorPlanCacheService].
-///  3. Callers (LocateMeBloc, NavigationBloc) read directly from cache —
-///     no per-request floor-plan fetching needed.
 class MapDownloadService {
   final FloorPlanCacheService _cache;
+  final AppLogger _logger = getIt<AppLogger>();
 
   /// Observable sync status for UI listeners.
   final ValueNotifier<MapSyncStatus> syncStatus =
       ValueNotifier(const MapSyncStatus());
 
-  // Separate Dio instance for raw image downloads (bytes, no JSON interceptors)
+  // Separate Dio instance for raw image downloads
   late final Dio _dio;
 
   MapDownloadService(this._cache) {
     _dio = Dio(
       BaseOptions(
-        connectTimeout: const Duration(minutes: 2),
-        receiveTimeout: const Duration(minutes: 5),
-        sendTimeout: const Duration(minutes: 2),
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(minutes: 3),
+        sendTimeout: const Duration(seconds: 30),
       ),
     );
     // Bypass SSL for dev server
@@ -90,20 +88,17 @@ class MapDownloadService {
   }
 
   /// Downloads all floor maps for the given [place]/[building] combination.
-  ///
-  /// * Clears the existing floor-plan cache for the building first so stale
-  ///   images are always replaced.
-  /// * Downloads each floor's PNG in parallel.
-  /// * Stores results as base64 strings in [FloorPlanCacheService].
   Future<MapDownloadResult> syncMapsForBuilding({
     required String place,
     required String building,
     required String baseUrl,
   }) async {
+    _logger.info('MapDownloadService: Starting sync for $place / $building');
     syncStatus.value = syncStatus.value.copyWith(
       isSyncing: true,
       errorMessage: null,
       downloadedCount: 0,
+      totalCount: 0,
     );
 
     try {
@@ -111,8 +106,8 @@ class MapDownloadService {
       final catalogDio = Dio(
         BaseOptions(
           baseUrl: baseUrl,
-          connectTimeout: const Duration(minutes: 1),
-          receiveTimeout: const Duration(minutes: 1),
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
@@ -135,6 +130,7 @@ class MapDownloadService {
 
       final floors = (catalogResp.data?['floors'] as List<dynamic>?) ?? [];
       if (floors.isEmpty) {
+        _logger.warning('MapDownloadService: No floors found in catalog');
         return const MapDownloadResult(
           success: false,
           downloadedFloors: [],
@@ -142,43 +138,78 @@ class MapDownloadService {
         );
       }
 
+      _logger.info('MapDownloadService: Found ${floors.length} floors to sync');
+      syncStatus.value = syncStatus.value.copyWith(totalCount: floors.length);
+
       // ── 2. Clear stale cache for this building ───────────────────────────
       await _cache.clearCacheForBuilding(place: place, building: building);
 
-      // ── 3. Download each floor image in parallel ─────────────────────────
+      // ── 3. Download each floor image with concurrency control ────────────
       final downloadedFloors = <String>[];
       final errors = <String>[];
 
-      await Future.wait(
-        floors.map((floorEntry) async {
+      // Concurrency limit: 3
+      const int maxConcurrency = 3;
+      final List<dynamic> remainingFloors = List.from(floors);
+
+      Future<void> downloadWorker() async {
+        while (remainingFloors.isNotEmpty) {
+          final floorEntry = remainingFloors.removeAt(0);
           final floorKey = floorEntry['floor'] as String? ?? '';
           final downloadUrl = floorEntry['download_url'] as String? ?? '';
 
-          if (floorKey.isEmpty || downloadUrl.isEmpty) return;
+          if (floorKey.isEmpty || downloadUrl.isEmpty) continue;
 
-          try {
-            final response = await _dio.get<List<int>>(
-              downloadUrl,
-              options: Options(responseType: ResponseType.bytes),
-            );
+          bool success = false;
+          int attempts = 0;
+          const int maxAttempts = 3;
 
-            final bytes = response.data;
-            if (bytes != null && bytes.isNotEmpty) {
-              final base64Image = base64Encode(bytes);
-              await _cache.cacheFloorPlan(
-                place: place,
-                building: building,
-                floor: floorKey,
-                base64Image: base64Image,
+          while (!success && attempts < maxAttempts) {
+            attempts++;
+            try {
+              _logger.info(
+                'MapDownloadService: Downloading $floorKey (Attempt $attempts)',
               );
-              downloadedFloors.add(floorKey);
-            } else {
-              errors.add('$floorKey: empty response');
+              final response = await _dio.get<List<int>>(
+                downloadUrl,
+                options: Options(responseType: ResponseType.bytes),
+              );
+
+              final bytes = response.data;
+              if (bytes != null && bytes.isNotEmpty) {
+                await _cache.cacheFloorPlanBytes(
+                  place: place,
+                  building: building,
+                  floor: floorKey,
+                  bytes: Uint8List.fromList(bytes),
+                );
+                downloadedFloors.add(floorKey);
+                syncStatus.value = syncStatus.value.copyWith(
+                  downloadedCount: downloadedFloors.length,
+                );
+                success = true;
+                _logger.info('MapDownloadService: Successfully synced $floorKey');
+              } else {
+                if (attempts == maxAttempts) errors.add('$floorKey: empty response');
+              }
+            } catch (e) {
+              _logger.error('MapDownloadService: Error downloading $floorKey: $e');
+              if (attempts == maxAttempts) errors.add('$floorKey: $e');
+              // Short delay before retry
+              if (!success && attempts < maxAttempts) {
+                await Future.delayed(const Duration(seconds: 1));
+              }
             }
-          } catch (e) {
-            errors.add('$floorKey: $e');
           }
-        }),
+        }
+      }
+
+      // Start workers
+      await Future.wait(
+        List.generate(
+          floors.length < maxConcurrency ? floors.length : maxConcurrency,
+          (_) => downloadWorker(),
+        ),
       );
 
       final result = MapDownloadResult(
@@ -190,12 +221,16 @@ class MapDownloadService {
       syncStatus.value = syncStatus.value.copyWith(
         isSyncing: false,
         errorMessage: result.errorMessage,
-        downloadedCount: downloadedFloors.length,
         lastSyncTime: DateTime.now(),
       );
 
+      _logger.info(
+        'MapDownloadService: Sync complete. Success: ${result.success}, '
+        'Floors: ${downloadedFloors.length}',
+      );
       return result;
     } catch (e) {
+      _logger.error('MapDownloadService: Critical sync failure: $e');
       final result = MapDownloadResult(
         success: false,
         downloadedFloors: [],

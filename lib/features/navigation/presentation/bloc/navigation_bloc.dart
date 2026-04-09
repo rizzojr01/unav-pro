@@ -57,7 +57,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
 
     // ── Step 1: Read floor plan from cache (pre-loaded by MapDownloadService) ─
     // Maps are downloaded when the building is selected; no per-request fetch.
-    final floorPlanBase64 = floorPlanCacheService.getCachedFloorPlanBase64(
+    final floorPlanBase64 = await floorPlanCacheService.getCachedFloorPlanBase64(
       place: place,
       building: building,
       floor: floor,
@@ -224,7 +224,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         // All floor plans were pre-downloaded by MapDownloadService; just read.
         final Map<String, String> floorPlansByFloor = {};
         for (final step in route.multiFloorSteps) {
-          final cached = floorPlanCacheService.getCachedFloorPlanBase64(
+          final cached = await floorPlanCacheService.getCachedFloorPlanBase64(
             place: place,
             building: building,
             floor: step.floor,

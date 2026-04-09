@@ -164,7 +164,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
       floor: effectiveFloor,
     )) {
       // Use cached floor plan
-      final cachedBase64 = floorPlanCacheService.getCachedFloorPlanBase64(
+      final cachedBase64 = await floorPlanCacheService.getCachedFloorPlanBase64(
         place: _place,
         building: _building,
         floor: effectiveFloor,
@@ -348,7 +348,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
       floor: effectiveFloor,
     )) {
       // Use cached floor plan
-      final cachedBase64 = floorPlanCacheService.getCachedFloorPlanBase64(
+      final cachedBase64 = await floorPlanCacheService.getCachedFloorPlanBase64(
         place: _place,
         building: _building,
         floor: effectiveFloor,

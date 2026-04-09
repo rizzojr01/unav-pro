@@ -272,18 +272,20 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   /// Looks up the floor plan for [floorKey] from cache.
   /// All maps are pre-downloaded by MapDownloadService when the building
   /// is selected, so this is a synchronous cache hit in the normal case.
-  void _ensureFloorPlanLoaded(String floorKey) {
+  Future<void> _ensureFloorPlanLoaded(String floorKey) async {
     if (_floorPlansByFloor[floorKey]?.isNotEmpty == true) return;
 
     final config = getIt<LocationConfigService>();
     final cache = getIt<FloorPlanCacheService>();
-    final cached = cache.getCachedFloorPlanBase64(
+    final cached = await cache.getCachedFloorPlanBase64(
       place: config.place,
       building: config.building,
       floor: floorKey,
     );
     if (cached != null && cached.isNotEmpty) {
-      setState(() => _floorPlansByFloor[floorKey] = cached);
+      if (mounted) {
+        setState(() => _floorPlansByFloor[floorKey] = cached);
+      }
     }
   }
 

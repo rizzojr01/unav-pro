@@ -57,7 +57,7 @@ class FloorMapBloc extends Bloc<FloorMapEvent, FloorMapState> {
 
       final effectiveFloor = event.initialFloor ?? locationConfigService.floor;
 
-      final floorPlan = floorPlanCacheService.getCachedFloorPlanBase64(
+      final floorPlan = await floorPlanCacheService.getCachedFloorPlanBase64(
         place: locationConfigService.place,
         building: locationConfigService.building,
         floor: effectiveFloor,
@@ -83,7 +83,7 @@ class FloorMapBloc extends Bloc<FloorMapEvent, FloorMapState> {
     if (currentState is! FloorMapReady) return;
 
     // Check cache first
-    final cached = floorPlanCacheService.getCachedFloorPlanBase64(
+    final cached = await floorPlanCacheService.getCachedFloorPlanBase64(
       place: locationConfigService.place,
       building: locationConfigService.building,
       floor: event.floor,
