@@ -32,6 +32,8 @@ class NavigationReady extends NavigationState {
   /// floor key → destinations list (populated for multi-floor routes)
   final Map<String, List<DestinationEntity>> destinationsByFloor;
 
+  final double? heading;
+
   const NavigationReady({
     required this.currentLocation,
     required this.route,
@@ -39,6 +41,7 @@ class NavigationReady extends NavigationState {
     this.destinations = const [],
     this.floorPlansByFloor = const {},
     this.destinationsByFloor = const {},
+    this.heading,
   });
 
   @override
@@ -49,6 +52,7 @@ class NavigationReady extends NavigationState {
     destinations,
     floorPlansByFloor,
     destinationsByFloor,
+    heading,
   ];
 }
 

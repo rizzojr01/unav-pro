@@ -62,6 +62,7 @@ class _LocateMeCameraPageState extends State<LocateMeCameraPage>
                 StartLocalizationEvent(
                   capturedImagePath: state.imagePath,
                   floor: state.floor,
+                  heading: state.heading,
                 ),
               );
             });

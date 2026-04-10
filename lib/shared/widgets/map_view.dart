@@ -419,6 +419,8 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     }
     // If route arrives for the first time or identity changes, set initial rotation/view.
     // We compare entityId to avoid recentering when only debug offsets are updated.
+    final bool headingChanged =
+        oldWidget.captureHeading != widget.captureHeading;
     final bool routeStateChanged =
         oldWidget.route == null && widget.route != null;
     final bool routeIdentityChanged =
@@ -426,7 +428,9 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         widget.route != null &&
         oldWidget.route!.entityId != widget.route!.entityId;
 
-    if ((routeStateChanged || routeIdentityChanged) && _imageSize != null) {
+    if ((routeStateChanged || routeIdentityChanged || headingChanged) &&
+        _imageSize != null) {
+      _hasSetInitialRotation = false;
       _setInitialRouteRotation();
       // Recenter after rotation is applied
       WidgetsBinding.instance.addPostFrameCallback((_) {

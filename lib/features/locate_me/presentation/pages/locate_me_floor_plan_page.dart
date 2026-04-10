@@ -46,7 +46,7 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
                     'enabled': true,
                   },
                   'pickedFloor': locateState.floor,
-                  'heading': locateState.userPosition.angle,
+                  'heading': locateState.heading,
                 },
               );
             }
@@ -94,6 +94,7 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
                         }
                       },
                       autoCenterOnUser: true,
+                      captureHeading: state.heading,
                     ),
                     // Offset Settings Button
                     Positioned(

@@ -110,6 +110,7 @@ class _NavigationPageState extends State<NavigationPage> {
           }
           if (state is NavigationReady) {
             return _NavigationMapView(
+              key: ValueKey(state.route.entityId),
               destination: widget.destination,
               imagePath: widget.imagePath,
               currentLocation: state.currentLocation,
@@ -124,7 +125,7 @@ class _NavigationPageState extends State<NavigationPage> {
                 state.currentLocation,
               ),
               userPickedCoordinates: widget.userPickedCoordinates,
-              captureHeading: widget.heading,
+              captureHeading: state.heading ?? widget.heading,
             );
           }
           if (state is NavigationError) {
@@ -171,6 +172,7 @@ class _NavigationMapView extends StatefulWidget {
   final double? captureHeading;
 
   const _NavigationMapView({
+    super.key,
     required this.destination,
     this.imagePath,
     required this.currentLocation,

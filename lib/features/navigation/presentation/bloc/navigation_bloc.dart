@@ -259,6 +259,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
             destinations: destinations,
             floorPlansByFloor: floorPlansByFloor,
             destinationsByFloor: destinationsByFloor,
+            heading: event.heading,
           ),
         );
       },

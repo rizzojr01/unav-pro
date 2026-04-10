@@ -321,6 +321,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
             userPosition: userPosition.copyWith(floor: effectiveFloor),
             destinations: destinations!,
             floor: effectiveFloor,
+            heading: heading,
           ),
         );
       },
