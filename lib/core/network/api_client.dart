@@ -139,10 +139,20 @@ class ApiClient {
       case DioExceptionType.receiveTimeout:
         return const NetworkException('Connection timeout');
       case DioExceptionType.badResponse:
-        return ServerException(
-          error.response?.data['message'] ?? 'Server error',
-          error.response?.statusCode,
-        );
+        final data = error.response?.data;
+        String errorMessage = 'Server error';
+
+        if (data is Map<String, dynamic>) {
+          errorMessage =
+              data['message'] ??
+              data['error'] ??
+              data['details'] ??
+              'Server error';
+        } else if (data is String) {
+          errorMessage = data;
+        }
+
+        return ServerException(errorMessage, error.response?.statusCode);
       case DioExceptionType.cancel:
         return const NetworkException('Request cancelled');
       case DioExceptionType.connectionError:

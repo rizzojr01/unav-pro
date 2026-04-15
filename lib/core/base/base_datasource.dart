@@ -109,8 +109,9 @@ abstract class BaseRemoteDataSource {
         final statusCode = e.response?.statusCode ?? 500;
         final data = e.response?.data;
 
-        // Check for navigation-style error response with instructions
+        // Try to extract a specific error message from the server response
         if (data is Map<String, dynamic>) {
+          // Check for navigation-style error response with instructions
           final navigationSteps = data['navigation_steps'] as List<dynamic>?;
           if (navigationSteps != null && navigationSteps.isEmpty) {
             final instructions = data['instructions'] as List<dynamic>?;
@@ -118,13 +119,17 @@ abstract class BaseRemoteDataSource {
               return ServerException(instructions.first.toString(), statusCode);
             }
           }
-          // Check for regular error message
-          final message = data['message'] ?? data['error'];
-          if (message != null) {
-            return ServerException(message.toString(), statusCode);
+          // Check for standard error keys
+          final serverMessage =
+              data['message'] ?? data['error'] ?? data['details'];
+          if (serverMessage != null) {
+            return ServerException(serverMessage.toString(), statusCode);
           }
+        } else if (data is String && data.isNotEmpty) {
+          return ServerException(data, statusCode);
         }
 
+        // Fallback to the provided generic error message if server provided nothing
         return ServerException(errorMessage, statusCode);
       case DioExceptionType.connectionError:
         return NetworkException('Connection error');

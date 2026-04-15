@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "smart_sense (FVM Debug)",
+            "request": "launch",
+            "type": "dart",
+            "flutterSdkPath": "${workspaceFolder}/.fvm/flutter_sdk",
+            "program": "lib/main.dart"
+        },
+        {
             "name": "smart_sense",
             "request": "launch",
             "type": "dart"

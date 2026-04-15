@@ -160,6 +160,7 @@ class _LocationInputViewState extends State<LocationInputView> {
     if (Platform.isMacOS) {
       if (_macOSController != null && !_isCapturing) {
         setState(() => _isCapturing = true);
+        final headingAtCapture = _currentHeading;
         try {
           final result = await _macOSController!.takePicture();
           if (result != null && result.bytes != null) {
@@ -178,12 +179,12 @@ class _LocationInputViewState extends State<LocationInputView> {
                       (_floorMapBloc.state as FloorMapReady).selectedFloor;
                 }
                 _logger.info(
-                  'Image Captured with Heading: ${_currentHeading?.toStringAsFixed(2)}°',
+                  'Image Captured with Heading: ${headingAtCapture?.toStringAsFixed(2)}°',
                 );
                 widget.onImageCaptured(
                   file.path,
                   selectedFloor,
-                  _currentHeading,
+                  headingAtCapture,
                 );
               } else {
                 snackbar.CustomSnackBar.show(
@@ -217,6 +218,7 @@ class _LocationInputViewState extends State<LocationInputView> {
     }
 
     setState(() => _isCapturing = true);
+    final headingAtCapture = _currentHeading;
 
     try {
       final image = await _controller!.takePicture();
@@ -230,9 +232,9 @@ class _LocationInputViewState extends State<LocationInputView> {
                 (_floorMapBloc.state as FloorMapReady).selectedFloor;
           }
           _logger.info(
-            'Image Captured with Heading: ${_currentHeading?.toStringAsFixed(2)}°',
+            'Image Captured with Heading: ${headingAtCapture?.toStringAsFixed(2)}°',
           );
-          widget.onImageCaptured(image.path, selectedFloor, _currentHeading);
+          widget.onImageCaptured(image.path, selectedFloor, headingAtCapture);
         } else {
           snackbar.CustomSnackBar.show(
             context,

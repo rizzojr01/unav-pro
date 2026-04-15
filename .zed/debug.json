@@ -1,0 +1,10 @@
+[
+  {
+    "adapter": "Dart",
+    "label": "Launch Smart Sense",
+    "program": "lib/main.dart",
+    "type": "flutter",
+    "request": "launch",
+    "useFvm": true,
+  },
+]

@@ -62,8 +62,9 @@ class MapDownloadService {
   final AppLogger _logger = getIt<AppLogger>();
 
   /// Observable sync status for UI listeners.
-  final ValueNotifier<MapSyncStatus> syncStatus =
-      ValueNotifier(const MapSyncStatus());
+  final ValueNotifier<MapSyncStatus> syncStatus = ValueNotifier(
+    const MapSyncStatus(),
+  );
 
   // Separate Dio instance for raw image downloads
   late final Dio _dio;
@@ -88,12 +89,17 @@ class MapDownloadService {
   }
 
   /// Downloads all floor maps for the given [place]/[building] combination.
+  /// If [force] is true, it clears the old cache first. Otherwise, it only
+  /// downloads floors that are missing from the cache.
   Future<MapDownloadResult> syncMapsForBuilding({
     required String place,
     required String building,
     required String baseUrl,
+    bool force = false,
   }) async {
-    _logger.info('MapDownloadService: Starting sync for $place / $building');
+    _logger.info(
+      'MapDownloadService: Starting sync for $place / $building (force: $force)',
+    );
     syncStatus.value = syncStatus.value.copyWith(
       isSyncing: true,
       errorMessage: null,
@@ -138,14 +144,20 @@ class MapDownloadService {
         );
       }
 
-      _logger.info('MapDownloadService: Found ${floors.length} floors to sync');
+      _logger.info(
+        'MapDownloadService: Found ${floors.length} floors in catalog',
+      );
       syncStatus.value = syncStatus.value.copyWith(totalCount: floors.length);
 
-      // ── 2. Clear stale cache for this building ───────────────────────────
-      await _cache.clearCacheForBuilding(place: place, building: building);
+      // ── 2. Handle cache clearing ──────────────────────────────────────────
+      if (force) {
+        _logger.info('MapDownloadService: Force sync enabled. Clearing cache.');
+        await _cache.clearCacheForBuilding(place: place, building: building);
+      }
 
       // ── 3. Download each floor image with concurrency control ────────────
       final downloadedFloors = <String>[];
+      final skippedFloors = <String>[];
       final errors = <String>[];
 
       // Concurrency limit: 3
@@ -159,6 +171,23 @@ class MapDownloadService {
           final downloadUrl = floorEntry['download_url'] as String? ?? '';
 
           if (floorKey.isEmpty || downloadUrl.isEmpty) continue;
+
+          // Check if already cached (unless force is true)
+          if (!force &&
+              _cache.hasCachedFloorPlan(
+                place: place,
+                building: building,
+                floor: floorKey,
+              )) {
+            _logger.info(
+              'MapDownloadService: Skipping $floorKey (already cached)',
+            );
+            skippedFloors.add(floorKey);
+            syncStatus.value = syncStatus.value.copyWith(
+              downloadedCount: downloadedFloors.length + skippedFloors.length,
+            );
+            continue;
+          }
 
           bool success = false;
           int attempts = 0;
@@ -185,15 +214,22 @@ class MapDownloadService {
                 );
                 downloadedFloors.add(floorKey);
                 syncStatus.value = syncStatus.value.copyWith(
-                  downloadedCount: downloadedFloors.length,
+                  downloadedCount:
+                      downloadedFloors.length + skippedFloors.length,
                 );
                 success = true;
-                _logger.info('MapDownloadService: Successfully synced $floorKey');
+                _logger.info(
+                  'MapDownloadService: Successfully synced $floorKey',
+                );
               } else {
-                if (attempts == maxAttempts) errors.add('$floorKey: empty response');
+                if (attempts == maxAttempts) {
+                  errors.add('$floorKey: empty response');
+                }
               }
             } catch (e) {
-              _logger.error('MapDownloadService: Error downloading $floorKey: $e');
+              _logger.error(
+                'MapDownloadService: Error downloading $floorKey: $e',
+              );
               if (attempts == maxAttempts) errors.add('$floorKey: $e');
               // Short delay before retry
               if (!success && attempts < maxAttempts) {
@@ -212,8 +248,9 @@ class MapDownloadService {
         ),
       );
 
+      final totalProcessed = downloadedFloors.length + skippedFloors.length;
       final result = MapDownloadResult(
-        success: downloadedFloors.isNotEmpty,
+        success: totalProcessed > 0,
         downloadedFloors: downloadedFloors,
         errorMessage: errors.isNotEmpty ? errors.join('; ') : null,
       );
@@ -225,8 +262,8 @@ class MapDownloadService {
       );
 
       _logger.info(
-        'MapDownloadService: Sync complete. Success: ${result.success}, '
-        'Floors: ${downloadedFloors.length}',
+        'MapDownloadService: Sync complete. Total: $totalProcessed, '
+        'Downloaded: ${downloadedFloors.length}, Skipped: ${skippedFloors.length}',
       );
       return result;
     } catch (e) {

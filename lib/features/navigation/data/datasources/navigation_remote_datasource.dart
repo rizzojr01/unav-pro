@@ -45,32 +45,41 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
     double offsetInMeters = 0.0,
   }) async {
     return executeCall<RouteModel>(() async {
+      final logger = getIt<AppLogger>();
       final fcmToken = getIt<FcmService>().token;
-      final response = await post(
-        ApiRoutes.getRoute,
-        data: {
-          'destination_id': destinationId,
-          'place': place,
-          'building': building,
-          'floor': floor,
-          'session_id': sessionId,
-          'use_sample_image': useSampleImage,
-          'base_64_image': base64Image,
-          'relocalize': true,
-          'saveframe': saveFrame,
-          'shorten_vlm_response': true,
-          'speakVlmFirst': true,
-          'unav_multifloor': multiFloorNavigation,
-          'use_vlm': false,
-          'offset_in_meters': offsetInMeters,
-          'image_compression': imageCompression,
-          'user_picked_coordinates': userPickedCoordinates,
-          'heading': heading,
-          if (fcmToken != null) 'fcm_token': fcmToken,
-        },
+
+      // Ensure 'enabled': true is present if coordinates are picked
+      final Map<String, dynamic> payload = {
+        'destination_id': destinationId,
+        'place': place,
+        'building': building,
+        'floor': floor,
+        'session_id': sessionId,
+        'use_sample_image': useSampleImage,
+        'base_64_image': base64Image,
+        'relocalize': true,
+        'saveframe': saveFrame,
+        'shorten_vlm_response': true,
+        'speakVlmFirst': true,
+        'unav_multifloor': multiFloorNavigation,
+        'use_vlm': false,
+        'offset_in_meters': offsetInMeters,
+        'image_compression': imageCompression,
+        'user_picked_coordinates': userPickedCoordinates != null
+            ? {...userPickedCoordinates, 'enabled': true}
+            : null,
+        'heading': heading,
+        if (fcmToken != null) 'fcm_token': fcmToken,
+      };
+
+      final payloadSizeKb =
+          (payload.toString().length) / 1024; // Rough estimate
+      logger.info(
+        '📤 Uploading Navigation Request: ${payloadSizeKb.toStringAsFixed(2)} KB',
       );
 
-      final logger = getIt<AppLogger>();
+      final response = await post(ApiRoutes.getRoute, data: payload);
+
       // Log only the orientation from the backend
       dynamic orientation;
       if (response['ang'] != null) {

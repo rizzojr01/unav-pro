@@ -94,9 +94,9 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   Timer? _compassStartTimer;
 
   // Configuration for rotation stability
-  static const double _baseCompassAlpha = 0.12; // Smoothing factor for sensor
+  static const double _baseCompassAlpha = 0.20; // Smoothing factor for sensor
   static const double _tickerLerpFactor =
-      0.15; // Speed of inter-frame smoothing
+      0.35; // Speed of inter-frame smoothing
 
   final TextEditingController _searchController = TextEditingController();
   List<DestinationEntity> _filteredDestinations = [];
@@ -232,20 +232,30 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
           // Larger, faster movements use a higher alpha for responsiveness.
           final rawArc = _shortestArc(heading - _smoothedHeading).abs();
           double alpha = _baseCompassAlpha;
-          if (rawArc < 5) {
-            alpha = _baseCompassAlpha * 0.5; // slow changes = high smoothing
-          } else if (rawArc > 20) {
-            alpha = _baseCompassAlpha * 1.5; // fast changes = low smoothing
+          if (rawArc < 3) {
+            alpha =
+                _baseCompassAlpha *
+                0.3; // Very slow changes = maximum stability
+          } else if (rawArc > 10) {
+            alpha =
+                _baseCompassAlpha *
+                2.5; // Intentional turns = high responsiveness
           }
 
           // If accuracy is poor, aggressively dampen the signal
           final accuracy = event.accuracy;
-          if (accuracy == null || accuracy > 10 || accuracy < 0) {
-            alpha *= 0.5;
+          if (accuracy != null && (accuracy > 15 || accuracy < 0)) {
+            alpha *= 0.4;
           }
 
           // Interpolate using shortest arc to handle the 0↔360° wrap correctly
           final arc = _shortestArc(heading - _smoothedHeading);
+
+          // ── Dead Zone ──────────────────────────────────────────────────────
+          // If the movement is extremely small (noise), ignore it to prevent
+          // the "jittering" effect when the phone is stationary.
+          if (arc.abs() < 0.8) return; // Ignore movements < 0.8 degrees
+
           _smoothedHeading += alpha * arc;
           _smoothedHeading = _smoothedHeading % 360;
           if (_smoothedHeading < 0) _smoothedHeading += 360;

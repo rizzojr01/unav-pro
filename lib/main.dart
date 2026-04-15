@@ -68,6 +68,8 @@ void _syncMapsInBackground() {
         place: config.place,
         building: config.building,
         baseUrl: ApiRoutes.baseUrl,
+        force:
+            false, // Don't clear cache on startup; just download missing maps
       )
       .then((result) {
         if (result.success) {
