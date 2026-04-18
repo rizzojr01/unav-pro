@@ -89,7 +89,9 @@ class _CameraPageState extends State<CameraPage>
           extra: {
             'destination': widget.destination,
             'imagePath': state.photo.filePath,
-            'manualCoordinates': widget.manualCoordinates,
+            'manualCoordinates': widget.manualCoordinates != null
+                ? {...widget.manualCoordinates!, 'heading': state.heading}
+                : {'heading': state.heading},
             'pickedFloor': state.floor ?? widget.pickedFloor,
           },
         );
@@ -167,9 +169,13 @@ class _CameraReadyView extends StatelessWidget {
             tabController: tabController,
             floorPlanConfirmText: 'Start Navigation',
             initialFloor: pickedFloor,
-            onImageCaptured: (path, floor) {
+            onImageCaptured: (path, floor, heading) {
               context.read<CameraBloc>().add(
-                CapturePhotoEvent(filePath: path, floor: floor),
+                CapturePhotoEvent(
+                  filePath: path,
+                  floor: floor,
+                  heading: heading,
+                ),
               );
             },
             onLocationSelected: (x, y, floor) {

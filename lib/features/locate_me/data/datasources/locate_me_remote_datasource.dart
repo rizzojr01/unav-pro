@@ -66,6 +66,10 @@ class LocateMeRemoteDataSourceImpl extends BaseRemoteDataSource
         requestData['fcm_token'] = fcmToken;
       }
 
+      final logger = getIt<AppLogger>();
+      final img = request.base64Image;
+      logger.info('📤 Locating User - FULL Image Base64: $img');
+
       final response = await post(ApiRoutes.localizeUser, data: requestData);
 
       return UserPositionModel.fromJson(response);

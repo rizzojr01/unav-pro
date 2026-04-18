@@ -1,13 +1,13 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:camera/camera.dart';
 import 'package:camera_macos/camera_macos.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:async';
 
 import '../../core/utils/logger.dart';
 
@@ -22,7 +22,7 @@ import 'floor_plan_selector_widget.dart';
 
 class LocationInputView extends StatefulWidget {
   final TabController tabController;
-  final Function(String path, String floor) onImageCaptured;
+  final Function(String path, String floor, double? heading) onImageCaptured;
   final Function(double x, double y, String floor) onLocationSelected;
   final String floorPlanConfirmText;
   final String? initialFloor;
@@ -42,11 +42,12 @@ class LocationInputView extends StatefulWidget {
 
 class _LocationInputViewState extends State<LocationInputView> {
   CameraController? _controller;
-  CameraMacOSController? _macOSController;
   bool _isInitializing = true;
   bool _isCapturing = false;
   bool _showGuidance = true;
   String? _errorMessage;
+  double? _currentHeading;
+  StreamSubscription? _compassSubscription;
 
   final _logger = getIt<AppLogger>();
 
@@ -57,8 +58,20 @@ class _LocationInputViewState extends State<LocationInputView> {
   void initState() {
     super.initState();
     _initializeCamera();
+    _initializeCompass();
     _floorMapBloc = FloorMapBloc()
       ..add(FloorMapInitialized(initialFloor: widget.initialFloor));
+  }
+
+  void _initializeCompass() {
+    if (Platform.isMacOS) return;
+    _compassSubscription = FlutterCompass.events?.listen((event) {
+      if (mounted) {
+        setState(() {
+          _currentHeading = event.heading;
+        });
+      }
+    });
   }
 
   void _syncFloorController(List<String> floors, String selectedFloor) {
@@ -78,6 +91,7 @@ class _LocationInputViewState extends State<LocationInputView> {
   void dispose() {
     _controller?.dispose();
     _floorController?.dispose();
+    _compassSubscription?.cancel();
     _floorMapBloc.close();
     super.dispose();
   }
@@ -122,63 +136,7 @@ class _LocationInputViewState extends State<LocationInputView> {
     }
   }
 
-  Future<bool> _isImageClear(String path) async {
-    // Placeholder for image quality check (focus/blur/motion)
-    // In a production app, we would use a native plugin or TFLite model
-    // to check Laplacian variance or similar metrics.
-    await Future.delayed(
-      const Duration(milliseconds: 500),
-    ); // Simulate processing
-    return true; // Auto-accepting for now
-  }
-
   Future<void> _captureImage() async {
-    if (Platform.isMacOS) {
-      if (_macOSController != null && !_isCapturing) {
-        setState(() => _isCapturing = true);
-        try {
-          final result = await _macOSController!.takePicture();
-          if (result != null && result.bytes != null) {
-            final tempDir = await getTemporaryDirectory();
-            final file = File(
-              '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg',
-            );
-            await file.writeAsBytes(result.bytes!);
-
-            final isClear = await _isImageClear(file.path);
-            if (mounted) {
-              if (isClear) {
-                String selectedFloor = getIt<LocationConfigService>().floor;
-                if (_floorMapBloc.state is FloorMapReady) {
-                  selectedFloor =
-                      (_floorMapBloc.state as FloorMapReady).selectedFloor;
-                }
-                _logger.info('Image Captured');
-                widget.onImageCaptured(file.path, selectedFloor);
-              } else {
-                snackbar.CustomSnackBar.show(
-                  context,
-                  message: 'Image is blurry. Please hold steady and try again.',
-                  type: snackbar.SnackBarType.warning,
-                );
-              }
-            }
-          }
-        } catch (e) {
-          if (mounted) {
-            snackbar.CustomSnackBar.show(
-              context,
-              message: 'Failed to capture image: ${e.toString()}',
-              type: snackbar.SnackBarType.error,
-            );
-          }
-        } finally {
-          if (mounted) setState(() => _isCapturing = false);
-        }
-      }
-      return;
-    }
-
     // Mobile Capture Logic
     if (_controller == null ||
         !_controller!.value.isInitialized ||
@@ -189,25 +147,34 @@ class _LocationInputViewState extends State<LocationInputView> {
     setState(() => _isCapturing = true);
 
     try {
+      // 1. Capture the heading IMMEDIATELY
+      final capturedHeading = _currentHeading;
+
+      // 2. Take the picture
       final image = await _controller!.takePicture();
-      final isClear = await _isImageClear(image.path);
+
+      // Ensure the file is fully written before reading
+      final imageFile = File(image.path);
+      int retryCount = 0;
+      while (!await imageFile.exists() && retryCount < 5) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        retryCount++;
+      }
+
+      final imageBytes = await imageFile.readAsBytes();
+
+      // 3. Log basic info for debugging
+      _logger.info(
+        '📸 Captured Image: ${image.path} (Size: ${imageBytes.length} bytes)',
+      );
 
       if (mounted) {
-        if (isClear) {
-          String selectedFloor = getIt<LocationConfigService>().floor;
-          if (_floorMapBloc.state is FloorMapReady) {
-            selectedFloor =
-                (_floorMapBloc.state as FloorMapReady).selectedFloor;
-          }
-          _logger.info('Image Captured');
-          widget.onImageCaptured(image.path, selectedFloor);
-        } else {
-          snackbar.CustomSnackBar.show(
-            context,
-            message: 'Image is blurry. Please hold steady and try again.',
-            type: snackbar.SnackBarType.warning,
-          );
+        String selectedFloor = getIt<LocationConfigService>().floor;
+        if (_floorMapBloc.state is FloorMapReady) {
+          selectedFloor = (_floorMapBloc.state as FloorMapReady).selectedFloor;
         }
+        _logger.info('✅ Image Captured (Heading: $capturedHeading)');
+        widget.onImageCaptured(image.path, selectedFloor, capturedHeading);
       }
     } catch (e) {
       if (mounted) {
@@ -236,7 +203,6 @@ class _LocationInputViewState extends State<LocationInputView> {
   }
 
   Widget _buildCameraTab(ThemeData theme) {
-    // macOS Camera View
     if (Platform.isMacOS) {
       return Stack(
         fit: StackFit.expand,
@@ -248,9 +214,8 @@ class _LocationInputViewState extends State<LocationInputView> {
             onCameraInizialized: (CameraMacOSController controller) {
               if (mounted) {
                 setState(() {
-                  _macOSController = controller;
                   _isInitializing = false;
-                  _errorMessage = null; // Clear any previous error
+                  _errorMessage = null;
                 });
               }
             },
@@ -261,150 +226,82 @@ class _LocationInputViewState extends State<LocationInputView> {
               showGuidance: _showGuidance,
               onToggle: () => setState(() => _showGuidance = !_showGuidance),
             ),
-            // Capture Button (Shared UI)
-            Positioned(
-              bottom: 40,
-              left: 0,
-              right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  const SizedBox(width: 60), // Spacer for symmetry
-                  GestureDetector(
-                    onTap: _captureImage,
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: theme.colorScheme.primary,
-                        boxShadow: [
-                          BoxShadow(
-                            color: theme.colorScheme.primary.withValues(
-                              alpha: 0.4,
-                            ),
-                            blurRadius: 20,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                      ),
-                      child: _isCapturing
-                          ? const Center(
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                              ),
-                            )
-                          : Icon(
-                              Icons.camera_rounded,
-                              color: theme.colorScheme.onPrimary,
-                              size: 40,
-                            ),
-                    ),
-                  ),
-                  const SizedBox(width: 60), // Spacer for symmetry
-                ],
-              ),
-            ),
+            _buildCaptureButton(theme),
           ],
         ],
       );
     }
 
-    // Mobile Camera View
-    if (_isInitializing) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_errorMessage != null ||
-        _controller == null ||
-        !_controller!.value.isInitialized) {
+    // Mobile (iOS/Android) Camera View
+    if (_errorMessage != null) {
       return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.camera_alt_outlined,
-                size: 64,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                _errorMessage ?? 'Camera not available',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  setState(() => _isInitializing = true);
-                  _initializeCamera();
-                },
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(_errorMessage!, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _initializeCamera,
+              child: const Text('Retry'),
+            ),
+          ],
         ),
       );
+    }
+
+    if (_isInitializing || _controller == null) {
+      return const Center(child: CircularProgressIndicator());
     }
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 1. Camera Preview (fullscreen)
-        Positioned.fill(child: CameraPreview(_controller!)),
-
-        // 2. Camera Guidance Overlays (CEILING, PATH, FLOOR)
+        if (_controller!.value.isInitialized) CameraPreview(_controller!),
         _CameraGuidance(
           showGuidance: _showGuidance,
           onToggle: () => setState(() => _showGuidance = !_showGuidance),
         ),
+        _buildCaptureButton(theme),
+      ],
+    );
+  }
 
-        // 3. Capture Button
-        Positioned(
-          bottom: 40,
-          left: 0,
-          right: 0,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              const SizedBox(width: 60), // Spacer for symmetry
-              GestureDetector(
-                onTap: _captureImage,
-                child: Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: theme.colorScheme.primary,
-                    boxShadow: [
-                      BoxShadow(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                        blurRadius: 20,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                  child: _isCapturing
-                      ? const Center(
-                          child: CircularProgressIndicator(color: Colors.white),
-                        )
-                      : Icon(
-                          Icons.camera_rounded,
-                          color: theme.colorScheme.onPrimary,
-                          size: 40,
-                        ),
+  Widget _buildCaptureButton(ThemeData theme) {
+    return Positioned(
+      bottom: 40,
+      left: 0,
+      right: 0,
+      child: Center(
+        child: GestureDetector(
+          onTap: _captureImage,
+          child: Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: theme.colorScheme.primary,
+              boxShadow: [
+                BoxShadow(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                  blurRadius: 20,
+                  spreadRadius: 2,
                 ),
-              ),
-              const SizedBox(width: 60), // Spacer for symmetry
-            ],
+              ],
+            ),
+            child: _isCapturing
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  )
+                : Icon(
+                    Icons.camera_rounded,
+                    color: theme.colorScheme.onPrimary,
+                    size: 40,
+                  ),
           ),
         ),
-      ],
+      ),
     );
   }
 

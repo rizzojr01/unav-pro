@@ -15,6 +15,7 @@ class LocalizationRequestModel extends LocalizationRequestEntity {
     super.speakVlmFirst,
     super.useVlm,
     super.offsetInMeters,
+    super.heading,
     super.imageCompression,
   });
 
@@ -33,6 +34,7 @@ class LocalizationRequestModel extends LocalizationRequestEntity {
       'speakVlmFirst': speakVlmFirst,
       'use_vlm': useVlm,
       'offset_in_meters': offsetInMeters,
+      if (heading != null) 'heading': heading,
       if (imageCompression != null)
         'image_compression': {
           'enable_compression': imageCompression!.enableCompression,

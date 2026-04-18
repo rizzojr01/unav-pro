@@ -35,6 +35,7 @@ class LocalizationRequestEntity extends BaseEntity {
   final bool speakVlmFirst;
   final bool useVlm;
   final double offsetInMeters;
+  final double? heading;
   final ImageCompressionEntity? imageCompression;
 
   const LocalizationRequestEntity({
@@ -51,6 +52,7 @@ class LocalizationRequestEntity extends BaseEntity {
     this.speakVlmFirst = true,
     this.useVlm = false,
     this.offsetInMeters = 0.0,
+    this.heading,
     this.imageCompression,
   });
 
@@ -72,6 +74,7 @@ class LocalizationRequestEntity extends BaseEntity {
     speakVlmFirst,
     useVlm,
     offsetInMeters,
+    heading,
     imageCompression,
   ];
 }

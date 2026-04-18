@@ -11,7 +11,6 @@ import '../../../destination/domain/entities/destination_entity.dart';
 import '../../../locate_me/domain/usecases/get_destinations_usecase.dart';
 import '../../../localization_history/domain/entities/localization_history_entity.dart';
 import '../../../localization_history/domain/usecases/save_localization_history_usecase.dart';
-import '../../../../core/utils/image_utils.dart';
 import '../../../../shared/services/device_id_service.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../injection.dart';
@@ -95,18 +94,13 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         event.imagePath!.isNotEmpty &&
         !useSampleImage) {
       try {
-        if (locationConfigService.enableCompression) {
-          base64Image = await ImageUtils.compressAndEncodeImage(
-            event.imagePath!,
-            maxWidth: locationConfigService.maxWidth,
-            maxHeight: locationConfigService.maxHeight,
-            quality: locationConfigService.imageQuality,
+        final imageFile = File(event.imagePath!);
+        if (await imageFile.exists()) {
+          final bytes = await imageFile.readAsBytes();
+          base64Image = base64Encode(bytes);
+          getIt<AppLogger>().info(
+            '📸 NavigationBloc: Encoded image from ${event.imagePath} (${bytes.length} bytes)',
           );
-        } else {
-          final imageFile = File(event.imagePath!);
-          if (await imageFile.exists()) {
-            base64Image = base64Encode(await imageFile.readAsBytes());
-          }
         }
       } catch (e) {
         getIt<AppLogger>().error('NavigationBloc: Image processing failed: $e');
@@ -135,6 +129,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         },
         userPickedCoordinates: event.userPickedCoordinates,
         offsetInMeters: locationConfigService.offsetInMeters,
+        heading: event.userPickedCoordinates?['heading']?.toDouble(),
       ),
     );
 

@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/utils/image_utils.dart';
+import '../../../../core/utils/logger.dart';
+import '../../../../injection.dart';
 import '../../../../shared/services/destinations_cache_service.dart';
 import '../../../../shared/services/floor_plan_cache_service.dart';
 import '../../../../shared/services/location_config_service.dart';
@@ -55,7 +56,16 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     LocateMeCapturePhotoEvent event,
     Emitter<LocateMeState> emit,
   ) {
-    emit(LocateMePhotoCaptured(event.capturedImagePath, floor: event.floor));
+    getIt<AppLogger>().info(
+      '📸 LocateMeBloc: Received captured photo at ${event.capturedImagePath}. Heading: ${event.heading}',
+    );
+    emit(
+      LocateMePhotoCaptured(
+        event.capturedImagePath,
+        floor: event.floor,
+        heading: event.heading,
+      ),
+    );
   }
 
   Future<void> _onStartLocalization(
@@ -79,19 +89,13 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
         base64Image = base64Encode(bytes);
         effectiveUseSample = false;
       } else if (event.capturedImagePath.isNotEmpty && !useSampleImage) {
-        if (locationConfigService.enableCompression) {
-          base64Image = await ImageUtils.compressAndEncodeImage(
-            event.capturedImagePath,
-            maxWidth: locationConfigService.maxWidth,
-            maxHeight: locationConfigService.maxHeight,
-            quality: locationConfigService.imageQuality,
+        final imageFile = File(event.capturedImagePath);
+        if (await imageFile.exists()) {
+          final imageBytes = await imageFile.readAsBytes();
+          base64Image = base64Encode(imageBytes);
+          getIt<AppLogger>().info(
+            '📸 LocateMeBloc: Encoded image from ${event.capturedImagePath} (${imageBytes.length} bytes)',
           );
-        } else {
-          final imageFile = File(event.capturedImagePath);
-          if (await imageFile.exists()) {
-            final imageBytes = await imageFile.readAsBytes();
-            base64Image = base64Encode(imageBytes);
-          }
         }
       }
 
@@ -100,6 +104,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
         base64Image,
         useSampleImage: effectiveUseSample,
         floor: event.floor,
+        heading: event.heading,
       );
     } catch (e) {
       emit(LocateMeError('Failed to process image: ${e.toString()}'));
@@ -140,6 +145,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     String base64Image, {
     bool useSampleImage = false,
     String? floor,
+    double? heading,
   }) async {
     // Step 1: Get floor plan (with caching)
     emit(const LocateMeLoading(message: 'Loading floor plan...'));
@@ -228,6 +234,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
       speakVlmFirst: true,
       useVlm: false,
       offsetInMeters: locationConfigService.offsetInMeters,
+      heading: heading,
       imageCompression: ImageCompressionEntity(
         enableCompression: locationConfigService.enableCompression,
         maxHeight: locationConfigService.maxHeight,

@@ -102,31 +102,6 @@ class UserPositionMarker extends StatelessWidget {
   }
 }
 
-class _CompassArrowPainter extends CustomPainter {
-  final Color color;
-  _CompassArrowPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final path = Path();
-    // Triangular arrow pointing "up" (0 degrees) - Initial simple look
-    path.moveTo(size.width / 2, 0);
-    path.lineTo(size.width, size.height);
-    path.lineTo(size.width / 2, size.height * 0.7);
-    path.lineTo(0, size.height);
-    path.close();
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
 /// Destination marker with flag icon - refined pin style
 class DestinationFlagMarker extends StatelessWidget {
   final double size;
@@ -226,7 +201,7 @@ class DestinationMarker extends StatelessWidget {
                 color: bgColor,
                 boxShadow: [
                   BoxShadow(
-                    color: bgColor.withOpacity(0.3),
+                    color: bgColor.withValues(alpha: 0.3),
                     blurRadius: 4,
                     spreadRadius: 1,
                   ),

@@ -20,6 +20,7 @@ abstract class NavigationRemoteDataSource {
     Map<String, dynamic>? imageCompression,
     Map<String, dynamic>? userPickedCoordinates,
     double offsetInMeters = 0.0,
+    double? heading,
   });
 }
 
@@ -41,6 +42,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
     Map<String, dynamic>? imageCompression,
     Map<String, dynamic>? userPickedCoordinates,
     double offsetInMeters = 0.0,
+    double? heading,
   }) async {
     return executeCall<RouteModel>(() async {
       final logger = getIt<AppLogger>();
@@ -54,7 +56,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
         'floor': floor,
         'session_id': sessionId,
         'use_sample_image': useSampleImage,
-        'base_64_image': base64Image,
+        'image': base64Image,
         'relocalize': true,
         'saveframe': saveFrame,
         'shorten_vlm_response': true,
@@ -62,6 +64,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
         'unav_multifloor': multiFloorNavigation,
         'use_vlm': false,
         'offset_in_meters': offsetInMeters,
+        'heading': heading,
         'image_compression': imageCompression,
         'user_picked_coordinates': userPickedCoordinates != null
             ? {...userPickedCoordinates, 'enabled': true}
@@ -74,6 +77,8 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
       logger.info(
         '📤 Uploading Navigation Request: ${payloadSizeKb.toStringAsFixed(2)} KB',
       );
+      // DEBUG: Log the full base64 image to verify actual content
+      logger.info('🖼️ FULL Image Base64: $base64Image');
 
       final response = await post(ApiRoutes.getRoute, data: payload);
 

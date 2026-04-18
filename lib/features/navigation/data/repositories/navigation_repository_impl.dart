@@ -29,6 +29,7 @@ class NavigationRepositoryImpl implements NavigationRepository {
     Map<String, dynamic>? imageCompression,
     Map<String, dynamic>? userPickedCoordinates,
     double offsetInMeters = 0.0,
+    double? heading,
   }) async {
     try {
       final routeModel = await remoteDataSource.getRoute(
@@ -44,6 +45,7 @@ class NavigationRepositoryImpl implements NavigationRepository {
         imageCompression: imageCompression,
         userPickedCoordinates: userPickedCoordinates,
         offsetInMeters: offsetInMeters,
+        heading: heading,
       );
 
       return Right(routeModel);

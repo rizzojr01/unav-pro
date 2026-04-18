@@ -18,17 +18,19 @@ class ArGuidanceBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final backgroundColor = _colorForState(state);
+    final title = _titleForState(state);
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      color: Colors.transparent,
+      color: backgroundColor.withValues(alpha: 0.3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            '${message ?? ""} • Rem: ${remainingDistancePx.toStringAsFixed(0)} • Next: ${distanceToNextWaypointPx.toStringAsFixed(0)}',
+            '$title: ${message ?? ""} • Rem: ${remainingDistancePx.toStringAsFixed(0)} • Next: ${distanceToNextWaypointPx.toStringAsFixed(0)}',
             style: theme.textTheme.labelSmall!.copyWith(
               color: Colors.white,
               fontSize: 9,

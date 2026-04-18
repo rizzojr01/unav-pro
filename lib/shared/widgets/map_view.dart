@@ -34,6 +34,7 @@ class MapView extends StatefulWidget {
   final double? userHeading;
   final double? arRawHeading;
   final double? apiInitialHeading;
+  final double? capturedReferenceHeading;
 
   const MapView({
     super.key,
@@ -51,6 +52,7 @@ class MapView extends StatefulWidget {
     this.userHeading,
     this.arRawHeading,
     this.apiInitialHeading,
+    this.capturedReferenceHeading,
   });
 
   @override
@@ -688,16 +690,25 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       );
       final mapRotationDegrees = mapRotationRadians * (180.0 / math.pi);
 
-      // Use ONLY the initial API heading (apiInitialHeading) if available.
-      // Backend: 0=East (3 o'clock), 90=South (6 o'clock) [Clockwise].
-      // Marker System (UI): 0=North (12 o'clock), 90=East (3 o'clock) [Clockwise].
-      // To convert:
-      // 1. Math East (0) -> UI East (90)
-      // 2. Math South (90) -> UI South (180)
-      // Result: UI_Rotation = (mathHeading + 90).
-      final mathHeading = widget.apiInitialHeading ?? heading ?? 0.0;
-      final uiHeading = mathHeading + 90.0;
+      // Use the following logic for heading:
+      // 1. If we have the initial API heading (apiInitialHeading), that's our base orientation.
+      // 2. We adjust it by the difference between current sensor heading and the heading captured when the photo was taken.
+      // 3. This allows the marker to rotate in real-time as the user turns, even before the next API response.
 
+      double mathHeading = widget.apiInitialHeading ?? 0.0;
+
+      if (widget.apiInitialHeading != null &&
+          widget.capturedReferenceHeading != null &&
+          widget.arRawHeading != null) {
+        // Difference between current physical heading and captured heading
+        final headingDelta =
+            widget.arRawHeading! - widget.capturedReferenceHeading!;
+        mathHeading = (widget.apiInitialHeading! + headingDelta) % 360.0;
+      } else if (heading != null) {
+        mathHeading = heading;
+      }
+
+      final uiHeading = mathHeading + 90.0;
       final markerHeading = uiHeading + mapRotationDegrees;
 
       return Positioned(

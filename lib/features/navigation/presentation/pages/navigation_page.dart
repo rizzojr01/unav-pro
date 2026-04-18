@@ -361,6 +361,9 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                     userHeading: displayHeading,
                     arRawHeading: arRawHeading,
                     apiInitialHeading: apiInitialHeading,
+                    capturedReferenceHeading: widget
+                        .userPickedCoordinates?['heading']
+                        ?.toDouble(),
                     route: _routeForSelectedFloor,
                     floorPlanBase64: _floorPlanForSelected,
                     destinations: _destsForSelectedFloor,

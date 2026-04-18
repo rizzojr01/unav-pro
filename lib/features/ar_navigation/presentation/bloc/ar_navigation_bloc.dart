@@ -142,8 +142,6 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
 
     final waypoint =
         routePoints[update.nextWaypointIndex.clamp(0, routePoints.length - 1)];
-    final dx = waypoint.dx - pose.x;
-    final dy = waypoint.dy - pose.y;
 
     // Bearing in floorplan space (0=East, 90=South [Clockwise])
     final mathDx = waypoint.dx - pose.x;
@@ -261,16 +259,11 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
 
       // Since the user is facing 'heading', we need to rotate the world
       // so that 'heading' aligns with the phone's forward axis.
-      final rad = (_referencePose!.heading) * math.pi / 180.0;
 
       // We rotate the floorplan offset by -rad to bring it into
       // the camera's local coordinate system.
-      final cos = math.cos(-rad);
-      final sin = math.sin(-rad);
 
       // Rotate dx (East), dy (South) into local AR space
-      final localX = (dx * cos - dy * sin) * mpp;
-      final localZ = (dx * sin + dy * cos) * mpp;
 
       // Because AR uses -Z for forward, we need to check if the axes
       // match our expectations.
@@ -286,10 +279,6 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       //    MathAngle = -heading (because heading is clockwise)
       // 2. Rotate floorplan by -MathAngle to align East with X+
       // 3. Then rotate by -90 to align North with Z-
-
-      final mathRad = (-_referencePose!.heading) * math.pi / 180.0;
-      final c = math.cos(mathRad);
-      final s = math.sin(mathRad);
 
       // Rotate such that the 'heading' vector becomes (1, 0)
       // Then rotate by 90 deg to make it (0, 1) or (0, -1)

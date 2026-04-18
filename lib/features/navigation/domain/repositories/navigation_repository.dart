@@ -16,5 +16,6 @@ abstract class NavigationRepository {
     Map<String, dynamic>? imageCompression,
     Map<String, dynamic>? userPickedCoordinates,
     double offsetInMeters = 0.0,
+    double? heading,
   });
 }
