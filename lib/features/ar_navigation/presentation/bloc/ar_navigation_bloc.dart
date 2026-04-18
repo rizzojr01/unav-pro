@@ -145,17 +145,18 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     final dx = waypoint.dx - pose.x;
     final dy = waypoint.dy - pose.y;
 
-    // Bearing in floorplan space (0=East, 90=South)
-    // We need to convert this to compare with pose.heading (0=North, 90=East)
-    final bearingDeg = _normalizeDegrees(math.atan2(dy, dx) * 180.0 / math.pi);
+    // Bearing in floorplan space (0=East, 90=North in math/geometry sense)
+    // dx = waypoint.dx - pose.x; dy = pose.y - waypoint.dy (inverted Y for math plane)
+    final mathDx = waypoint.dx - pose.x;
+    final mathDy = pose.y - waypoint.dy;
 
-    // Convert floorplan bearing (0=East, 90=South) to Compass heading (0=North, 90=East)
-    // Floorplan: E=0, S=90, W=180, N=270
-    // Compass: N=0, E=90, S=180, W=270
-    // formula: compass = (90 - floorplan) % 360
-    final targetHeading = _normalizeDegrees(90.0 - bearingDeg);
+    // targetAngle is the math angle (0=East, 90=North) we want the user to face
+    final targetAngle = _normalizeDegrees(
+      math.atan2(mathDy, mathDx) * 180.0 / math.pi,
+    );
 
-    final headingDelta = _signedHeadingDeltaDeg(pose.heading, targetHeading);
+    // pose.heading is already in this coordinate system (0=East, 90=North)
+    final headingDelta = _signedHeadingDeltaDeg(pose.heading, targetAngle);
     final angle = headingDelta.abs().round();
 
     final mpp = (_metersPerPixel == 1.0) ? 0.05 : (_metersPerPixel ?? 0.05);
@@ -243,26 +244,32 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     // AR space (x,z) roughly corresponds to floorplan (dx, dy)
 
     List<double> pixelToAr(double px, double py) {
-      // Logic from ArPoseTransformer (inverse):
-      // dx = cx - rx; dy = cy - ry
-      // AR_x = (dx * cos - dy * sin) * metersPerPixel
-      // AR_z = (dx * sin + dy * cos) * metersPerPixel
-
       final dx = px - _referencePose!.x;
       final dy = py - _referencePose!.y;
 
-      // The heading in referencePose is in degrees, 0=North, 90=East
-      // We need to rotate the floorplan delta into AR space.
+      // referencePose.heading is the math angle (0=East, 90=North)
+      // where the phone was facing when localized.
       final rad = _referencePose!.heading * math.pi / 180.0;
-      // Inverse rotation to go from Floorplan -> AR
-      final cos = math.cos(-rad);
-      final sin = math.sin(-rad);
+      final cos = math.cos(rad);
+      final sin = math.sin(rad);
 
-      // Floorplan DX corresponds to AR X, Floorplan DY corresponds to AR Z
-      final arX = (dx * cos - dy * sin) * mpp;
-      final arZ = (dx * sin + dy * cos) * mpp;
+      // Floorplan math: dx is East, dy is South (image coords)
+      // To get math-plane Dy (North): -dy
+      final mdy = -dy;
 
-      return [arX, 0, arZ];
+      // Rotate floorplan math coordinates (dx, mdy) back to AR space
+      // ArPoseTransformer uses:
+      // rotatedX = arX * cos + arY * sin
+      // rotatedY = arY * cos - arX * sin
+      // where arY = -arZ
+      // Inverse rotation:
+      // arX = rotatedX * cos - rotatedY * sin
+      // arY = rotatedX * sin + rotatedY * cos
+
+      final arX = (dx * cos - mdy * sin) * mpp;
+      final arY = (dx * sin + mdy * cos) * mpp;
+
+      return [arX, 0, -arY]; // -arY because AR forward is -Z
     }
 
     final routePoints = _route!.steps

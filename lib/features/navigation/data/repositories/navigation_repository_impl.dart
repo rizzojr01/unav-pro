@@ -28,7 +28,6 @@ class NavigationRepositoryImpl implements NavigationRepository {
     bool multiFloorNavigation = true,
     Map<String, dynamic>? imageCompression,
     Map<String, dynamic>? userPickedCoordinates,
-    double? heading,
     double offsetInMeters = 0.0,
   }) async {
     try {
@@ -44,7 +43,6 @@ class NavigationRepositoryImpl implements NavigationRepository {
         multiFloorNavigation: multiFloorNavigation,
         imageCompression: imageCompression,
         userPickedCoordinates: userPickedCoordinates,
-        heading: heading,
         offsetInMeters: offsetInMeters,
       );
 

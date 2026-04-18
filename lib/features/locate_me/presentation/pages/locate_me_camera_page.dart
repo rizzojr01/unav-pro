@@ -62,7 +62,6 @@ class _LocateMeCameraPageState extends State<LocateMeCameraPage>
                 StartLocalizationEvent(
                   capturedImagePath: state.imagePath,
                   floor: state.floor,
-                  heading: state.heading,
                 ),
               );
             });
@@ -106,12 +105,11 @@ class _LocateMeCameraPageState extends State<LocateMeCameraPage>
                 ? CustomLoadingView(message: state.message)
                 : LocationInputView(
                     tabController: _tabController,
-                    onImageCaptured: (path, floor, heading) {
+                    onImageCaptured: (path, floor) {
                       context.read<LocateMeBloc>().add(
                         LocateMeCapturePhotoEvent(
                           capturedImagePath: path,
                           floor: floor,
-                          heading: heading,
                         ),
                       );
                     },

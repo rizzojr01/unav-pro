@@ -6,8 +6,13 @@ import 'location_entity.dart';
 class RouteEntity extends BaseEntity {
   final String entityId;
   final List<MultiFloorNavigationStepEntity> multiFloorSteps;
+  final double? metersPerPixel;
 
-  const RouteEntity({required this.entityId, required this.multiFloorSteps});
+  const RouteEntity({
+    required this.entityId,
+    required this.multiFloorSteps,
+    this.metersPerPixel,
+  });
 
   /// Flat list of all steps across all floors
   List<NavigationStepEntity> get steps =>
@@ -25,5 +30,5 @@ class RouteEntity extends BaseEntity {
   String? get id => entityId;
 
   @override
-  List<Object?> get props => [entityId, multiFloorSteps];
+  List<Object?> get props => [entityId, multiFloorSteps, metersPerPixel];
 }

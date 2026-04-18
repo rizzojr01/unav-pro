@@ -13,14 +13,12 @@ class InitializeNavigationEvent extends NavigationEvent {
   final String? imagePath;
   final Map<String, dynamic>? userPickedCoordinates;
   final String? pickedFloor;
-  final double? heading;
 
   const InitializeNavigationEvent(
     this.destination, {
     this.imagePath,
     this.userPickedCoordinates,
     this.pickedFloor,
-    this.heading,
   });
 
   @override
@@ -29,6 +27,5 @@ class InitializeNavigationEvent extends NavigationEvent {
     imagePath,
     userPickedCoordinates,
     pickedFloor,
-    heading,
   ];
 }

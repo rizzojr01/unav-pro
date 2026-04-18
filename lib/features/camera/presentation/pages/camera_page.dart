@@ -91,10 +91,6 @@ class _CameraPageState extends State<CameraPage>
             'imagePath': state.photo.filePath,
             'manualCoordinates': widget.manualCoordinates,
             'pickedFloor': state.floor ?? widget.pickedFloor,
-            // Capture-time compass heading — used by MapView to anchor the
-            // compass baseline so rotation stays correct even if the user
-            // moves the phone while the map is loading.
-            'heading': state.heading,
           },
         );
       });
@@ -171,13 +167,9 @@ class _CameraReadyView extends StatelessWidget {
             tabController: tabController,
             floorPlanConfirmText: 'Start Navigation',
             initialFloor: pickedFloor,
-            onImageCaptured: (path, floor, heading) {
+            onImageCaptured: (path, floor) {
               context.read<CameraBloc>().add(
-                CapturePhotoEvent(
-                  filePath: path,
-                  floor: floor,
-                  heading: heading,
-                ),
+                CapturePhotoEvent(filePath: path, floor: floor),
               );
             },
             onLocationSelected: (x, y, floor) {
@@ -185,12 +177,7 @@ class _CameraReadyView extends StatelessWidget {
                 '/navigation',
                 extra: {
                   'destination': destination,
-                  'manualCoordinates': {
-                    'x': x,
-                    'y': y,
-                    'ang': 0.0,
-                    'enabled': true,
-                  },
+                  'manualCoordinates': {'x': x, 'y': y, 'enabled': true},
                   'pickedFloor': floor,
                 },
               );

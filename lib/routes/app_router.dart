@@ -15,6 +15,7 @@ import '../features/destination/domain/entities/destination_entity.dart';
 import '../features/camera/presentation/bloc/camera_bloc.dart';
 import '../features/destination/presentation/bloc/destination_bloc.dart';
 import '../features/navigation/presentation/bloc/navigation_bloc.dart';
+import '../features/ar_navigation/presentation/bloc/ar_navigation_bloc.dart';
 import '../features/locate_me/presentation/pages/locate_me_camera_page.dart';
 import '../features/locate_me/presentation/pages/locate_me_floor_plan_page.dart';
 import '../features/locate_me/presentation/bloc/locate_me_bloc.dart';
@@ -126,14 +127,16 @@ class AppRouter {
               body: const Center(child: Text('Destination is required')),
             );
           }
-          return BlocProvider(
-            create: (context) => getIt<NavigationBloc>(),
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider(create: (context) => getIt<NavigationBloc>()),
+              BlocProvider(create: (context) => getIt<ArNavigationBloc>()),
+            ],
             child: NavigationPage(
               destination: destination,
               imagePath: imagePath,
               userPickedCoordinates: userPickedCoordinates,
               pickedFloor: pickedFloor,
-              heading: heading,
             ),
           );
         },

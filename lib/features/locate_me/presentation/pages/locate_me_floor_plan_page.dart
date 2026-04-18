@@ -42,11 +42,9 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
                   'manualCoordinates': {
                     'x': locateState.userPosition.x,
                     'y': locateState.userPosition.y,
-                    'ang': locateState.userPosition.angle,
                     'enabled': true,
                   },
                   'pickedFloor': locateState.floor,
-                  'heading': locateState.heading,
                 },
               );
             }
@@ -94,7 +92,6 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
                         }
                       },
                       autoCenterOnUser: true,
-                      captureHeading: state.heading,
                     ),
                     // Offset Settings Button
                     Positioned(
@@ -153,7 +150,9 @@ class _LocateMeFloorPlanPageState extends State<LocateMeFloorPlanPage> {
           Expanded(
             child: GestureDetector(
               onLongPress: () {
-                FirebaseCrashlytics.instance.log('Manual crash triggered by user');
+                FirebaseCrashlytics.instance.log(
+                  'Manual crash triggered by user',
+                );
                 FirebaseCrashlytics.instance.crash();
               },
               child: const Text(

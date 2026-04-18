@@ -68,16 +68,6 @@ class LocateMeRemoteDataSourceImpl extends BaseRemoteDataSource
 
       final response = await post(ApiRoutes.localizeUser, data: requestData);
 
-      final logger = getIt<AppLogger>();
-      // Log the orientation returned by the backend
-      final orientation =
-          response['ang'] ??
-          response['result']?['ang'] ??
-          response['result']?['result']?['ang'];
-      if (orientation != null) {
-        logger.info('Backend Orientation (Localization): $orientation°');
-      }
-
       return UserPositionModel.fromJson(response);
     } on LocalizationFailedException catch (e) {
       // Re-throw with the proper error message from the API

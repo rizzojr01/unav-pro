@@ -55,13 +55,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     LocateMeCapturePhotoEvent event,
     Emitter<LocateMeState> emit,
   ) {
-    emit(
-      LocateMePhotoCaptured(
-        event.capturedImagePath,
-        floor: event.floor,
-        heading: event.heading,
-      ),
-    );
+    emit(LocateMePhotoCaptured(event.capturedImagePath, floor: event.floor));
   }
 
   Future<void> _onStartLocalization(
@@ -106,7 +100,6 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
         base64Image,
         useSampleImage: effectiveUseSample,
         floor: event.floor,
-        heading: event.heading,
       );
     } catch (e) {
       emit(LocateMeError('Failed to process image: ${e.toString()}'));
@@ -147,7 +140,6 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
     String base64Image, {
     bool useSampleImage = false,
     String? floor,
-    double? heading,
   }) async {
     // Step 1: Get floor plan (with caching)
     emit(const LocateMeLoading(message: 'Loading floor plan...'));
@@ -235,7 +227,6 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
       shortenVlmResponse: true,
       speakVlmFirst: true,
       useVlm: false,
-      heading: heading,
       offsetInMeters: locationConfigService.offsetInMeters,
       imageCompression: ImageCompressionEntity(
         enableCompression: locationConfigService.enableCompression,
@@ -321,7 +312,6 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
             userPosition: userPosition.copyWith(floor: effectiveFloor),
             destinations: destinations!,
             floor: effectiveFloor,
-            heading: heading,
           ),
         );
       },
@@ -403,11 +393,7 @@ class LocateMeBloc extends Bloc<LocateMeEvent, LocateMeState> {
 
     // Step 2: Create user position from manual coordinates
     emit(const LocateMeLoading(message: 'Setting your position...'));
-    final userPosition = UserPositionEntity(
-      x: x,
-      y: y,
-      angle: 0.0, // Default angle for manual selection
-    );
+    final userPosition = UserPositionEntity(x: x, y: y);
 
     // Step 3: Get destinations (with caching)
     emit(const LocateMeLoading(message: 'Loading places of interest...'));

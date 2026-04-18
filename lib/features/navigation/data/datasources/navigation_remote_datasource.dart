@@ -19,7 +19,6 @@ abstract class NavigationRemoteDataSource {
     bool multiFloorNavigation = true,
     Map<String, dynamic>? imageCompression,
     Map<String, dynamic>? userPickedCoordinates,
-    double? heading,
     double offsetInMeters = 0.0,
   });
 }
@@ -41,7 +40,6 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
     bool multiFloorNavigation = true,
     Map<String, dynamic>? imageCompression,
     Map<String, dynamic>? userPickedCoordinates,
-    double? heading,
     double offsetInMeters = 0.0,
   }) async {
     return executeCall<RouteModel>(() async {
@@ -68,7 +66,6 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
         'user_picked_coordinates': userPickedCoordinates != null
             ? {...userPickedCoordinates, 'enabled': true}
             : null,
-        'heading': heading,
         if (fcmToken != null) 'fcm_token': fcmToken,
       };
 
@@ -80,23 +77,9 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
 
       final response = await post(ApiRoutes.getRoute, data: payload);
 
-      // Log only the orientation from the backend
-      dynamic orientation;
-      if (response['ang'] != null) {
-        orientation = response['ang'];
-      } else {
-        final steps = response['multifloor_navigation_steps'] as List<dynamic>?;
-        if (steps != null && steps.isNotEmpty) {
-          final firstFloorSteps = steps.first['steps'] as List<dynamic>?;
-          if (firstFloorSteps != null && firstFloorSteps.isNotEmpty) {
-            orientation = firstFloorSteps.first['from']?['ang'];
-          }
-        }
-      }
-
-      if (orientation != null) {
-        logger.info('Backend Orientation (Route): $orientation°');
-      }
+      logger.info(
+        'Navigation Response multifloor_navigation_steps: ${response['multifloor_navigation_steps']}',
+      );
 
       final multiFloorSteps =
           response['multifloor_navigation_steps'] as List<dynamic>?;

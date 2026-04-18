@@ -2,7 +2,11 @@ import '../../domain/entities/route_entity.dart';
 import 'multi_floor_navigation_step_model.dart';
 
 class RouteModel extends RouteEntity {
-  const RouteModel({required super.entityId, required super.multiFloorSteps});
+  const RouteModel({
+    required super.entityId,
+    required super.multiFloorSteps,
+    super.metersPerPixel,
+  });
 
   factory RouteModel.fromJson(Map<String, dynamic> json) {
     final multiSteps =
@@ -20,6 +24,7 @@ class RouteModel extends RouteEntity {
           json['id'] as String? ??
           DateTime.now().millisecondsSinceEpoch.toString(),
       multiFloorSteps: multiSteps,
+      metersPerPixel: json['meters_per_pixel']?.toDouble(),
     );
   }
 
@@ -29,6 +34,7 @@ class RouteModel extends RouteEntity {
       'multifloor_navigation_steps': multiFloorSteps
           .map((e) => MultiFloorNavigationStepModel.fromEntity(e).toJson())
           .toList(),
+      'meters_per_pixel': metersPerPixel,
     };
   }
 
@@ -36,6 +42,7 @@ class RouteModel extends RouteEntity {
     return RouteModel(
       entityId: entity.entityId,
       multiFloorSteps: entity.multiFloorSteps,
+      metersPerPixel: entity.metersPerPixel,
     );
   }
 }

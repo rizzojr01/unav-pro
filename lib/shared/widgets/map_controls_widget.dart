@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// A combined widget for map controls (Search, Reset)
+/// A combined widget for map controls (Search, Reset, Relocalize)
 class MapControls extends StatelessWidget {
   final VoidCallback onSearch;
   final VoidCallback onReset;
-  final VoidCallback? onSnapRotation;
   final VoidCallback? onRelocalize;
-  final bool isAtInitialRotation;
   final IconData? resetIcon;
   final IconData? relocalizeIcon;
   final double right;
@@ -16,9 +14,7 @@ class MapControls extends StatelessWidget {
     super.key,
     required this.onSearch,
     required this.onReset,
-    this.onSnapRotation,
     this.onRelocalize,
-    this.isAtInitialRotation = true,
     this.resetIcon,
     this.relocalizeIcon,
     this.right = 16,
@@ -37,12 +33,6 @@ class MapControls extends StatelessWidget {
             icon: Icons.search,
             onPressed: onSearch,
             tooltip: 'Search destinations',
-          ),
-          const SizedBox(height: 12),
-          MapControlButton(
-            icon: isAtInitialRotation ? Icons.explore_outlined : Icons.explore,
-            onPressed: onSnapRotation ?? () {},
-            tooltip: 'Snap to route direction',
           ),
           const SizedBox(height: 12),
           MapControlButton(

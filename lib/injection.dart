@@ -80,6 +80,14 @@ import 'package:smart_sense/features/profile/data/repositories/profile_repositor
 import 'package:smart_sense/features/profile/domain/repositories/profile_repository.dart';
 import 'package:smart_sense/features/profile/domain/usecases/get_me_usecase.dart';
 
+// AR Navigation
+import 'package:smart_sense/features/ar_navigation/domain/repositories/ar_pose_repository.dart';
+import 'package:smart_sense/features/ar_navigation/data/repositories/ar_pose_repository_impl.dart';
+import 'package:smart_sense/features/ar_navigation/domain/services/ar_pose_transformer.dart';
+import 'package:smart_sense/features/ar_navigation/domain/services/path_tracking_service.dart';
+import 'package:smart_sense/features/ar_navigation/domain/services/spatial_audio_service.dart';
+import 'package:smart_sense/features/ar_navigation/presentation/bloc/ar_navigation_bloc.dart';
+
 final getIt = GetIt.instance;
 
 Future<void> initializeDependencies() async {
@@ -290,5 +298,19 @@ Future<void> initializeDependencies() async {
   );
   getIt.registerFactory(
     () => LocalizationHistoryBloc(getUserLocalizationHistoryUseCase: getIt()),
+  );
+
+  // AR Navigation Feature
+  getIt.registerLazySingleton<ArPoseRepository>(() => ArPoseRepositoryImpl());
+  getIt.registerLazySingleton(() => ArPoseTransformer());
+  getIt.registerLazySingleton(() => PathTrackingService());
+  getIt.registerLazySingleton(() => SpatialAudioService());
+  getIt.registerFactory(
+    () => ArNavigationBloc(
+      poseRepository: getIt<ArPoseRepository>(),
+      poseTransformer: getIt<ArPoseTransformer>(),
+      pathTracker: getIt<PathTrackingService>(),
+      audioService: getIt<SpatialAudioService>(),
+    ),
   );
 }

@@ -7,8 +7,6 @@ class NavigationStepModel extends NavigationStepEntity {
     required super.to,
     required super.distanceMeters,
     required super.distanceFeet,
-    required super.orientationDegrees,
-    required super.compassDirection,
   });
 
   factory NavigationStepModel.fromJson(Map<String, dynamic> json) {
@@ -17,8 +15,6 @@ class NavigationStepModel extends NavigationStepEntity {
       to: LocationModel.fromJson(json['to'] as Map<String, dynamic>),
       distanceMeters: (json['distance_meters'] as num).toDouble(),
       distanceFeet: json['distance_feet'] as int,
-      orientationDegrees: (json['orientation_degrees'] as num).toDouble(),
-      compassDirection: json['compass_direction'] as String,
     );
   }
 
@@ -28,8 +24,6 @@ class NavigationStepModel extends NavigationStepEntity {
       'to': LocationModel.fromEntity(to).toJson(),
       'distance_meters': distanceMeters,
       'distance_feet': distanceFeet,
-      'orientation_degrees': orientationDegrees,
-      'compass_direction': compassDirection,
     };
   }
 
@@ -39,8 +33,6 @@ class NavigationStepModel extends NavigationStepEntity {
       to: entity.to,
       distanceMeters: entity.distanceMeters,
       distanceFeet: entity.distanceFeet,
-      orientationDegrees: entity.orientationDegrees,
-      compassDirection: entity.compassDirection,
     );
   }
 }

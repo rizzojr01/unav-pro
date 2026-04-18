@@ -66,6 +66,10 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
     }
+
+    dependencies {
+        implementation("com.google.ar:core:1.42.0")
+    }
 }
 
 flutter {

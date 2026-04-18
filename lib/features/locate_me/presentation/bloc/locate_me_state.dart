@@ -21,12 +21,11 @@ class LocateMeCameraReady extends LocateMeState {
 class LocateMePhotoCaptured extends LocateMeState {
   final String imagePath;
   final String? floor;
-  final double? heading;
 
-  const LocateMePhotoCaptured(this.imagePath, {this.floor, this.heading});
+  const LocateMePhotoCaptured(this.imagePath, {this.floor});
 
   @override
-  List<Object?> get props => [imagePath, floor, heading];
+  List<Object?> get props => [imagePath, floor];
 }
 
 /// State when processing localization
@@ -47,7 +46,6 @@ class LocateMeReady extends LocateMeState {
   final DestinationEntity? selectedDestination;
   final bool isManualLocalization;
   final String? floor;
-  final double? heading;
 
   const LocateMeReady({
     required this.floorPlan,
@@ -56,7 +54,6 @@ class LocateMeReady extends LocateMeState {
     this.selectedDestination,
     this.isManualLocalization = false,
     this.floor,
-    this.heading,
   });
 
   LocateMeReady copyWith({
@@ -67,7 +64,6 @@ class LocateMeReady extends LocateMeState {
     bool? isManualLocalization,
     bool clearSelectedDestination = false,
     String? floor,
-    double? heading,
   }) {
     return LocateMeReady(
       floorPlan: floorPlan ?? this.floorPlan,
@@ -78,7 +74,6 @@ class LocateMeReady extends LocateMeState {
           ? null
           : (selectedDestination ?? this.selectedDestination),
       floor: floor ?? this.floor,
-      heading: heading ?? this.heading,
     );
   }
 
@@ -90,7 +85,6 @@ class LocateMeReady extends LocateMeState {
     selectedDestination,
     isManualLocalization,
     floor,
-    heading,
   ];
 }
 

@@ -57,11 +57,12 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
 
     // ── Step 1: Read floor plan from cache (pre-loaded by MapDownloadService) ─
     // Maps are downloaded when the building is selected; no per-request fetch.
-    final floorPlanBase64 = await floorPlanCacheService.getCachedFloorPlanBase64(
-      place: place,
-      building: building,
-      floor: floor,
-    );
+    final floorPlanBase64 = await floorPlanCacheService
+        .getCachedFloorPlanBase64(
+          place: place,
+          building: building,
+          floor: floor,
+        );
 
     if (floorPlanBase64 == null || floorPlanBase64.isEmpty) {
       emit(
@@ -133,7 +134,6 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
           'quality': locationConfigService.imageQuality,
         },
         userPickedCoordinates: event.userPickedCoordinates,
-        heading: event.heading,
         offsetInMeters: locationConfigService.offsetInMeters,
       ),
     );
@@ -259,7 +259,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
             destinations: destinations,
             floorPlansByFloor: floorPlansByFloor,
             destinationsByFloor: destinationsByFloor,
-            heading: event.heading,
+            metersPerPixel: route.metersPerPixel,
           ),
         );
       },

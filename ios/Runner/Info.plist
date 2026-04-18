@@ -34,7 +34,7 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>This app needs access to your camera to capture photos for tagging locations.</string>
+	<string>This app needs access to your camera for Augmented Reality navigation and capturing photos.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>This app needs access to your location to tag photos and provide location-based features.</string>
 	<key>NSLocationAlwaysUsageDescription</key>

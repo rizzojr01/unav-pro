@@ -1,10 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-/// User position marker with navigation arrow that rotates based on orientation
 class UserPositionMarker extends StatelessWidget {
   final double size;
-  final double orientationDegrees;
+  final double? heading;
   final Color? primaryColor;
   final Color? iconColor;
   final bool showPulse;
@@ -12,8 +11,8 @@ class UserPositionMarker extends StatelessWidget {
 
   const UserPositionMarker({
     super.key,
-    this.size = 24.0,
-    this.orientationDegrees = 0.0,
+    this.size = 14.0,
+    this.heading,
     this.primaryColor,
     this.iconColor,
     this.showPulse = true,
@@ -26,6 +25,7 @@ class UserPositionMarker extends StatelessWidget {
     final fgColor = iconColor ?? Colors.white;
 
     // Convert degrees to radians for rotation
+    final orientationDegrees = heading ?? 0.0;
     final rotationRadians =
         orientationDegrees.isNaN || orientationDegrees.isInfinite
         ? 0.0
@@ -44,7 +44,7 @@ class UserPositionMarker extends StatelessWidget {
               height: size,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: bgColor.withOpacity(0.2),
+                color: bgColor.withValues(alpha: 0.2),
               ),
             ),
 
@@ -100,6 +100,31 @@ class UserPositionMarker extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CompassArrowPainter extends CustomPainter {
+  final Color color;
+  _CompassArrowPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    // Triangular arrow pointing "up" (0 degrees) - Initial simple look
+    path.moveTo(size.width / 2, 0);
+    path.lineTo(size.width, size.height);
+    path.lineTo(size.width / 2, size.height * 0.7);
+    path.lineTo(0, size.height);
+    path.close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 /// Destination marker with flag icon - refined pin style

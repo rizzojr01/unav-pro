@@ -13,6 +13,11 @@ import '../../../destination/domain/entities/destination_entity.dart';
 import '../../domain/entities/location_entity.dart';
 import '../../domain/entities/route_entity.dart';
 import '../../domain/entities/multi_floor_navigation_step_entity.dart';
+import '../../../ar_navigation/presentation/bloc/ar_navigation_bloc.dart';
+import '../../../ar_navigation/presentation/bloc/ar_navigation_event.dart';
+import '../../../ar_navigation/presentation/bloc/ar_navigation_state.dart';
+import '../../../ar_navigation/presentation/widgets/ar_preview_floating_window.dart';
+import '../../../ar_navigation/domain/entities/localized_pose.dart';
 import '../bloc/navigation_bloc.dart';
 import '../bloc/navigation_event.dart';
 import '../bloc/navigation_state.dart';
@@ -28,7 +33,6 @@ class NavigationPage extends StatefulWidget {
   final String? imagePath;
   final Map<String, dynamic>? userPickedCoordinates;
   final String? pickedFloor;
-  final double? heading;
 
   const NavigationPage({
     super.key,
@@ -36,7 +40,6 @@ class NavigationPage extends StatefulWidget {
     this.imagePath,
     this.userPickedCoordinates,
     this.pickedFloor,
-    this.heading,
   });
 
   @override
@@ -53,7 +56,6 @@ class _NavigationPageState extends State<NavigationPage> {
         imagePath: widget.imagePath,
         userPickedCoordinates: widget.userPickedCoordinates,
         pickedFloor: widget.pickedFloor,
-        heading: widget.heading,
       ),
     );
   }
@@ -72,9 +74,6 @@ class _NavigationPageState extends State<NavigationPage> {
         onNavigate: () {
           if (modalContext.mounted) Navigator.pop(modalContext);
 
-          // If we have a current location from the existing route session,
-          // reuse those coordinates to recalculate a new route without
-          // forcing the user to take another photo.
           if (currentLocation != null) {
             context.read<NavigationBloc>().add(
               InitializeNavigationEvent(
@@ -82,18 +81,41 @@ class _NavigationPageState extends State<NavigationPage> {
                 userPickedCoordinates: {
                   'x': currentLocation.x,
                   'y': currentLocation.y,
-                  'ang': currentLocation.ang,
                   'floor': currentLocation.floor,
                 },
                 pickedFloor: currentLocation.floor,
-                // Passing null for imagePath/heading as we use coordinates
               ),
             );
           } else {
-            // Fallback to original behaviour if coordinates aren't available
             if (mounted) context.pushReplacement('/camera', extra: destination);
           }
         },
+      ),
+    );
+  }
+
+  void _startArTracking(NavigationReady state) {
+    final floorScale = state.metersPerPixel ?? 1.0;
+
+    // Check if the current location has an 'ang' (heading) from the backend
+    final double initialHeading =
+        state.currentLocation.ang ??
+        widget.userPickedCoordinates?['heading']?.toDouble() ??
+        0.0;
+
+    context.read<ArNavigationBloc>().add(
+      StartArTrackingEvent(
+        referencePose: LocalizedPose(
+          floorKey: state.currentLocation.floor ?? 'unknown',
+          x: state.currentLocation.x,
+          y: state.currentLocation.y,
+          z: 0,
+          heading: initialHeading,
+          confidence: 1.0,
+          timestamp: DateTime.now(),
+        ),
+        metersPerPixel: floorScale,
+        route: state.route,
       ),
     );
   }
@@ -109,6 +131,7 @@ class _NavigationPageState extends State<NavigationPage> {
             return const CustomLoadingView(message: 'Initializing Map View...');
           }
           if (state is NavigationReady) {
+            _startArTracking(state);
             return _NavigationMapView(
               key: ValueKey(state.route.entityId),
               destination: widget.destination,
@@ -125,7 +148,6 @@ class _NavigationPageState extends State<NavigationPage> {
                 state.currentLocation,
               ),
               userPickedCoordinates: widget.userPickedCoordinates,
-              captureHeading: state.heading ?? widget.heading,
             );
           }
           if (state is NavigationError) {
@@ -137,7 +159,6 @@ class _NavigationPageState extends State<NavigationPage> {
                   imagePath: widget.imagePath,
                   userPickedCoordinates: widget.userPickedCoordinates,
                   pickedFloor: widget.pickedFloor,
-                  heading: widget.heading,
                 ),
               ),
               onExit: () => context.pop(),
@@ -166,11 +187,6 @@ class _NavigationMapView extends StatefulWidget {
   final Function(DestinationEntity)? onDestinationTap;
   final Map<String, dynamic>? userPickedCoordinates;
 
-  /// Compass heading (degrees, North-based) at the moment the photo was taken.
-  /// Pre-seeds the compass baseline so rotation is correct even if the user
-  /// moved their phone while the map was loading.
-  final double? captureHeading;
-
   const _NavigationMapView({
     super.key,
     required this.destination,
@@ -183,7 +199,6 @@ class _NavigationMapView extends StatefulWidget {
     this.destinationsByFloor = const {},
     this.onDestinationTap,
     this.userPickedCoordinates,
-    this.captureHeading,
   });
 
   @override
@@ -195,7 +210,6 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   late String _selectedFloor;
   late AnimationController _floorAnimController;
 
-  /// Local copy of floor plans — sourced from bloc state (pre-downloaded)
   late Map<String, String> _floorPlansByFloor;
 
   @override
@@ -228,20 +242,15 @@ class _NavigationMapViewState extends State<_NavigationMapView>
     super.dispose();
   }
 
-
-
-  // "6_floor" → "6" · "B1_floor" → "B1" · "basement" → "B"
   String _floorLabel(String floor) {
     final cleaned = floor.replaceAll('_floor', '').replaceAll('_', ' ').trim();
     return cleaned.isEmpty ? floor : cleaned;
   }
 
-  /// Ordered list of floors from the route (top → bottom = highest → lowest)
   List<MultiFloorNavigationStepEntity> get _orderedFloors {
     final floors = List<MultiFloorNavigationStepEntity>.from(
       widget.route.multiFloorSteps,
     );
-    // Sort descending by numeric part if present
     floors.sort((a, b) {
       final aNum = _extractFloorNumber(a.floor);
       final bNum = _extractFloorNumber(b.floor);
@@ -256,7 +265,6 @@ class _NavigationMapViewState extends State<_NavigationMapView>
     return match != null ? int.tryParse(match.group(1)!) : null;
   }
 
-  /// Synthetic route showing only the selected floor's steps
   RouteEntity get _routeForSelectedFloor {
     final floorSteps = widget.route.multiFloorSteps
         .where((f) => f.floor == _selectedFloor)
@@ -271,9 +279,6 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   String get _floorPlanForSelected =>
       _floorPlansByFloor[_selectedFloor] ?? widget.floorPlanBase64 ?? '';
 
-  /// Looks up the floor plan for [floorKey] from cache.
-  /// All maps are pre-downloaded by MapDownloadService when the building
-  /// is selected, so this is a synchronous cache hit in the normal case.
   Future<void> _ensureFloorPlanLoaded(String floorKey) async {
     if (_floorPlansByFloor[floorKey]?.isNotEmpty == true) return;
 
@@ -293,23 +298,13 @@ class _NavigationMapViewState extends State<_NavigationMapView>
 
   bool get _isMultiFloor => widget.route.multiFloorSteps.length > 1;
 
-  /// Normalise floor key for comparison: "17_floor" → "17"
   String _normaliseFloor(String f) =>
       f.replaceAll('_floor', '').replaceAll('_', '').trim().toLowerCase();
 
-  /// Returns destinations for the selected floor, filtered by the
-  /// destination's own floor field as a safety net against cache contamination.
   List<DestinationEntity> get _destsForSelectedFloor {
     final normSelected = _normaliseFloor(_selectedFloor);
-
-    // 1. Best case: the floor is indexed directly in destinationsByFloor.
     List<DestinationEntity>? raw = widget.destinationsByFloor[_selectedFloor];
 
-    // 2. Fallback: scan ALL known per-floor slices + the base destinations list.
-    //    This handles the case where a floor's data exists somewhere in the map
-    //    but wasn't indexed under the exact _selectedFloor key (key format mismatch),
-    //    and also covers non-starting floors that only returned data to the first
-    //    floor's fetch (multifloor API returns all floors in one call).
     if (raw == null || raw.isEmpty) {
       final allKnown = [
         ...widget.destinationsByFloor.values.expand((list) => list),
@@ -319,14 +314,12 @@ class _NavigationMapViewState extends State<_NavigationMapView>
           .where(
             (d) => d.floor != null && _normaliseFloor(d.floor!) == normSelected,
           )
-          .toSet() // deduplicate in case the same destination appears in both sources
+          .toSet()
           .toList();
     }
 
-    // 3. Final filter pass: strip any destinations whose floor field doesn't
-    //    match the selected floor (prevents cross-floor POI bleed-through).
     return raw.where((d) {
-      if (d.floor == null) return true; // no floor info → show on all floors
+      if (d.floor == null) return true;
       return _normaliseFloor(d.floor!) == normSelected;
     }).toList();
   }
@@ -334,87 +327,113 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      children: [
-        StepIndicator(
-          currentStep: 3,
-          title: 'Direct Guidance',
-          onBack: () =>
-              context.pushReplacement('/camera', extra: widget.destination),
-        ),
-        Expanded(
-          child: Stack(
-            children: [
-              // ── Map ──────────────────────────────────────────────────────
-              MapView(
-                // No ValueKey here — preserves rotation when switching floors
-                userLocation: widget.currentLocation,
-                route: _routeForSelectedFloor,
-                floorPlanBase64: _floorPlanForSelected,
-                destinations: _destsForSelectedFloor,
-                onDestinationTap: widget.onDestinationTap,
-                currentFloor: widget.currentLocation.floor,
-                isCheckpoint:
-                    (_selectedFloor.replaceAll('_floor', '').trim() !=
-                    widget.currentLocation.floor
-                        ?.replaceAll('_floor', '')
-                        .trim()),
-                captureHeading: widget.captureHeading,
-                onRetry: () => context.read<NavigationBloc>().add(
-                  InitializeNavigationEvent(
-                    widget.destination,
-                    imagePath: widget.imagePath,
-                    userPickedCoordinates: widget.userPickedCoordinates,
-                    pickedFloor: _selectedFloor,
-                  ),
-                ),
-                onRelocalize: () => context.pushReplacement(
-                  '/camera',
-                  extra: widget.destination,
-                ),
-                mapControlsRightOffset: 0,
-              ),
+    return BlocBuilder<ArNavigationBloc, ArNavigationState>(
+      builder: (context, arState) {
+        dynamic displayLocation = widget.currentLocation;
+        double? displayHeading;
 
-              // ── Floor Switcher Panel ──────────────────────────────────────
-              if (_isMultiFloor)
-                Positioned(
-                  right: 16,
-                  top: 0,
-                  bottom: 120, // Moved up to clear room for map controls
-                  child: Center(
-                    child: _FloorSwitcherPanel(
-                      floors: _orderedFloors,
-                      selectedFloor: _selectedFloor,
-                      floorLabel: _floorLabel,
-                      onFloorSelected: (floor) {
-                        if (floor == _selectedFloor) return;
-                        _ensureFloorPlanLoaded(floor);
-                        setState(() {
-                          _selectedFloor = floor;
-                          _floorAnimController.reset();
-                          _floorAnimController.forward();
-                        });
+        if (arState is ArNavigationTracking && arState.currentPose != null) {
+          displayLocation = arState.currentPose!.toLocationEntity();
+          displayHeading = arState.currentPose!.heading;
+        }
+
+        final arRawHeading = (arState is ArNavigationTracking)
+            ? arState.currentPose?.heading
+            : null;
+
+        final apiInitialHeading =
+            (widget.currentLocation as LocationEntity).ang ??
+            widget.userPickedCoordinates?['heading']?.toDouble();
+
+        return Column(
+          children: [
+            StepIndicator(
+              currentStep: 3,
+              title: 'Direct Guidance',
+              onBack: () =>
+                  context.pushReplacement('/camera', extra: widget.destination),
+            ),
+            Expanded(
+              child: Stack(
+                children: [
+                  MapView(
+                    userLocation: displayLocation,
+                    userHeading: displayHeading,
+                    arRawHeading: arRawHeading,
+                    apiInitialHeading: apiInitialHeading,
+                    route: _routeForSelectedFloor,
+                    floorPlanBase64: _floorPlanForSelected,
+                    destinations: _destsForSelectedFloor,
+                    onDestinationTap: widget.onDestinationTap,
+                    currentFloor: displayLocation.floor,
+                    isCheckpoint:
+                        (_selectedFloor.replaceAll('_floor', '').trim() !=
+                        displayLocation.floor?.replaceAll('_floor', '').trim()),
+                    onRetry: () => context.read<NavigationBloc>().add(
+                      InitializeNavigationEvent(
+                        widget.destination,
+                        imagePath: widget.imagePath,
+                        userPickedCoordinates: widget.userPickedCoordinates,
+                        pickedFloor: _selectedFloor,
+                      ),
+                    ),
+                    onRelocalize: () => context.pushReplacement(
+                      '/camera',
+                      extra: widget.destination,
+                    ),
+                    mapControlsRightOffset: 0,
+                  ),
+
+                  if (_isMultiFloor)
+                    Positioned(
+                      right: 16,
+                      top: 0,
+                      bottom: 120,
+                      child: Center(
+                        child: _FloorSwitcherPanel(
+                          floors: _orderedFloors,
+                          selectedFloor: _selectedFloor,
+                          floorLabel: _floorLabel,
+                          onFloorSelected: (floor) {
+                            if (floor == _selectedFloor) return;
+                            _ensureFloorPlanLoaded(floor);
+                            setState(() {
+                              _selectedFloor = floor;
+                              _floorAnimController.reset();
+                              _floorAnimController.forward();
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+
+                  Positioned(
+                    left: 16,
+                    bottom: 80,
+                    child: FloatingActionButton.small(
+                      onPressed: () => showOffsetSettingsModal(context),
+                      backgroundColor: theme.colorScheme.surface,
+                      foregroundColor: theme.colorScheme.primary,
+                      heroTag: 'offset_settings_fab_navigation',
+                      child: const Icon(Icons.height),
+                    ),
+                  ),
+
+                  Positioned(
+                    right: 16,
+                    top: 10,
+                    child: ArPreviewFloatingWindow(
+                      onTap: () {
+                        // Handle toggle or full screen
                       },
                     ),
                   ),
-                ),
-
-              // ── Offset Settings Button ────────────────────────────────────
-              Positioned(
-                left: 16,
-                bottom: 80, // Positioned above the info button in MapView
-                child: FloatingActionButton.small(
-                  onPressed: () => showOffsetSettingsModal(context),
-                  backgroundColor: theme.colorScheme.surface,
-                  foregroundColor: theme.colorScheme.primary,
-                  heroTag: 'offset_settings_fab_navigation',
-                  child: const Icon(Icons.height),
-                ),
+                ],
               ),
-            ],
-          ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -464,7 +483,6 @@ class _FloorSwitcherPanel extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header label
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Text(
@@ -478,7 +496,6 @@ class _FloorSwitcherPanel extends StatelessWidget {
             ),
           ),
 
-          // Floor buttons
           ...floors.asMap().entries.map((entry) {
             final idx = entry.key;
             final floorEntity = entry.value;

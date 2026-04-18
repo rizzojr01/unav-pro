@@ -12,11 +12,7 @@ class LocalizationFailedException implements Exception {
 }
 
 class UserPositionModel extends UserPositionEntity {
-  const UserPositionModel({
-    required super.x,
-    required super.y,
-    required super.angle,
-  });
+  const UserPositionModel({required super.x, required super.y});
 
   factory UserPositionModel.fromJson(Map<String, dynamic> json) {
     // Check top-level status first
@@ -40,7 +36,6 @@ class UserPositionModel extends UserPositionEntity {
         return UserPositionModel(
           x: (innerResult['x'] as num).toDouble(),
           y: (innerResult['y'] as num).toDouble(),
-          angle: (innerResult['ang'] as num).toDouble(),
         );
       }
 
@@ -58,7 +53,6 @@ class UserPositionModel extends UserPositionEntity {
         return UserPositionModel(
           x: (outerResult['x'] as num).toDouble(),
           y: (outerResult['y'] as num).toDouble(),
-          angle: (outerResult['ang'] as num).toDouble(),
         );
       }
     }
@@ -67,15 +61,14 @@ class UserPositionModel extends UserPositionEntity {
     return UserPositionModel(
       x: (json['x'] as num).toDouble(),
       y: (json['y'] as num).toDouble(),
-      angle: (json['ang'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {'x': x, 'y': y, 'ang': angle};
+    return {'x': x, 'y': y};
   }
 
   factory UserPositionModel.fromEntity(UserPositionEntity entity) {
-    return UserPositionModel(x: entity.x, y: entity.y, angle: entity.angle);
+    return UserPositionModel(x: entity.x, y: entity.y);
   }
 }
