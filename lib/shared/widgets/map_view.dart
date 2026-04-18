@@ -688,11 +688,14 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       );
       final mapRotationDegrees = mapRotationRadians * (180.0 / math.pi);
 
-      // Use ONLY the initial API heading (apiInitialHeading) if available,
-      // otherwise fallback to heading, and always adjust for map rotation
-      // so the arrow stays fixed relative to the floorplan.
-      final staticHeading = widget.apiInitialHeading ?? heading ?? 0.0;
-      final markerHeading = staticHeading + mapRotationDegrees;
+      // Use ONLY the initial API heading (apiInitialHeading) if available.
+      // Math System (Backend): 0=East (3 o'clock), 90=North (12 o'clock).
+      // Marker System (UI): 0=North (12 o'clock), 90=East (3 o'clock).
+      // To convert: UI_Rotation = (90 - Math_Angle).
+      final mathHeading = widget.apiInitialHeading ?? heading ?? 0.0;
+      final uiHeading = 90.0 - mathHeading;
+
+      final markerHeading = uiHeading + mapRotationDegrees;
 
       return Positioned(
         left: pos.dx - size / 2,
