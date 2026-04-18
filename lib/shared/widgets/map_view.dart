@@ -680,17 +680,18 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
 
     if (isUser) {
       final size = ((isCheckpoint ? 12.0 : 16.0) * zoom).clamp(4.0, 48.0);
+
+      // Get the rotation of the map from the InteractiveViewer matrix
       final mapRotationRadians = math.atan2(
         matrix.storage[1],
         matrix.storage[0],
       );
       final mapRotationDegrees = mapRotationRadians * (180.0 / math.pi);
-      final rawUserHeading = heading ?? 0.0;
-      // In math plane: 0=East, 90=North.
-      // Arrow at 0 points Right.
-      // Map rotation of R means East points at R degrees.
-      // So marker needs to point at rawUserHeading + mapRotationDegrees.
-      final markerHeading = rawUserHeading + mapRotationDegrees;
+
+      // Use the heading provided (from API ang)
+      // The arrow marker's internal 0 deg points Right (East).
+      // We add the map's current rotation so the arrow stays relative to the floorplan.
+      final markerHeading = (heading ?? 0.0) + mapRotationDegrees;
 
       return Positioned(
         left: pos.dx - size / 2,
