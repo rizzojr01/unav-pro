@@ -246,19 +246,66 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       final dx = px - _referencePose!.x;
       final dy = py - _referencePose!.y;
 
-      // sumHeading calculated earlier in Transformer: refHeading - captureHeading
-      // Here we assume captureHeading is 0 for simplicity of relative path plotting
-      final rad = _referencePose!.heading * math.pi / 180.0;
+      // referencePose.heading is 0=East, 90=South, 180=West, 270=North (Clockwise)
+      // AR -Z is forward. Phone is currently facing referencePose.heading.
 
-      // Inverse rotation to go from Floorplan (Clockwise) to AR (Fixed)
-      // Since Floorplan is Clockwise, rotating back is -rad.
+      // To align AR -Z (forward) with the user's initial heading:
+      // We need to rotate the floorplan points by an offset that maps
+      // the user's heading to -Z.
+
+      // In a standard unit circle (0=East, 90=South):
+      // East (0) -> AR X+
+      // South (90) -> AR Z+
+      // West (180) -> AR X-
+      // North (270) -> AR Z- (Forward)
+
+      // Since the user is facing 'heading', we need to rotate the world
+      // so that 'heading' aligns with the phone's forward axis.
+      final rad = (_referencePose!.heading) * math.pi / 180.0;
+
+      // We rotate the floorplan offset by -rad to bring it into
+      // the camera's local coordinate system.
       final cos = math.cos(-rad);
       final sin = math.sin(-rad);
 
-      final arX = (dx * cos - dy * sin) * mpp;
-      final arZ = (dx * sin + dy * cos) * mpp;
+      // Rotate dx (East), dy (South) into local AR space
+      final localX = (dx * cos - dy * sin) * mpp;
+      final localZ = (dx * sin + dy * cos) * mpp;
 
-      return [arX, 0, arZ];
+      // Because AR uses -Z for forward, we need to check if the axes
+      // match our expectations.
+      // With 270=North, sin(270)=-1, cos(270)=0.
+      // localX = (dx*0 - dy*-1) = dy
+      // localZ = (dx*-1 + dy*0) = -dx
+
+      // Actually, if we are facing North (270), and the path is North (dy < 0):
+      // We want that point to be at -Z.
+
+      // Let's use a simpler approach:
+      // 1. Convert Heading to a standard math angle (0=East, 90=North)
+      //    MathAngle = -heading (because heading is clockwise)
+      // 2. Rotate floorplan by -MathAngle to align East with X+
+      // 3. Then rotate by -90 to align North with Z-
+
+      final mathRad = (-_referencePose!.heading) * math.pi / 180.0;
+      final c = math.cos(mathRad);
+      final s = math.sin(mathRad);
+
+      // Rotate such that the 'heading' vector becomes (1, 0)
+      // Then rotate by 90 deg to make it (0, 1) or (0, -1)
+
+      // Corrected rotation for AR alignment:
+      // We want to rotate the floorplan so that the vector 'heading'
+      // points towards (0, 0, -1) in AR.
+
+      final angleToForward = (90.0 + _referencePose!.heading) * math.pi / 180.0;
+      final cosA = math.cos(angleToForward);
+      final sinA = math.sin(angleToForward);
+
+      final finalX = (dx * cosA - dy * sinA) * mpp;
+      final finalZ = (dx * sinA + dy * cosA) * mpp;
+
+      return [finalX, 0, finalZ];
     }
 
     final routePoints = _route!.steps
