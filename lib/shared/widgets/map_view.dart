@@ -259,7 +259,11 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
 
     // Remove initial route rotation; default to North-up (0 deg) if no user heading
     final heading = widget.userHeading ?? 0.0;
-    final rotation = -heading * (math.pi / 180.0);
+    // userHeading is math-angle (0=East, 90=North).
+    // To rotate the floorplan so the user's direction faces "UP" on the screen:
+    // 1. Rotate back to 0 (East): -heading
+    // 2. Rotate to 90 (North/Up): +90
+    final rotation = (90.0 - heading) * (math.pi / 180.0);
 
     final targetMatrix = Matrix4.identity()
       ..translate(containerSize.width / 2, containerSize.height * 0.75)
@@ -311,7 +315,11 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         userPos.dy * scaleY + (containerSize.height - displayHeight) / 2;
 
     final heading = widget.userHeading ?? 0.0;
-    final rotation = -heading * (math.pi / 180.0);
+    // userHeading is math-angle (0=East, 90=North).
+    // To rotate the floorplan so the user's direction faces "UP" on the screen:
+    // 1. Rotate back to 0 (East): -heading
+    // 2. Rotate to 90 (North/Up): +90
+    final rotation = (90.0 - heading) * (math.pi / 180.0);
 
     final currentMatrix = _transformationController.value;
     final currentScale = currentMatrix.getMaxScaleOnAxis();
@@ -687,8 +695,12 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         matrix.storage[0],
       );
       final mapRotationDegrees = mapRotationRadians * (180.0 / math.pi);
-      final rawUserHeading = heading != null ? (90.0 - heading) : 0.0;
-      final markerHeading = rawUserHeading - mapRotationDegrees;
+      final rawUserHeading = heading ?? 0.0;
+      // In math plane: 0=East, 90=North.
+      // Arrow at 0 points Right.
+      // Map rotation of R means East points at R degrees.
+      // So marker needs to point at rawUserHeading + mapRotationDegrees.
+      final markerHeading = rawUserHeading + mapRotationDegrees;
 
       return Positioned(
         left: pos.dx - size / 2,
