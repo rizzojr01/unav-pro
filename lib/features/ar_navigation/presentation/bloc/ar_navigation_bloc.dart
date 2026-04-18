@@ -246,28 +246,18 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       final dx = px - _referencePose!.x;
       final dy = py - _referencePose!.y;
 
-      // referencePose.heading is the angle (0=East, 90=South [Clockwise])
-      // Convert to radians
+      // sumHeading calculated earlier in Transformer: refHeading - captureHeading
+      // Here we assume captureHeading is 0 for simplicity of relative path plotting
       final rad = _referencePose!.heading * math.pi / 180.0;
 
-      // In AR, usually -Z is forward.
-      // referencePose.heading (rad) is how much we need to rotate
-      // the phone to face East on the floorplan.
-
-      // To bring floorplan points into AR space relative to the phone's
-      // capture heading:
-      // We rotate the floorplan offset (dx, dy) by -rad.
+      // Inverse rotation to go from Floorplan (Clockwise) to AR (Fixed)
+      // Since Floorplan is Clockwise, rotating back is -rad.
       final cos = math.cos(-rad);
       final sin = math.sin(-rad);
 
-      // dx = East, dy = South
-      // Standard 2D rotation:
       final arX = (dx * cos - dy * sin) * mpp;
       final arZ = (dx * sin + dy * cos) * mpp;
 
-      // We want North (dy negative) to be forward (-Z).
-      // Since our sin/cos is based on 0=East, North is at -90deg.
-      // The math above already handles the plane rotation.
       return [arX, 0, arZ];
     }
 

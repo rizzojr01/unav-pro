@@ -20,39 +20,31 @@ class ArPoseTransformer {
     final captureHeading = _normalizeDegrees(originArPose.heading);
     final currentHeading = _normalizeDegrees(currentArPose.heading);
 
+    // referenceFloorplanPose.heading: 0=East, 90=South [Clockwise]
+    // sumHeading is the global orientation of the AR world relative to the floorplan
     final sumHeadingDeg = _normalizeDegrees(
-      referenceFloorplanPose.heading + captureHeading,
+      referenceFloorplanPose.heading - captureHeading,
     );
     final sumHeadingRad = sumHeadingDeg * math.pi / 180.0;
 
     // Rotate the AR delta into floorplan space
+    // Standard rotation matrix for clockwise system
     final rotatedX =
-        (arDeltaX * math.cos(sumHeadingRad)) +
+        (arDeltaX * math.cos(sumHeadingRad)) -
         (arDeltaY * math.sin(sumHeadingRad));
     final rotatedY =
-        (arDeltaY * math.cos(sumHeadingRad)) -
-        (arDeltaX * math.sin(sumHeadingRad));
+        (arDeltaX * math.sin(sumHeadingRad)) +
+        (arDeltaY * math.cos(sumHeadingRad));
 
     final deltaFloorplanMath = math.Point<double>(
       rotatedX / metersPerPixel,
       rotatedY / metersPerPixel,
     );
 
-    // Reference floorplan point in math plane (y is inverted)
-    final referenceFloorplanMath = math.Point<double>(
-      referenceFloorplanPose.x,
-      -referenceFloorplanPose.y,
-    );
-
-    final currentFloorplanMath = math.Point<double>(
-      referenceFloorplanMath.x + deltaFloorplanMath.x,
-      referenceFloorplanMath.y + deltaFloorplanMath.y,
-    );
-
-    // Convert back to image coordinates
+    // In a system where 90=South (image Y+), image coords match math plane
     final currentFloorplanImage = math.Point<double>(
-      currentFloorplanMath.x,
-      -currentFloorplanMath.y,
+      referenceFloorplanPose.x + deltaFloorplanMath.x,
+      referenceFloorplanPose.y + deltaFloorplanMath.y,
     );
 
     return LocalizedPose(
@@ -60,7 +52,7 @@ class ArPoseTransformer {
       x: currentFloorplanImage.x,
       y: currentFloorplanImage.y,
       z: currentArPose.z,
-      heading: _normalizeDegrees(sumHeadingDeg - currentHeading),
+      heading: _normalizeDegrees(sumHeadingDeg + currentHeading),
       confidence: currentArPose.confidence,
       timestamp: currentArPose.timestamp,
     );
