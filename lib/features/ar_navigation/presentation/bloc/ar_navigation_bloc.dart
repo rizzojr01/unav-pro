@@ -145,17 +145,16 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     final dx = waypoint.dx - pose.x;
     final dy = waypoint.dy - pose.y;
 
-    // Bearing in floorplan space (0=East, 90=North in math/geometry sense)
-    // dx = waypoint.dx - pose.x; dy = pose.y - waypoint.dy (inverted Y for math plane)
+    // Bearing in floorplan space (0=East, 90=South [Clockwise])
     final mathDx = waypoint.dx - pose.x;
-    final mathDy = pose.y - waypoint.dy;
+    final mathDy = waypoint.dy - pose.y;
 
-    // targetAngle is the math angle (0=East, 90=North) we want the user to face
+    // targetAngle is the angle (0=East, 90=South) we want the user to face
     final targetAngle = _normalizeDegrees(
       math.atan2(mathDy, mathDx) * 180.0 / math.pi,
     );
 
-    // pose.heading is already in this coordinate system (0=East, 90=North)
+    // pose.heading is in the same system (0=East, 90=South [Clockwise])
     final headingDelta = _signedHeadingDeltaDeg(pose.heading, targetAngle);
     final angle = headingDelta.abs().round();
 
@@ -247,29 +246,29 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       final dx = px - _referencePose!.x;
       final dy = py - _referencePose!.y;
 
-      // referencePose.heading is the math angle (0=East, 90=North)
-      // where the phone was facing when localized.
+      // referencePose.heading is the angle (0=East, 90=South [Clockwise])
+      // Convert to radians
       final rad = _referencePose!.heading * math.pi / 180.0;
-      final cos = math.cos(rad);
-      final sin = math.sin(rad);
 
-      // Floorplan math: dx is East, dy is South (image coords)
-      // To get math-plane Dy (North): -dy
-      final mdy = -dy;
+      // In AR, usually -Z is forward.
+      // referencePose.heading (rad) is how much we need to rotate
+      // the phone to face East on the floorplan.
 
-      // Rotate floorplan math coordinates (dx, mdy) back to AR space
-      // ArPoseTransformer uses:
-      // rotatedX = arX * cos + arY * sin
-      // rotatedY = arY * cos - arX * sin
-      // where arY = -arZ
-      // Inverse rotation:
-      // arX = rotatedX * cos - rotatedY * sin
-      // arY = rotatedX * sin + rotatedY * cos
+      // To bring floorplan points into AR space relative to the phone's
+      // capture heading:
+      // We rotate the floorplan offset (dx, dy) by -rad.
+      final cos = math.cos(-rad);
+      final sin = math.sin(-rad);
 
-      final arX = (dx * cos - mdy * sin) * mpp;
-      final arY = (dx * sin + mdy * cos) * mpp;
+      // dx = East, dy = South
+      // Standard 2D rotation:
+      final arX = (dx * cos - dy * sin) * mpp;
+      final arZ = (dx * sin + dy * cos) * mpp;
 
-      return [arX, 0, -arY]; // -arY because AR forward is -Z
+      // We want North (dy negative) to be forward (-Z).
+      // Since our sin/cos is based on 0=East, North is at -90deg.
+      // The math above already handles the plane rotation.
+      return [arX, 0, arZ];
     }
 
     final routePoints = _route!.steps
