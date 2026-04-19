@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import '../../../../core/base/base_datasource.dart';
 import '../../../../core/constants/api_routes.dart';
 import '../../../../core/utils/logger.dart';
@@ -67,8 +69,15 @@ class LocateMeRemoteDataSourceImpl extends BaseRemoteDataSource
       }
 
       final logger = getIt<AppLogger>();
-      final img = request.base64Image;
-      logger.info('📤 Locating User - FULL Image Base64: $img');
+
+      // Log the ACTUAL JSON payload but exclude the massive image string for readability
+      final logPayload = Map<String, dynamic>.from(requestData);
+      if (logPayload.containsKey('image')) {
+        logPayload['image'] = '[BASE64_IMAGE_DATA_OMITTED_FOR_READABILITY]';
+      }
+      logger.info(
+        '📡 ACTUAL LocateMe Request Payload (Image Omitted): $logPayload',
+      );
 
       final response = await post(ApiRoutes.localizeUser, data: requestData);
 

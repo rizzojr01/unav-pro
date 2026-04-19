@@ -21,7 +21,33 @@ class LocalizedPose extends Equatable {
   });
 
   LocationEntity toLocationEntity() {
-    return LocationEntity(x: x, y: y, floor: floorKey, timestamp: timestamp);
+    return LocationEntity(
+      x: x,
+      y: y,
+      floor: floorKey,
+      timestamp: timestamp,
+      ang: heading,
+    );
+  }
+
+  LocalizedPose copyWith({
+    String? floorKey,
+    double? x,
+    double? y,
+    double? z,
+    double? heading,
+    double? confidence,
+    DateTime? timestamp,
+  }) {
+    return LocalizedPose(
+      floorKey: floorKey ?? this.floorKey,
+      x: x ?? this.x,
+      y: y ?? this.y,
+      z: z ?? this.z,
+      heading: heading ?? this.heading,
+      confidence: confidence ?? this.confidence,
+      timestamp: timestamp ?? this.timestamp,
+    );
   }
 
   @override

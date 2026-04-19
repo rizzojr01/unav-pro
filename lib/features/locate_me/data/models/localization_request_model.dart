@@ -34,6 +34,12 @@ class LocalizationRequestModel extends LocalizationRequestEntity {
       'speakVlmFirst': speakVlmFirst,
       'use_vlm': useVlm,
       'offset_in_meters': offsetInMeters,
+      'user_picked_coordinates': {
+        'x': 0,
+        'y': 0,
+        'heading': 0,
+        'enabled': false,
+      },
       if (heading != null) 'heading': heading,
       if (imageCompression != null)
         'image_compression': {

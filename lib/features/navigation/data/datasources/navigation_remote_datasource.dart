@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import '../../../../core/base/base_datasource.dart';
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/utils/logger.dart';
@@ -56,7 +58,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
         'floor': floor,
         'session_id': sessionId,
         'use_sample_image': useSampleImage,
-        'image': base64Image,
+        'base_64_image': base64Image,
         'relocalize': true,
         'saveframe': saveFrame,
         'shorten_vlm_response': true,
@@ -66,9 +68,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
         'offset_in_meters': offsetInMeters,
         'heading': heading,
         'image_compression': imageCompression,
-        'user_picked_coordinates': userPickedCoordinates != null
-            ? {...userPickedCoordinates, 'enabled': true}
-            : null,
+        'user_picked_coordinates': userPickedCoordinates,
         if (fcmToken != null) 'fcm_token': fcmToken,
       };
 
@@ -77,8 +77,16 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
       logger.info(
         '📤 Uploading Navigation Request: ${payloadSizeKb.toStringAsFixed(2)} KB',
       );
-      // DEBUG: Log the full base64 image to verify actual content
-      logger.info('🖼️ FULL Image Base64: $base64Image');
+
+      // Log the ACTUAL JSON payload but exclude the massive image string for readability
+      final logPayload = Map<String, dynamic>.from(payload);
+      if (logPayload.containsKey('base_64_image')) {
+        logPayload['base_64_image'] =
+            '[BASE64_IMAGE_DATA_OMITTED_FOR_READABILITY]';
+      }
+      logger.info(
+        '📡 ACTUAL Navigation Request Payload (Image Omitted): $logPayload',
+      );
 
       final response = await post(ApiRoutes.getRoute, data: payload);
 

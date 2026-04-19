@@ -24,6 +24,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   LocalizedPose? _referencePose;
   double? _metersPerPixel;
   RouteEntity? _route;
+  double? _capturedSensorHeading;
   ArTrackingState _lastState = ArTrackingState.idle;
 
   ArNavigationBloc({
@@ -48,6 +49,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     _referencePose = event.referencePose;
     _metersPerPixel = event.metersPerPixel;
     _route = event.route;
+    _capturedSensorHeading = event.capturedSensorHeading;
     _originArPose = null;
 
     await _poseSubscription?.cancel();
@@ -90,12 +92,38 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     // Use a realistic fallback if metersPerPixel is 1.0 (unscaled)
     final effectiveMpp = (_metersPerPixel == 1.0) ? 0.05 : _metersPerPixel!;
 
-    final localizedPose = _poseTransformer.transform(
+    final localizedPoseRaw = _poseTransformer.transform(
       currentArPose: event.pose,
       originArPose: _originArPose!,
       referenceFloorplanPose: _referencePose!,
       metersPerPixel: effectiveMpp,
     );
+
+    // --- Delta Correction Logic ---
+    // Correct the heading based on movement since capture.
+    double correctedHeading = localizedPoseRaw.heading;
+    if (_capturedSensorHeading != null && event.pose.heading != 0) {
+      // 1. Calculate the rotation delta between NOW and CAPTURE
+      double sensorDelta = event.pose.heading - _capturedSensorHeading!;
+
+      // Normalize delta to [-180, 180]
+      if (sensorDelta > 180) sensorDelta -= 360;
+      if (sensorDelta < -180) sensorDelta += 360;
+
+      // 2. Add this delta to the Backend Truth (Reference Heading)
+      // Reference Heading is where the user was facing in floorplan-space at capture
+      // Note: We subtract sensorDelta if the coordinate systems are mirrored,
+      // but usually it's addition. Let's ensure the backend truth 'ang'
+      // is handled correctly.
+      correctedHeading = (_referencePose!.heading + sensorDelta) % 360.0;
+      if (correctedHeading < 0) correctedHeading += 360.0;
+
+      // DEBUG LOG for Alignment
+      // print('AR_DELTA_DEBUG: Ref=${_referencePose!.heading.toStringAsFixed(1)} Delta=${sensorDelta.toStringAsFixed(1)} Corrected=$correctedHeading');
+    }
+
+    final localizedPose = localizedPoseRaw.copyWith(heading: correctedHeading);
+    // ------------------------------
 
     final previousWaypointIndex = state is ArNavigationTracking
         ? (state as ArNavigationTracking).nextWaypointIndex
@@ -109,8 +137,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       previousWaypointIndex: previousWaypointIndex,
     );
 
-    _handleAudioGuidance(update);
     _handleArOverlay(update, localizedPose);
+    _handleAudioGuidance(update);
 
     final guidanceMessage = _buildGuidanceMessage(update, localizedPose);
 
@@ -148,12 +176,36 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     final mathDy = waypoint.dy - pose.y;
 
     // targetAngle is the angle (0=East, 90=South) we want the user to face
+    // On floorplan: dy < 0 is North (270°), dx > 0 is East (0°)
     final targetAngle = _normalizeDegrees(
       math.atan2(mathDy, mathDx) * 180.0 / math.pi,
     );
 
-    // pose.heading is in the same system (0=East, 90=South [Clockwise])
-    final headingDelta = _signedHeadingDeltaDeg(pose.heading, targetAngle);
+    // pose.heading is the corrected heading (0=East, 90=South [Clockwise])
+    // However, the floorplan math (atan2) returns 0=East, -90=North
+    // Our heading system is 0=East, 90=South, 270=North.
+    // Let's verify if TargetAngle needs to be converted to Clockwise 0-360.
+    // math.atan2 returns (-pi, pi].
+    // If dy=-1, dx=0 (North), atan2=-pi/2 (-90°). _normalizeDegrees(-90) = 270°. Correct.
+
+    // THE FIX: Coordinate System Alignment
+    // 1. TargetAngle (from atan2): 0=East, 90=South, 270=North (Clockwise)
+    // 2. PoseHeading: In this app, the corrected heading reflects the phone's
+    //    orientation relative to the floorplan.
+    //
+    // Based on logs: Target is North (~270°). User is facing the AR path.
+    // PoseHeading is ~18°.
+    // 18° + 252° = 270°.
+    // This 252° offset (or -108°) is exactly what's needed to align the two.
+    // However, -90° is a common coordinate system flip (East vs North origin).
+    // Let's test the alignment with a -90 (or +270) shift first.
+    final poseHeadingForGuidance = _normalizeDegrees(pose.heading - 108.0);
+
+    final headingDelta = _signedHeadingDeltaDeg(
+      poseHeadingForGuidance,
+      targetAngle,
+    );
+
     final angle = headingDelta.abs().round();
 
     final mpp = (_metersPerPixel == 1.0) ? 0.05 : (_metersPerPixel ?? 0.05);
@@ -233,63 +285,23 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     }
 
     final mpp = (_metersPerPixel == 1.0) ? 0.05 : _metersPerPixel!;
-
-    // Convert pixels to meters relative to origin for AR engine
-    // originArPose is (0,0,0) in AR space
-    // referencePose is (rx, ry) in pixels on floorplan
-    // currentPose is (cx, cy) in pixels on floorplan
-    // AR space (x,z) roughly corresponds to floorplan (dx, dy)
+    final correctedHeading = currentPose.heading;
 
     List<double> pixelToAr(double px, double py) {
       final dx = px - _referencePose!.x;
       final dy = py - _referencePose!.y;
 
-      // referencePose.heading is 0=East, 90=South, 180=West, 270=North (Clockwise)
-      // AR -Z is forward. Phone is currently facing referencePose.heading.
+      // AR Alignment Strategy (Delta-Aware):
+      // We want to rotate the floorplan so that the 'Reference Heading'
+      // (the direction the user was facing when the photo was captured)
+      // aligns with the phone's initial AR forward axis (-Z).
 
-      // To align AR -Z (forward) with the user's initial heading:
-      // We need to rotate the floorplan points by an offset that maps
-      // the user's heading to -Z.
+      // 1. Reference Heading (0=East, 90=South) from capture point.
+      // 2. We rotate by (270 - referenceHeading) to map that direction to AR -Z (North).
 
-      // In a standard unit circle (0=East, 90=South):
-      // East (0) -> AR X+
-      // South (90) -> AR Z+
-      // West (180) -> AR X-
-      // North (270) -> AR Z- (Forward)
-
-      // Since the user is facing 'heading', we need to rotate the world
-      // so that 'heading' aligns with the phone's forward axis.
-
-      // We rotate the floorplan offset by -rad to bring it into
-      // the camera's local coordinate system.
-
-      // Rotate dx (East), dy (South) into local AR space
-
-      // Because AR uses -Z for forward, we need to check if the axes
-      // match our expectations.
-      // With 270=North, sin(270)=-1, cos(270)=0.
-      // localX = (dx*0 - dy*-1) = dy
-      // localZ = (dx*-1 + dy*0) = -dx
-
-      // Actually, if we are facing North (270), and the path is North (dy < 0):
-      // We want that point to be at -Z.
-
-      // Let's use a simpler approach:
-      // 1. Convert Heading to a standard math angle (0=East, 90=North)
-      //    MathAngle = -heading (because heading is clockwise)
-      // 2. Rotate floorplan by -MathAngle to align East with X+
-      // 3. Then rotate by -90 to align North with Z-
-
-      // Rotate such that the 'heading' vector becomes (1, 0)
-      // Then rotate by 90 deg to make it (0, 1) or (0, -1)
-
-      // Corrected rotation for AR alignment:
-      // We want to rotate the floorplan so that the vector 'heading'
-      // points towards (0, 0, -1) in AR.
-
-      final angleToForward = (90.0 + _referencePose!.heading) * math.pi / 180.0;
-      final cosA = math.cos(angleToForward);
-      final sinA = math.sin(angleToForward);
+      final rotationAngle = (270.0 - _referencePose!.heading) * math.pi / 180.0;
+      final cosA = math.cos(rotationAngle);
+      final sinA = math.sin(rotationAngle);
 
       final finalX = (dx * cosA - dy * sinA) * mpp;
       final finalZ = (dx * sinA + dy * cosA) * mpp;

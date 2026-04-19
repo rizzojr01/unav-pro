@@ -95,6 +95,9 @@ class _NavigationPageState extends State<NavigationPage> {
   }
 
   void _startArTracking(NavigationReady state) {
+    if (context.read<ArNavigationBloc>().state is ArNavigationTracking) {
+      return;
+    }
     final floorScale = state.metersPerPixel ?? 1.0;
 
     // Check if the current location has an 'ang' (heading) from the backend
@@ -116,6 +119,8 @@ class _NavigationPageState extends State<NavigationPage> {
         ),
         metersPerPixel: floorScale,
         route: state.route,
+        capturedSensorHeading: widget.userPickedCoordinates?['heading']
+            ?.toDouble(),
       ),
     );
   }
@@ -148,6 +153,8 @@ class _NavigationPageState extends State<NavigationPage> {
                 state.currentLocation,
               ),
               userPickedCoordinates: widget.userPickedCoordinates,
+              headingAtStart: state.headingAtStart,
+              capturedReferenceHeading: state.capturedReferenceHeading,
             );
           }
           if (state is NavigationError) {
@@ -186,6 +193,8 @@ class _NavigationMapView extends StatefulWidget {
   final Map<String, List<DestinationEntity>> destinationsByFloor;
   final Function(DestinationEntity)? onDestinationTap;
   final Map<String, dynamic>? userPickedCoordinates;
+  final double? headingAtStart;
+  final double? capturedReferenceHeading;
 
   const _NavigationMapView({
     super.key,
@@ -199,6 +208,8 @@ class _NavigationMapView extends StatefulWidget {
     this.destinationsByFloor = const {},
     this.onDestinationTap,
     this.userPickedCoordinates,
+    this.headingAtStart,
+    this.capturedReferenceHeading,
   });
 
   @override
@@ -361,9 +372,9 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                     userHeading: displayHeading,
                     arRawHeading: arRawHeading,
                     apiInitialHeading: apiInitialHeading,
-                    capturedReferenceHeading: widget
-                        .userPickedCoordinates?['heading']
-                        ?.toDouble(),
+                    capturedReferenceHeading:
+                        widget.capturedReferenceHeading ??
+                        widget.userPickedCoordinates?['heading']?.toDouble(),
                     route: _routeForSelectedFloor,
                     floorPlanBase64: _floorPlanForSelected,
                     destinations: _destsForSelectedFloor,
@@ -385,6 +396,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                       extra: widget.destination,
                     ),
                     mapControlsRightOffset: 0,
+                    headingAtStart: widget.headingAtStart,
                   ),
 
                   if (_isMultiFloor)

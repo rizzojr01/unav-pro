@@ -35,6 +35,7 @@ class MapView extends StatefulWidget {
   final double? arRawHeading;
   final double? apiInitialHeading;
   final double? capturedReferenceHeading;
+  final double? headingAtStart;
 
   const MapView({
     super.key,
@@ -53,6 +54,7 @@ class MapView extends StatefulWidget {
     this.arRawHeading,
     this.apiInitialHeading,
     this.capturedReferenceHeading,
+    this.headingAtStart,
   });
 
   @override
@@ -73,6 +75,21 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
 
   final TextEditingController _searchController = TextEditingController();
   List<DestinationEntity> _filteredDestinations = [];
+
+  String _calculateDeltaString() {
+    if (widget.headingAtStart == null ||
+        widget.capturedReferenceHeading == null) {
+      if (widget.headingAtStart == null &&
+          widget.capturedReferenceHeading == null)
+        return "N/A (Both Null)";
+      if (widget.headingAtStart == null) return "N/A (Plot Null)";
+      return "N/A (Ref Null)";
+    }
+    double d = widget.headingAtStart! - widget.capturedReferenceHeading!;
+    if (d > 180) d -= 360;
+    if (d < -180) d += 360;
+    return d.toStringAsFixed(1);
+  }
 
   @override
   void initState() {
@@ -259,7 +276,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     final userDisplayY =
         userPos.dy * scaleY + (containerSize.height - displayHeight) / 2;
 
-    // No automatic map rotation; keep North-up (0 deg)
     const rotation = 0.0;
 
     final targetMatrix = Matrix4.identity()
@@ -311,7 +327,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     final userDisplayY =
         userPos.dy * scaleY + (containerSize.height - displayHeight) / 2;
 
-    final rotation = 0.0;
+    const rotation = 0.0;
 
     final currentMatrix = _transformationController.value;
     final currentScale = currentMatrix.getMaxScaleOnAxis();
@@ -392,10 +408,8 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                             List<Offset> pathCoords;
                             if (arState is ArNavigationTracking &&
                                 arState.trackedPath.isNotEmpty) {
-                              // If AR is tracking, use the dynamically updated path (includes user pos)
                               pathCoords = arState.trackedPath;
                             } else {
-                              // Fallback to static route steps
                               pathCoords = widget.route!.steps
                                   .expand(
                                     (s) => [
@@ -473,21 +487,29 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                         ),
                       ),
                       Text(
-                        'Map Rotation: ${(_transformationController.value.storage[1] != 0 || _transformationController.value.storage[0] != 0) ? (math.atan2(_transformationController.value.storage[1], _transformationController.value.storage[0]) * (180.0 / math.pi)).toStringAsFixed(1) : "0.0"}°',
+                        'Ref Head: ${widget.capturedReferenceHeading?.toStringAsFixed(1) ?? "N/A"}°',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
                         ),
                       ),
                       Text(
-                        'Map X: ${_getUserCoords().dx.toStringAsFixed(1)}',
+                        'Plot Head: ${widget.headingAtStart?.toStringAsFixed(1) ?? "N/A"}°',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
                         ),
                       ),
                       Text(
-                        'Map Y: ${_getUserCoords().dy.toStringAsFixed(1)}',
+                        'Delta: ${_calculateDeltaString()}°',
+                        style: const TextStyle(
+                          color: Colors.cyanAccent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Map Rot: ${(_transformationController.value.storage[1] != 0 || _transformationController.value.storage[0] != 0) ? (math.atan2(_transformationController.value.storage[1], _transformationController.value.storage[0]) * (180.0 / math.pi)).toStringAsFixed(1) : "0.0"}°',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -578,79 +600,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                   widget.onDestinationTap?.call(d);
                 },
               ),
-            ValueListenableBuilder<MapSyncStatus>(
-              valueListenable: getIt<MapDownloadService>().syncStatus,
-              builder: (context, status, _) {
-                if (!status.isSyncing && status.errorMessage == null) {
-                  return const SizedBox.shrink();
-                }
-                return Positioned(
-                  top: 12,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            (status.errorMessage != null
-                                    ? Colors.red
-                                    : theme.colorScheme.primaryContainer)
-                                .withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 8,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (status.isSyncing)
-                            const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white70,
-                                ),
-                              ),
-                            )
-                          else
-                            Icon(
-                              status.errorMessage != null
-                                  ? Icons.error_outline
-                                  : Icons.check_circle_outline,
-                              size: 16,
-                              color: theme.colorScheme.onPrimaryContainer,
-                            ),
-                          const SizedBox(width: 8),
-                          Text(
-                            status.isSyncing
-                                ? 'Updating maps...'
-                                : (status.errorMessage != null
-                                      ? 'Map sync failed'
-                                      : 'Maps updated'),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.onPrimaryContainer,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
           ],
         );
       },
@@ -683,27 +632,27 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     if (isUser) {
       final size = ((isCheckpoint ? 12.0 : 16.0) * zoom).clamp(4.0, 48.0);
 
-      // Map rotation compensation
       final mapRotationRadians = math.atan2(
         matrix.storage[1],
         matrix.storage[0],
       );
       final mapRotationDegrees = mapRotationRadians * (180.0 / math.pi);
 
-      // Use the following logic for heading:
-      // 1. If we have the initial API heading (apiInitialHeading), that's our base orientation.
-      // 2. We adjust it by the difference between current sensor heading and the heading captured when the photo was taken.
-      // 3. This allows the marker to rotate in real-time as the user turns, even before the next API response.
-
       double mathHeading = widget.apiInitialHeading ?? 0.0;
 
       if (widget.apiInitialHeading != null &&
           widget.capturedReferenceHeading != null &&
-          widget.arRawHeading != null) {
-        // Difference between current physical heading and captured heading
-        final headingDelta =
-            widget.arRawHeading! - widget.capturedReferenceHeading!;
-        mathHeading = (widget.apiInitialHeading! + headingDelta) % 360.0;
+          widget.headingAtStart != null) {
+        // Delta = Sensor value when plotting - Sensor value when capturing
+        double rawDelta =
+            widget.headingAtStart! - widget.capturedReferenceHeading!;
+
+        if (rawDelta > 180) rawDelta -= 360;
+        if (rawDelta < -180) rawDelta += 360;
+
+        // Corrected Heading = Backend Truth + Rotation Delta
+        mathHeading = (widget.apiInitialHeading! + rawDelta) % 360.0;
+        if (mathHeading < 0) mathHeading += 360.0;
       } else if (heading != null) {
         mathHeading = heading;
       }

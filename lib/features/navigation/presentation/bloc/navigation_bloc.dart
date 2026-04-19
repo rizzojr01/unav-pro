@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 
 import '../../../../shared/services/destinations_cache_service.dart';
 import '../../../../shared/services/floor_plan_cache_service.dart';
@@ -12,6 +14,7 @@ import '../../../locate_me/domain/usecases/get_destinations_usecase.dart';
 import '../../../localization_history/domain/entities/localization_history_entity.dart';
 import '../../../localization_history/domain/usecases/save_localization_history_usecase.dart';
 import '../../../../shared/services/device_id_service.dart';
+import '../../../ar_navigation/domain/repositories/ar_pose_repository.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../injection.dart';
 import '../../domain/usecases/get_route_usecase.dart';
@@ -26,6 +29,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
   final DestinationsCacheService destinationsCacheService;
   final SaveLocalizationHistoryUseCase saveLocalizationHistoryUseCase;
   final DeviceIdService deviceIdService;
+  final ArPoseRepository arPoseRepository;
 
   NavigationBloc({
     required this.getRouteUseCase,
@@ -35,6 +39,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     required this.destinationsCacheService,
     required this.saveLocalizationHistoryUseCase,
     required this.deviceIdService,
+    required this.arPoseRepository,
   }) : super(const NavigationInitial()) {
     on<InitializeNavigationEvent>(_onInitializeNavigation);
   }
@@ -53,6 +58,20 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     final useSampleImage = locationConfigService.useSampleImage;
 
     emit(const NavigationLoading(message: 'Preparing your route...'));
+    double? headingAtStart = await arPoseRepository.getCurrentHeading();
+
+    // Fallback: If ArPoseRepository fails, try getting heading from userCoords
+    if (headingAtStart == null && event.userPickedCoordinates != null) {
+      headingAtStart = (event.userPickedCoordinates!['heading'] as num?)
+          ?.toDouble();
+      getIt<AppLogger>().info(
+        '🧭 NavigationBloc: headingAtStart fallback to userCoords: $headingAtStart',
+      );
+    }
+
+    getIt<AppLogger>().info(
+      '🧭 NavigationBloc: headingAtStart (Ref Head) final value: $headingAtStart',
+    );
 
     // ── Step 1: Read floor plan from cache (pre-loaded by MapDownloadService) ─
     // Maps are downloaded when the building is selected; no per-request fetch.
@@ -110,6 +129,17 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     // ── Step 3: Get route ─────────────────────────────────────────────────────
     emit(const NavigationLoading(message: 'Calculating route...'));
 
+    final dynamic userCoords = event.userPickedCoordinates;
+    final bool isManualPin =
+        userCoords != null && userCoords['enabled'] == true;
+    final double? capturedHeading = (userCoords != null)
+        ? (userCoords['heading'] as num?)?.toDouble()
+        : null;
+
+    final Map<String, dynamic>? userPickedCoordinates = isManualPin
+        ? (userCoords as Map<String, dynamic>)
+        : {'x': 0.0, 'y': 0.0, 'heading': 0.0, 'enabled': false};
+
     final routeResult = await getRouteUseCase(
       GetRouteParams(
         destinationId: destinationId,
@@ -127,9 +157,9 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
           'max_width': locationConfigService.maxWidth,
           'quality': locationConfigService.imageQuality,
         },
-        userPickedCoordinates: event.userPickedCoordinates,
+        userPickedCoordinates: userPickedCoordinates,
         offsetInMeters: locationConfigService.offsetInMeters,
-        heading: event.userPickedCoordinates?['heading']?.toDouble(),
+        heading: isManualPin ? null : capturedHeading,
       ),
     );
 
@@ -245,6 +275,38 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
           ),
         );
 
+        // --- Final Heading Capture (Plot Heading) ---
+        // Try getting heading from simple compass (same as capture)
+        double? finalPlotHeading;
+        try {
+          final compassEvent = await FlutterCompass.events?.first.timeout(
+            const Duration(milliseconds: 500),
+          );
+          finalPlotHeading = compassEvent?.heading;
+          if (finalPlotHeading != null) {
+            getIt<AppLogger>().info(
+              '🧭 NavigationBloc: finalPlotHeading from Compass: $finalPlotHeading',
+            );
+          }
+        } catch (e) {
+          getIt<AppLogger>().error(
+            '🧭 NavigationBloc: Compass failed, trying AR Repository: $e',
+          );
+        }
+
+        // Fallback to AR Repository if compass failed
+        if (finalPlotHeading == null) {
+          for (int i = 0; i < 3; i++) {
+            finalPlotHeading = await arPoseRepository.getCurrentHeading();
+            if (finalPlotHeading != null) break;
+            await Future.delayed(Duration(milliseconds: 200 * (i + 1)));
+          }
+        }
+
+        getIt<AppLogger>().info(
+          '🧭 NavigationBloc: finalPlotHeading final: $finalPlotHeading',
+        );
+
         emit(
           NavigationReady(
             currentLocation: route.origin.copyWith(floor: actualStartingFloor),
@@ -255,6 +317,8 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
             floorPlansByFloor: floorPlansByFloor,
             destinationsByFloor: destinationsByFloor,
             metersPerPixel: route.metersPerPixel,
+            headingAtStart: finalPlotHeading ?? headingAtStart,
+            capturedReferenceHeading: capturedHeading,
           ),
         );
       },

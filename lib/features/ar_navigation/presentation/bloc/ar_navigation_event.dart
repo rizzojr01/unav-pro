@@ -14,15 +14,22 @@ class StartArTrackingEvent extends ArNavigationEvent {
   final LocalizedPose referencePose;
   final double metersPerPixel;
   final RouteEntity route;
+  final double? capturedSensorHeading;
 
   const StartArTrackingEvent({
     required this.referencePose,
     required this.metersPerPixel,
     required this.route,
+    this.capturedSensorHeading,
   });
 
   @override
-  List<Object?> get props => [referencePose, metersPerPixel, route];
+  List<Object?> get props => [
+    referencePose,
+    metersPerPixel,
+    route,
+    capturedSensorHeading,
+  ];
 }
 
 class StopArTrackingEvent extends ArNavigationEvent {}

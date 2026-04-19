@@ -68,17 +68,25 @@ class _ArPreviewNativeView extends StatefulWidget {
 }
 
 class _ArPreviewNativeViewState extends State<_ArPreviewNativeView> {
+  // Use a unique Key to force view recreation if needed, or maintain identity.
+  // The error "trying to create an already created view" usually happens
+  // when Flutter tries to rebuild the platform view with the same ID.
+  static const _viewType = ArChannelContract.previewViewType;
+
   @override
   Widget build(BuildContext context) {
     if (defaultTargetPlatform == TargetPlatform.android) {
       return const AndroidView(
-        viewType: ArChannelContract.previewViewType,
+        viewType: _viewType,
         creationParams: {},
         creationParamsCodec: StandardMessageCodec(),
       );
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+      // On iOS, using a UniqueKey can sometimes resolve re-creation conflicts
+      // during hot reloads or rapid widget tree changes.
       return const UiKitView(
-        viewType: ArChannelContract.previewViewType,
+        key: ValueKey('ar_preview_view'),
+        viewType: _viewType,
         creationParams: {},
         creationParamsCodec: StandardMessageCodec(),
       );

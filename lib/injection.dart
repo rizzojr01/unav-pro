@@ -249,6 +249,7 @@ Future<void> initializeDependencies() async {
       destinationsCacheService: getIt(),
       saveLocalizationHistoryUseCase: getIt(),
       deviceIdService: getIt(),
+      arPoseRepository: getIt(),
     ),
   );
 

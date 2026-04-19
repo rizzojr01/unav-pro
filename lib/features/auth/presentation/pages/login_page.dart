@@ -82,107 +82,108 @@ class _LoginPageState extends State<LoginPage> {
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 48),
-                  _buildHeader(context),
-
-                  const SizedBox(height: 32),
-                  CustomTextField(
-                    controller: _emailController,
-                    labelText: 'Email Address',
-                    hintText: 'name@example.com',
-                    prefixIcon: Icons.email_rounded,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return 'Required';
-                      if (!value.contains('@')) return 'Invalid email';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  CustomTextField(
-                    controller: _passwordController,
-                    labelText: 'Password',
-                    hintText: '••••••••',
-                    prefixIcon: Icons.key_rounded,
-                    isPassword: true,
-                    obscureText: _obscurePassword,
-                    onSuffixIconTap: _togglePasswordVisibility,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return 'Required';
-                      if (value.length < 6) return 'Min 6 chars';
-                      return null;
-                    },
-                  ),
-
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {},
-                      child: Text(
-                        'Forgot Password?',
-                        style: TextStyle(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                        ),
-                      ),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 48),
+                    _buildHeader(context),
+                    const SizedBox(height: 32),
+                    CustomTextField(
+                      controller: _emailController,
+                      labelText: 'Email Address',
+                      hintText: 'name@example.com',
+                      prefixIcon: Icons.email_rounded,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return 'Required';
+                        if (!value.contains('@')) return 'Invalid email';
+                        return null;
+                      },
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  BlocBuilder<AuthBloc, AuthState>(
-                    builder: (context, state) {
-                      final isLoading = state is AuthLoading;
-                      return CustomButton(
-                        text: 'Sign In',
-                        onPressed: _handleLogin,
-                        isLoading: isLoading,
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _buildDivider(context),
-                  const SizedBox(height: 16),
-                  CustomButton(
-                    text: 'Continue as Guest',
-                    onPressed: _handleGuestLogin,
-                    isOutlined: true,
-                    backgroundColor: theme.colorScheme.onSurface.withValues(
-                      alpha: 0.6,
+                    const SizedBox(height: 20),
+                    CustomTextField(
+                      controller: _passwordController,
+                      labelText: 'Password',
+                      hintText: '••••••••',
+                      prefixIcon: Icons.key_rounded,
+                      isPassword: true,
+                      obscureText: _obscurePassword,
+                      onSuffixIconTap: _togglePasswordVisibility,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return 'Required';
+                        if (value.length < 6) return 'Min 6 chars';
+                        return null;
+                      },
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'New here? ',
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.6,
-                          ),
-                          fontSize: 15,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => context.push('/signup'),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {},
                         child: Text(
-                          'Create Account',
+                          'Forgot Password?',
                           style: TextStyle(
                             color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    BlocBuilder<AuthBloc, AuthState>(
+                      builder: (context, state) {
+                        final isLoading = state is AuthLoading;
+                        return CustomButton(
+                          text: 'Sign In',
+                          onPressed: _handleLogin,
+                          isLoading: isLoading,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    _buildDivider(context),
+                    const SizedBox(height: 16),
+                    CustomButton(
+                      text: 'Continue as Guest',
+                      onPressed: _handleGuestLogin,
+                      isOutlined: true,
+                      backgroundColor: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.6,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'New here? ',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
                             fontSize: 15,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        GestureDetector(
+                          onTap: () => context.push('/signup'),
+                          child: Text(
+                            'Create Account',
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
               ),
             ),
           ),

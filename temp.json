@@ -1,0 +1,24 @@
+{
+  "destination_id": "0",
+  "place": "New_York_University",
+  "building": "Langone",
+  "floor": "17_floor",
+  "session_id": "A14BA6AB-FCC6-49EB-BF29-44C1B522740B",
+  "use_sample_image": true,
+  "image": "",
+  "relocalize": true,
+  "saveframe": true,
+  "shorten_vlm_response": true,
+  "speakVlmFirst": true,
+  "unav_multifloor": true,
+  "use_vlm": false,
+  "offset_in_meters": 0.0,
+  "heading": 25.90665054321289,
+  "image_compression": {
+    "enable_compression": false,
+    "max_height": 640,
+    "max_width": 360,
+    "quality": 100
+  },
+  "user_picked_coordinates": { "heading": 25.90665054321289, "enabled": true }
+}

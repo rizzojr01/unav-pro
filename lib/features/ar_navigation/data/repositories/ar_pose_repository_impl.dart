@@ -37,6 +37,36 @@ class ArPoseRepositoryImpl implements ArPoseRepository {
   }
 
   @override
+  Future<double?> getCurrentHeading() async {
+    try {
+      final result = await _methodChannel.invokeMethod<Map>(
+        'getCurrentHeading',
+        {ArChannelContract.backendKey: _backend},
+      );
+      if (result != null && result['heading'] != null) {
+        return (result['heading'] as num).toDouble();
+      }
+    } catch (e) {
+      // Log the specific error for debugging
+      print('AR Repository: getCurrentHeading failed with $e');
+    }
+
+    // Fallback: try capturing frame info
+    try {
+      final result = await _methodChannel.invokeMethod<Map>(
+        ArChannelContract.captureCurrentFrameMethod,
+        {ArChannelContract.backendKey: _backend},
+      );
+      if (result != null && result[ArChannelContract.headingKey] != null) {
+        return (result[ArChannelContract.headingKey] as num).toDouble();
+      }
+    } catch (e) {
+      print('AR Repository: captureCurrentFrame fallback failed with $e');
+    }
+    return null;
+  }
+
+  @override
   Future<void> updateOverlay({
     required List<List<double>> pathPoints,
     required List<List<double>> activePathPoints,

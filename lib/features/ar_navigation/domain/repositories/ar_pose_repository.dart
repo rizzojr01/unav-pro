@@ -4,6 +4,7 @@ abstract class ArPoseRepository {
   Stream<ArPose> watchPose();
   Future<void> start();
   Future<void> stop();
+  Future<double?> getCurrentHeading();
   Future<void> updateOverlay({
     required List<List<double>> pathPoints,
     required List<List<double>> activePathPoints,
