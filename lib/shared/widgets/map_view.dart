@@ -344,6 +344,13 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   void _initializeView(Size containerSize, Size imageSize) {
     if (_hasInitializedView || !widget.autoCenterOnUser) return;
     _hasInitializedView = true;
+    
+    // Set initial rotation and pan values so the very first frame of the
+    // continuous rotation loop has a correct baseline.
+    final initialRotation = _getRotationRadians();
+    _currentRotationRadians = initialRotation;
+    _targetRotationRadians = initialRotation;
+    
     _recenterOnUser(containerSize, imageSize, initialZoom: 3.5, animate: false);
   }
 
@@ -429,24 +436,37 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     final targetRotation = _getRotationRadians();
     _targetRotationRadians = targetRotation;
     
-    // Initialize current rotation on first call
-    _currentRotationRadians ??= targetRotation;
-
     // Check if user panned (transformation matrix changed by something other than our rotation)
     final currentMatrix = _transformationController.value;
-    final matrixChanged = _lastTransformMatrix != null && 
-        (_lastTransformMatrix!.storage != currentMatrix.storage);
     
-    if (matrixChanged) {
-      // User panned/zoomed - update cached values to track their new position
-      _cachedScale = currentMatrix.getMaxScaleOnAxis();
-      _cachedPanOffset = MatrixUtils.transformPoint(
+    // Detect transformation changes by comparing with our last known update
+    if (_lastTransformMatrix != null) {
+      final oldS = _lastTransformMatrix!.storage;
+      final newS = currentMatrix.storage;
+      
+      // Calculate user's screen position in CURRENT matrix
+      // (This reflects where they ARE right now, including any manual pan)
+      final userScreenPos = MatrixUtils.transformPoint(
         currentMatrix,
         Offset(userDisplayX, userDisplayY),
       );
+
+      // Detect manual transformation changes (translation or scale)
+      bool manuallyChanged = false;
+      final translationDiff = (oldS[12] - newS[12]).abs() + (oldS[13] - newS[13]).abs();
+      
+      if (translationDiff > 0.5) {
+        manuallyChanged = true;
+      }
+      
+      if (manuallyChanged) {
+        // User panned/zoomed - update cached values to track their new screen position
+        _cachedScale = currentMatrix.getMaxScaleOnAxis();
+        _cachedPanOffset = userScreenPos;
+      }
     }
     
-    // Cache the current pan offset and scale (on first call or after user pan)
+    // Cache the current pan offset and scale (on first call or if not yet set)
     if (_cachedPanOffset == null || _cachedScale == null) {
       _cachedScale = currentMatrix.getMaxScaleOnAxis();
       _cachedPanOffset = MatrixUtils.transformPoint(
@@ -454,8 +474,12 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         Offset(userDisplayX, userDisplayY),
       );
     }
+
+    // Initialize current rotation on first call IF it hasn't been set by _initializeView
+    _currentRotationRadians ??= targetRotation;
     
     _lastTransformMatrix = currentMatrix;
+
 
     // Set up continuous animation that runs every frame
     if (!_rotationAnimationController.isAnimating) {
