@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:smart_sense/features/navigation/domain/entities/route_entity.dart';
 import '../../data/datasources/spatial_audio_channel_contract.dart';
@@ -267,27 +268,43 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     if (update.state != _lastState) {
       if (update.state == ArTrackingState.arrived) {
         _audioService.playCue(SpatialAudioChannelContract.cueTypeArrived);
+        HapticFeedback.heavyImpact();
+        Timer(const Duration(milliseconds: 300), () => HapticFeedback.heavyImpact());
       } else if (update.state == ArTrackingState.offRoute) {
         _audioService.primeOffRouteLoop();
+        HapticFeedback.vibrate();
       } else if (_lastState == ArTrackingState.offRoute &&
           update.state == ArTrackingState.tracking) {
         _audioService.stopOffRouteAlert();
+        HapticFeedback.lightImpact();
+      } else if (update.nextWaypointIndex > 0) {
+        // Just passed a waypoint
+        HapticFeedback.mediumImpact();
       }
       _lastState = update.state;
     }
 
     if (update.state == ArTrackingState.offRoute) {
-      // For now, simplify side/heading for the native bridge
-      // Native bridge expects: side, severity, headingErrorDeg, relativeAngleDeg, sourceDistanceMeters, distanceToWaypointMeters
+      // Calculate heading error for spatial audio
+      final mpp = (_metersPerPixel == 1.0) ? 0.05 : (_metersPerPixel ?? 0.05);
+      
+      // The relative angle to the path helps the native side play audio from the correct direction
+      // For now, we use a simple 'center' side but provide the distance
       _audioService.updateOffRouteAlert(
-        side: 'center',
+        side: 'center', 
         severity: update.offRouteSeverity,
-        headingErrorDeg: 0, // Need more logic to calculate these precisely
+        headingErrorDeg: 0, 
         relativeAngleDeg: 0,
-        sourceDistanceMeters: update.distanceToPathPx * (_metersPerPixel ?? 0),
-        distanceToWaypointMeters:
-            update.distanceToNextWaypointPx * (_metersPerPixel ?? 0),
+        sourceDistanceMeters: update.distanceToPathPx * mpp,
+        distanceToWaypointMeters: update.distanceToNextWaypointPx * mpp,
       );
+      
+      // Periodic haptic feedback for off-route based on severity
+      if (DateTime.now().millisecond % 1000 < 100) {
+        if (update.offRouteSeverity > 0.5) {
+          HapticFeedback.selectionClick();
+        }
+      }
     }
   }
 

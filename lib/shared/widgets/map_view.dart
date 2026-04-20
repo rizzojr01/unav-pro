@@ -88,6 +88,17 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   // Smooth rotation animation state
   double? _targetRotationRadians;
   double? _currentRotationRadians;
+  
+  // Cached pan offset to preserve during rotation animation
+  Offset? _cachedPanOffset;
+  double? _cachedScale;
+  
+  // Continuous smooth animation parameters
+  double _smoothRotationVelocity = 0.0; // rad/ms
+  DateTime? _lastRotationUpdateTime;
+  
+  // Track if user is manually interacting (panning/zooming)
+  Matrix4? _lastTransformMatrix;
 
   String _calculateDeltaString() {
     if (widget.headingAtStart == null ||
@@ -416,53 +427,94 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
 
     final targetRotation = _getRotationRadians();
     _targetRotationRadians = targetRotation;
+    
+    // Initialize current rotation on first call
     _currentRotationRadians ??= targetRotation;
 
-    // Clear previous listeners
-    _rotationAnimationController.removeListener(() {});
-    _rotationAnimationController.clearStatusListeners();
-
-    // Animate rotation smoothly (150ms) with no delay
-    _rotationAnimationController.forward(from: 0.0);
-
-    _rotationAnimationController.addListener(() {
-      if (!mounted || _targetRotationRadians == null) return;
-
-      final currentMatrix = _transformationController.value;
-      final currentScale = currentMatrix.getMaxScaleOnAxis();
-
-      // Interpolate between current and target rotation
-      final animationProgress = _rotationAnimationController.value;
-      final currentRot = _currentRotationRadians!;
-      final targetRot = _targetRotationRadians!;
-
-      // Handle angle wrap-around for smooth interpolation
-      var angleDiff = targetRot - currentRot;
-      if (angleDiff > math.pi) angleDiff -= 2 * math.pi;
-      if (angleDiff < -math.pi) angleDiff += 2 * math.pi;
-
-      final smoothedRotation = currentRot + (angleDiff * animationProgress);
-
-      // Get current screen position of user
-      final userScreenPos = MatrixUtils.transformPoint(
+    // Check if user panned (transformation matrix changed by something other than our rotation)
+    final currentMatrix = _transformationController.value;
+    final matrixChanged = _lastTransformMatrix != null && 
+        (_lastTransformMatrix!.storage != currentMatrix.storage);
+    
+    if (matrixChanged) {
+      // User panned/zoomed - update cached values to track their new position
+      _cachedScale = currentMatrix.getMaxScaleOnAxis();
+      _cachedPanOffset = MatrixUtils.transformPoint(
         currentMatrix,
         Offset(userDisplayX, userDisplayY),
       );
+    }
+    
+    // Cache the current pan offset and scale (on first call or after user pan)
+    if (_cachedPanOffset == null || _cachedScale == null) {
+      _cachedScale = currentMatrix.getMaxScaleOnAxis();
+      _cachedPanOffset = MatrixUtils.transformPoint(
+        currentMatrix,
+        Offset(userDisplayX, userDisplayY),
+      );
+    }
+    
+    _lastTransformMatrix = currentMatrix;
 
-      final newMatrix = Matrix4.identity()
-        ..translate(userScreenPos.dx, userScreenPos.dy)
-        ..rotateZ(smoothedRotation)
-        ..translate(-userDisplayX * currentScale, -userDisplayY * currentScale)
-        ..scale(currentScale);
+    // Set up continuous animation that runs every frame
+    if (!_rotationAnimationController.isAnimating) {
+      _lastRotationUpdateTime = DateTime.now();
+      
+      _rotationAnimationController.removeListener(() {});
+      _rotationAnimationController.addListener(() {
+        _applyRotationUpdate(userDisplayX, userDisplayY);
+      });
+      
+      // Run animation indefinitely (we control it manually)
+      _rotationAnimationController.repeat();
+    }
+  }
 
-      _transformationController.value = newMatrix;
-    });
+  void _applyRotationUpdate(double userDisplayX, double userDisplayY) {
+    if (!mounted || _targetRotationRadians == null || _cachedPanOffset == null || _cachedScale == null) {
+      return;
+    }
 
-    _rotationAnimationController.addStatusListener((status) {
-      if (status == AnimationStatus.completed && mounted) {
-        _currentRotationRadians = targetRotation;
-      }
-    });
+    final now = DateTime.now();
+    final timeDelta = _lastRotationUpdateTime == null 
+        ? 0 
+        : now.difference(_lastRotationUpdateTime!).inMilliseconds;
+    _lastRotationUpdateTime = now;
+
+    final currentRot = _currentRotationRadians!;
+    final targetRot = _targetRotationRadians!;
+
+    // Calculate angle difference with wrap-around
+    var angleDiff = targetRot - currentRot;
+    if (angleDiff > math.pi) angleDiff -= 2 * math.pi;
+    if (angleDiff < -math.pi) angleDiff += 2 * math.pi;
+
+    // Smoothly interpolate toward target at max 500 deg/sec
+    const maxDegreesPerSec = 500.0;
+    const maxRadiansPerSec = maxDegreesPerSec * math.pi / 180.0;
+    final maxRadiansPerMs = maxRadiansPerSec / 1000.0;
+    final maxChange = maxRadiansPerMs * timeDelta;
+
+    double newRot;
+    if (angleDiff.abs() < maxChange) {
+      // Close enough to target, snap to it
+      newRot = targetRot;
+    } else {
+      // Move toward target at max speed
+      newRot = currentRot + (angleDiff.sign * maxChange);
+    }
+
+    _currentRotationRadians = newRot;
+
+    // Build new matrix using cached pan offset
+    final newMatrix = Matrix4.identity()
+      ..translate(_cachedPanOffset!.dx, _cachedPanOffset!.dy)
+      ..rotateZ(newRot)
+      ..translate(-userDisplayX * _cachedScale!, -userDisplayY * _cachedScale!)
+      ..scale(_cachedScale!);
+
+    _transformationController.value = newMatrix;
+    _lastTransformMatrix = newMatrix;
   }
 
   @override
