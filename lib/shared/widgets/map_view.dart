@@ -244,6 +244,26 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     return Offset.zero;
   }
 
+  double _getCurrentMathHeading(double? heading) {
+    double mathHeading = widget.apiInitialHeading ?? 0.0;
+
+    if (widget.apiInitialHeading != null &&
+        widget.capturedReferenceHeading != null &&
+        widget.headingAtStart != null) {
+      double rawDelta =
+          widget.headingAtStart! - widget.capturedReferenceHeading!;
+
+      if (rawDelta > 180) rawDelta -= 360;
+      if (rawDelta < -180) rawDelta += 360;
+
+      mathHeading = (widget.apiInitialHeading! + rawDelta) % 360.0;
+      if (mathHeading < 0) mathHeading += 360.0;
+    } else if (heading != null) {
+      mathHeading = heading;
+    }
+    return mathHeading;
+  }
+
   void _initializeView(Size containerSize, Size imageSize) {
     if (_hasInitializedView || !widget.autoCenterOnUser) return;
     _hasInitializedView = true;
@@ -276,10 +296,13 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     final userDisplayY =
         userPos.dy * scaleY + (containerSize.height - displayHeight) / 2;
 
-    const rotation = 0.0;
+    // REAL-TIME MAP ROTATION: Use the user's current math heading.
+    // We want the user's "Forward" (mathHeading) to be the Screen's "Up" (-90°).
+    final mathHeading = _getCurrentMathHeading(widget.userHeading);
+    final rotation = -(mathHeading + 90.0) * (math.pi / 180.0);
 
     final targetMatrix = Matrix4.identity()
-      ..translate(containerSize.width / 2, containerSize.height * 0.75)
+      ..translate(containerSize.width / 2, containerSize.height * 0.5)
       ..rotateZ(rotation)
       ..translate(-userDisplayX * initialZoom, -userDisplayY * initialZoom)
       ..scale(initialZoom);
@@ -327,17 +350,14 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     final userDisplayY =
         userPos.dy * scaleY + (containerSize.height - displayHeight) / 2;
 
-    const rotation = 0.0;
+    final mathHeading = _getCurrentMathHeading(widget.userHeading);
+    final rotation = -(mathHeading + 90.0) * (math.pi / 180.0);
 
     final currentMatrix = _transformationController.value;
     final currentScale = currentMatrix.getMaxScaleOnAxis();
-    final userScreenPos = MatrixUtils.transformPoint(
-      currentMatrix,
-      Offset(userDisplayX, userDisplayY),
-    );
 
     final targetMatrix = Matrix4.identity()
-      ..translate(userScreenPos.dx, userScreenPos.dy)
+      ..translate(containerSize.width / 2, containerSize.height * 0.5)
       ..rotateZ(rotation)
       ..translate(-userDisplayX * currentScale, -userDisplayY * currentScale)
       ..scale(currentScale);
@@ -657,8 +677,11 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         mathHeading = heading;
       }
 
-      final uiHeading = mathHeading + 90.0;
-      final markerHeading = uiHeading + mapRotationDegrees;
+      // In "User-Perspective" rotation, the map rotates underneath the user.
+      // Since the map is rotating to align the user's forward heading with
+      // the screen's "Up", the marker should always point "Up" relative
+      // to the device.
+      const markerHeading = 0.0;
 
       return Positioned(
         left: pos.dx - size / 2,
