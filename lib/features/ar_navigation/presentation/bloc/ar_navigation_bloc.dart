@@ -333,14 +333,21 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     // The position tracking (currentPose.x/y from ArPoseTransformer) already
     // handles movement correctly in the same world space.
 
+    // 1. TargetAngle (from atan2): 0=East, 90=South, 270=North (Clockwise)
+    // 2. PoseHeading: Corrected heading relative to floorplan.
+    //
+    // The Guidance Text uses: pose.heading - 108.0
+    // User reports AR is 90 degrees LEFT of where it should be.
+    // To move something 90 degrees RIGHT (to correct a LEFT offset), we subtract 90 from the angle.
+    // 108.0 + 90.0 = 198.0
+    final arkitForwardBaseline = 90.0; 
+    final rotationAngle = (arkitForwardBaseline - (_referencePose!.heading - 198.0)) * math.pi / 180.0;
+    final cosA = math.cos(rotationAngle);
+    final sinA = math.sin(rotationAngle);
+
     List<double> pixelToAr(double px, double py) {
       final dx = px - _referencePose!.x;
       final dy = py - _referencePose!.y;
-
-      final rotationAngle =
-          (270.0 - _referencePose!.heading) * math.pi / 180.0;
-      final cosA = math.cos(rotationAngle);
-      final sinA = math.sin(rotationAngle);
 
       final finalX = (dx * cosA - dy * sinA) * mpp;
       final finalZ = (dx * sinA + dy * cosA) * mpp;

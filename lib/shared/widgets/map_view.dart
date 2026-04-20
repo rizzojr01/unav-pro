@@ -719,6 +719,15 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                           fontSize: 11,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'API Ang (Used for AR): ${widget.apiInitialHeading?.toStringAsFixed(1) ?? "N/A"}°',
+                        style: const TextStyle(
+                          color: Colors.orangeAccent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 ),
