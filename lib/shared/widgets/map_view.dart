@@ -356,8 +356,16 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     final currentMatrix = _transformationController.value;
     final currentScale = currentMatrix.getMaxScaleOnAxis();
 
+    // The current matrix may already have a translation due to user panning.
+    // We want to update the rotation while keeping the user's current SCREEN 
+    // position unchanged.
+    final userScreenPos = MatrixUtils.transformPoint(
+      currentMatrix,
+      Offset(userDisplayX, userDisplayY),
+    );
+
     final targetMatrix = Matrix4.identity()
-      ..translate(containerSize.width / 2, containerSize.height * 0.5)
+      ..translate(userScreenPos.dx, userScreenPos.dy)
       ..rotateZ(rotation)
       ..translate(-userDisplayX * currentScale, -userDisplayY * currentScale)
       ..scale(currentScale);
