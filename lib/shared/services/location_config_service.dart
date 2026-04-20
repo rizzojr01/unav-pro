@@ -41,7 +41,7 @@ class LocationConfigService {
       _prefs.getBool(_keyUseAlternateSampleImage) ?? false;
   String get alternateSampleImagePath =>
       _prefs.getString(_keyAlternateSampleImagePath) ??
-      'assets/images/sample_images/sample_1.jpg';
+      'assets/node_images/Node1_N.jpg';
 
   Future<void> setUseAlternateSampleImage(bool value) async {
     await _prefs.setBool(_keyUseAlternateSampleImage, value);

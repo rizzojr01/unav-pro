@@ -87,6 +87,18 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       return;
     }
 
+    // Anchor the world origin to the first real AR pose from ARKit.
+    // We use the raw pose as-is — no heading override.
+    //
+    // Why: ARKit heading (yawDegrees in AppDelegate) is 0=East CCW, relative
+    // to wherever the camera faced at session start. It is NOT in the same
+    // coordinate system as capturedSensorHeading (compass, 0=North CW).
+    // Overriding with capturedSensorHeading mixes two incompatible systems
+    // and produces a wrong sumHeadingDeg in ArPoseTransformer.
+    //
+    // The correct alignment is handled by pixelToAr using the static
+    // (270 - backendAng) rotation, which maps the floorplan to ARKit world
+    // space assuming the camera faces backendAng at session start.
     _originArPose ??= event.pose;
 
     // Use a realistic fallback if metersPerPixel is 1.0 (unscaled)
@@ -285,21 +297,31 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     }
 
     final mpp = (_metersPerPixel == 1.0) ? 0.05 : _metersPerPixel!;
-    final correctedHeading = currentPose.heading;
+
+    // pixelToAr: rotate floorplan pixel coords into ARKit world space.
+    //
+    // The geometry is purely static:
+    //   - Floorplan: 0=East CW. North = 270°.
+    //   - ARKit yaw (yawDegrees in AppDelegate): 0=East CCW. Forward (-Z) = 90°.
+    //   - To map floorplan North (270°) onto ARKit forward (90°):
+    //       rotationAngle = (270 - backendAng) * pi/180
+    //
+    // backendAng is the direction the camera was facing at capture in floorplan
+    // space. (270 - backendAng) rotates the floorplan so that capture direction
+    // aligns with ARKit -Z (forward), which is where the camera points at
+    // session start.
+    //
+    // This must be a FIXED value — no delta correction here. ARKit world space
+    // is anchored to the first frame regardless of compass or user rotation.
+    // The position tracking (currentPose.x/y from ArPoseTransformer) already
+    // handles movement correctly in the same world space.
 
     List<double> pixelToAr(double px, double py) {
       final dx = px - _referencePose!.x;
       final dy = py - _referencePose!.y;
 
-      // AR Alignment Strategy (Delta-Aware):
-      // We want to rotate the floorplan so that the 'Reference Heading'
-      // (the direction the user was facing when the photo was captured)
-      // aligns with the phone's initial AR forward axis (-Z).
-
-      // 1. Reference Heading (0=East, 90=South) from capture point.
-      // 2. We rotate by (270 - referenceHeading) to map that direction to AR -Z (North).
-
-      final rotationAngle = (270.0 - _referencePose!.heading) * math.pi / 180.0;
+      final rotationAngle =
+          (270.0 - _referencePose!.heading) * math.pi / 180.0;
       final cosA = math.cos(rotationAngle);
       final sinA = math.sin(rotationAngle);
 

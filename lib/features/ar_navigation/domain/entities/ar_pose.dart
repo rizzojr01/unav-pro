@@ -17,6 +17,24 @@ class ArPose extends Equatable {
     required this.timestamp,
   });
 
+  ArPose copyWith({
+    double? x,
+    double? y,
+    double? z,
+    double? heading,
+    double? confidence,
+    DateTime? timestamp,
+  }) {
+    return ArPose(
+      x: x ?? this.x,
+      y: y ?? this.y,
+      z: z ?? this.z,
+      heading: heading ?? this.heading,
+      confidence: confidence ?? this.confidence,
+      timestamp: timestamp ?? this.timestamp,
+    );
+  }
+
   @override
   List<Object?> get props => [x, y, z, heading, confidence, timestamp];
 }

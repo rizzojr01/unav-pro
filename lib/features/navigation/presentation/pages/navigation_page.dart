@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../injection.dart';
@@ -220,8 +223,11 @@ class _NavigationMapViewState extends State<_NavigationMapView>
     with SingleTickerProviderStateMixin {
   late String _selectedFloor;
   late AnimationController _floorAnimController;
-
   late Map<String, String> _floorPlansByFloor;
+
+  // Live compass heading for map rotation (0=North, CW).
+  double? _compassHeading;
+  StreamSubscription<CompassEvent>? _compassSub;
 
   @override
   void initState() {
@@ -237,6 +243,13 @@ class _NavigationMapViewState extends State<_NavigationMapView>
       duration: const Duration(milliseconds: 250),
     );
     _floorAnimController.forward();
+
+    // Subscribe to compass for real-time map rotation.
+    _compassSub = FlutterCompass.events?.listen((event) {
+      if (event.heading != null && mounted) {
+        setState(() => _compassHeading = event.heading);
+      }
+    });
   }
 
   @override
@@ -249,6 +262,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
 
   @override
   void dispose() {
+    _compassSub?.cancel();
     _floorAnimController.dispose();
     super.dispose();
   }
@@ -371,6 +385,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                     userLocation: displayLocation,
                     userHeading: displayHeading,
                     arRawHeading: arRawHeading,
+                    liveCompassHeading: _compassHeading,
                     apiInitialHeading: apiInitialHeading,
                     capturedReferenceHeading:
                         widget.capturedReferenceHeading ??

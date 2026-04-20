@@ -1821,10 +1821,11 @@ class _AlternateSampleImageSettingsSheetState
   late String _selectedPath;
   final locationConfig = getIt<LocationConfigService>();
 
-  final List<String> _sampleImages = List.generate(
-    15,
-    (i) => 'assets/images/sample_images/sample_${i + 1}.jpg',
-  );
+  final List<String> _sampleImages = [
+    for (int n = 1; n <= 20; n++)
+      for (final dir in ['E', 'N', 'S', 'W'])
+        'assets/node_images/Node${n}_$dir.jpg',
+  ];
 
   @override
   void initState() {
