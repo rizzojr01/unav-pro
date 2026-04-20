@@ -103,6 +103,9 @@ PODS:
   - nanopb/encode (3.30910.0)
   - network_info_plus (0.0.1):
     - Flutter
+  - path_provider_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
   - PromisesObjC (2.4.0)
   - PromisesSwift (2.4.0):
     - PromisesObjC (= 2.4.0)
@@ -122,6 +125,7 @@ DEPENDENCIES:
   - flutter_compass (from `.symlinks/plugins/flutter_compass/ios`)
   - geolocator_apple (from `.symlinks/plugins/geolocator_apple/darwin`)
   - network_info_plus (from `.symlinks/plugins/network_info_plus/ios`)
+  - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
   - sensors_plus (from `.symlinks/plugins/sensors_plus/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
 
@@ -161,13 +165,15 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/geolocator_apple/darwin"
   network_info_plus:
     :path: ".symlinks/plugins/network_info_plus/ios"
+  path_provider_foundation:
+    :path: ".symlinks/plugins/path_provider_foundation/darwin"
   sensors_plus:
     :path: ".symlinks/plugins/sensors_plus/ios"
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
 
 SPEC CHECKSUMS:
-  camera_avfoundation: 5675ca25298b6f81fa0a325188e7df62cc217741
+  camera_avfoundation: be3be85408cd4126f250386828e9b1dfa40ab436
   device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
   Firebase: d99ac19b909cd2c548339c2241ecd0d1599ab02e
   firebase_core: 995454a784ff288be5689b796deb9e9fa3601818
@@ -181,17 +187,18 @@ SPEC CHECKSUMS:
   FirebaseMessaging: 3b26e2cee503815e01c3701236b020aa9b576f09
   FirebaseRemoteConfigInterop: 1c6135e8a094cc6368949f5faeeca7ee8948b8aa
   FirebaseSessions: b9a92c1c51bbb81e78fc3142cda6d925d700f8e7
-  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
   flutter_compass: b236ab69b61545cce89fd58527f401a7587d5cc1
   geolocator_apple: ab36aa0e8b7d7a2d7639b3b4e48308394e8cef5e
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   network_info_plus: cf61925ab5205dce05a4f0895989afdb6aade5fc
+  path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   PromisesSwift: 9d77319bbe72ebf6d872900551f7eeba9bce2851
   sensors_plus: 6a11ed0c2e1d0bd0b20b4029d3bad27d96e0c65b
-  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
+  shared_preferences_foundation: 9e1978ff2562383bd5676f64ec4e9aa8fa06a6f7
 
 PODFILE CHECKSUM: 251cb053df7158f337c0712f2ab29f4e0fa474ce
 
