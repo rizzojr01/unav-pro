@@ -615,92 +615,91 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
             ),
 
             // Debug Info Panel
-            if (kDebugMode)
-              Positioned(
-                left: 16,
-                top: 100,
-                child: IgnorePointer(
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          'DEBUG INFO',
-                          style: TextStyle(
-                            color: Colors.amber,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
+            Positioned(
+              left: 16,
+              top: 100,
+              child: IgnorePointer(
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'DEBUG INFO',
+                        style: TextStyle(
+                          color: Colors.amber,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'API Ang: ${widget.apiInitialHeading?.toStringAsFixed(1) ?? "N/A"}°',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                          ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'API Ang: ${widget.apiInitialHeading?.toStringAsFixed(1) ?? "N/A"}°',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
                         ),
-                        Text(
-                          'Pose Ang: ${widget.userHeading?.toStringAsFixed(1) ?? "N/A"}°',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                          ),
+                      ),
+                      Text(
+                        'Pose Ang: ${widget.userHeading?.toStringAsFixed(1) ?? "N/A"}°',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
                         ),
-                        Text(
-                          'AR Raw: ${widget.arRawHeading?.toStringAsFixed(1) ?? "N/A"}°',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                          ),
+                      ),
+                      Text(
+                        'AR Raw: ${widget.arRawHeading?.toStringAsFixed(1) ?? "N/A"}°',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
                         ),
-                        Text(
-                          'Ref Head: ${widget.capturedReferenceHeading?.toStringAsFixed(1) ?? "N/A"}°',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                          ),
+                      ),
+                      Text(
+                        'Ref Head: ${widget.capturedReferenceHeading?.toStringAsFixed(1) ?? "N/A"}°',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
                         ),
-                        Text(
-                          'Plot Head: ${widget.headingAtStart?.toStringAsFixed(1) ?? "N/A"}°',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                          ),
+                      ),
+                      Text(
+                        'Plot Head: ${widget.headingAtStart?.toStringAsFixed(1) ?? "N/A"}°',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
                         ),
-                        Text(
-                          'Delta: ${_calculateDeltaString()}°',
-                          style: const TextStyle(
-                            color: Colors.cyanAccent,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      ),
+                      Text(
+                        'Delta: ${_calculateDeltaString()}°',
+                        style: const TextStyle(
+                          color: Colors.cyanAccent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
                         ),
-                        Text(
-                          'Map Rot: ${(_transformationController.value.storage[1] != 0 || _transformationController.value.storage[0] != 0) ? (math.atan2(_transformationController.value.storage[1], _transformationController.value.storage[0]) * (180.0 / math.pi)).toStringAsFixed(1) : "0.0"}°',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                          ),
+                      ),
+                      Text(
+                        'Map Rot: ${(_transformationController.value.storage[1] != 0 || _transformationController.value.storage[0] != 0) ? (math.atan2(_transformationController.value.storage[1], _transformationController.value.storage[0]) * (180.0 / math.pi)).toStringAsFixed(1) : "0.0"}°',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
                         ),
-                        Text(
-                          'Auto-Center: $_isAutoCentered',
-                          style: TextStyle(
-                            color: _isAutoCentered ? Colors.green : Colors.red,
-                            fontSize: 11,
-                          ),
+                      ),
+                      Text(
+                        'Auto-Center: $_isAutoCentered',
+                        style: TextStyle(
+                          color: _isAutoCentered ? Colors.green : Colors.red,
+                          fontSize: 11,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
+            ),
 
             AnimatedBuilder(
               animation: _transformationController,
