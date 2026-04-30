@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../../../core/base/base_datasource.dart';
 import '../../../../core/error/exceptions.dart';
@@ -9,7 +8,7 @@ import '../models/route_model.dart';
 
 // ─── Temporary mock ──────────────────────────────────────────────────────────
 // Set to true while the backend is down. Flip back to false when it's up.
-const bool _kUseMockRoute = true;
+const bool _kUseMockRoute = false;
 
 const Map<String, dynamic> _kMockRouteJson = {
   'id': 'mock-route-001',
