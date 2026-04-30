@@ -25,7 +25,6 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   LocalizedPose? _referencePose;
   double? _metersPerPixel;
   RouteEntity? _route;
-  double? _capturedSensorHeading;
   ArTrackingState _lastState = ArTrackingState.idle;
 
   ArNavigationBloc({
@@ -50,7 +49,6 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     _referencePose = event.referencePose;
     _metersPerPixel = event.metersPerPixel;
     _route = event.route;
-    _capturedSensorHeading = event.capturedSensorHeading;
     _originArPose = null;
 
     await _poseSubscription?.cancel();
@@ -105,38 +103,16 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     // Use a realistic fallback if metersPerPixel is 1.0 (unscaled)
     final effectiveMpp = (_metersPerPixel == 1.0) ? 0.05 : _metersPerPixel!;
 
-    final localizedPoseRaw = _poseTransformer.transform(
+    // ArPoseTransformer now produces correctly-aligned FP coordinates and
+    // heading directly from ARKit's gravityAndHeading world frame.
+    // No additional delta correction is needed — the session's compass
+    // alignment handles it at the native layer.
+    final localizedPose = _poseTransformer.transform(
       currentArPose: event.pose,
       originArPose: _originArPose!,
       referenceFloorplanPose: _referencePose!,
       metersPerPixel: effectiveMpp,
     );
-
-    // --- Delta Correction Logic ---
-    // Correct the heading based on movement since capture.
-    double correctedHeading = localizedPoseRaw.heading;
-    if (_capturedSensorHeading != null && event.pose.heading != 0) {
-      // 1. Calculate the rotation delta between NOW and CAPTURE
-      double sensorDelta = event.pose.heading - _capturedSensorHeading!;
-
-      // Normalize delta to [-180, 180]
-      if (sensorDelta > 180) sensorDelta -= 360;
-      if (sensorDelta < -180) sensorDelta += 360;
-
-      // 2. Add this delta to the Backend Truth (Reference Heading)
-      // Reference Heading is where the user was facing in floorplan-space at capture
-      // Note: We subtract sensorDelta if the coordinate systems are mirrored,
-      // but usually it's addition. Let's ensure the backend truth 'ang'
-      // is handled correctly.
-      correctedHeading = (_referencePose!.heading + sensorDelta) % 360.0;
-      if (correctedHeading < 0) correctedHeading += 360.0;
-
-      // DEBUG LOG for Alignment
-      // print('AR_DELTA_DEBUG: Ref=${_referencePose!.heading.toStringAsFixed(1)} Delta=${sensorDelta.toStringAsFixed(1)} Corrected=$correctedHeading');
-    }
-
-    final localizedPose = localizedPoseRaw.copyWith(heading: correctedHeading);
-    // ------------------------------
 
     final previousWaypointIndex = state is ArNavigationTracking
         ? (state as ArNavigationTracking).nextWaypointIndex
@@ -201,18 +177,9 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     // math.atan2 returns (-pi, pi].
     // If dy=-1, dx=0 (North), atan2=-pi/2 (-90°). _normalizeDegrees(-90) = 270°. Correct.
 
-    // THE FIX: Coordinate System Alignment
-    // 1. TargetAngle (from atan2): 0=East, 90=South, 270=North (Clockwise)
-    // 2. PoseHeading: In this app, the corrected heading reflects the phone's
-    //    orientation relative to the floorplan.
-    //
-    // Based on logs: Target is North (~270°). User is facing the AR path.
-    // PoseHeading is ~18°.
-    // 18° + 252° = 270°.
-    // This 252° offset (or -108°) is exactly what's needed to align the two.
-    // However, -90° is a common coordinate system flip (East vs North origin).
-    // Let's test the alignment with a -90 (or +270) shift first.
-    final poseHeadingForGuidance = _normalizeDegrees(pose.heading - 108.0);
+    // pose.heading is now in floorplan space (0=East, 90=South CW), matching
+    // targetAngle from atan2. No offset needed.
+    final poseHeadingForGuidance = pose.heading;
 
     final headingDelta = _signedHeadingDeltaDeg(
       poseHeadingForGuidance,
@@ -315,44 +282,23 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
 
     final mpp = (_metersPerPixel == 1.0) ? 0.05 : _metersPerPixel!;
 
-    // pixelToAr: rotate floorplan pixel coords into ARKit world space.
+    // pixelToAr: convert floorplan pixel coordinates to ARKit world-space.
     //
-    // The geometry is purely static:
-    //   - Floorplan: 0=East CW. North = 270°.
-    //   - ARKit yaw (yawDegrees in AppDelegate): 0=East CCW. Forward (-Z) = 90°.
-    //   - To map floorplan North (270°) onto ARKit forward (90°):
-    //       rotationAngle = (270 - backendAng) * pi/180
+    // With worldAlignment = .gravityAndHeading the AR world is compass-aligned:
+    //   AR world +X = geographic East  ↔  floorplan +X (pixels right)
+    //   AR world +Z = geographic South ↔  floorplan +Y (pixels down)
     //
-    // backendAng is the direction the camera was facing at capture in floorplan
-    // space. (270 - backendAng) rotates the floorplan so that capture direction
-    // aligns with ARKit -Z (forward), which is where the camera points at
-    // session start.
+    // The reference floorplan position (refX, refY) corresponds to the AR
+    // session origin (0, 0, 0) — i.e., where the camera was when the session
+    // started. Converting any floorplan point is therefore just:
+    //   arX = (px − refX) × mpp    [pixels East  → metres East]
+    //   arZ = (py − refY) × mpp    [pixels South → metres South (AR +Z)]
     //
-    // This must be a FIXED value — no delta correction here. ARKit world space
-    // is anchored to the first frame regardless of compass or user rotation.
-    // The position tracking (currentPose.x/y from ArPoseTransformer) already
-    // handles movement correctly in the same world space.
-
-    // 1. TargetAngle (from atan2): 0=East, 90=South, 270=North (Clockwise)
-    // 2. PoseHeading: Corrected heading relative to floorplan.
-    //
-    // The Guidance Text uses: pose.heading - 108.0
-    // User reports AR is 90 degrees LEFT of where it should be.
-    // To move something 90 degrees RIGHT (to correct a LEFT offset), we subtract 90 from the angle.
-    // 108.0 + 90.0 = 198.0
-    final arkitForwardBaseline = 90.0; 
-    final rotationAngle = (arkitForwardBaseline - (_referencePose!.heading - 198.0)) * math.pi / 180.0;
-    final cosA = math.cos(rotationAngle);
-    final sinA = math.sin(rotationAngle);
-
+    // No rotation matrix is needed because the axes are already aligned.
     List<double> pixelToAr(double px, double py) {
-      final dx = px - _referencePose!.x;
-      final dy = py - _referencePose!.y;
-
-      final finalX = (dx * cosA - dy * sinA) * mpp;
-      final finalZ = (dx * sinA + dy * cosA) * mpp;
-
-      return [finalX, 0, finalZ];
+      final arX = (px - _referencePose!.x) * mpp;
+      final arZ = (py - _referencePose!.y) * mpp;
+      return [arX, 0, arZ];
     }
 
     final routePoints = _route!.steps

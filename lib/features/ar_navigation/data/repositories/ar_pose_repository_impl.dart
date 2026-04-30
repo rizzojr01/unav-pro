@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 import '../../domain/entities/ar_pose.dart';
 import '../../domain/repositories/ar_pose_repository.dart';
 import '../datasources/ar_channel_contract.dart';
@@ -39,30 +40,14 @@ class ArPoseRepositoryImpl implements ArPoseRepository {
   @override
   Future<double?> getCurrentHeading() async {
     try {
-      final result = await _methodChannel.invokeMethod<Map>(
-        'getCurrentHeading',
-        {ArChannelContract.backendKey: _backend},
-      );
-      if (result != null && result['heading'] != null) {
-        return (result['heading'] as num).toDouble();
+      final event = await FlutterCompass.events
+          ?.first
+          .timeout(const Duration(milliseconds: 600));
+      final heading = event?.heading;
+      if (heading != null && !heading.isNaN && !heading.isInfinite) {
+        return heading;
       }
-    } catch (e) {
-      // Log the specific error for debugging
-      print('AR Repository: getCurrentHeading failed with $e');
-    }
-
-    // Fallback: try capturing frame info
-    try {
-      final result = await _methodChannel.invokeMethod<Map>(
-        ArChannelContract.captureCurrentFrameMethod,
-        {ArChannelContract.backendKey: _backend},
-      );
-      if (result != null && result[ArChannelContract.headingKey] != null) {
-        return (result[ArChannelContract.headingKey] as num).toDouble();
-      }
-    } catch (e) {
-      print('AR Repository: captureCurrentFrame fallback failed with $e');
-    }
+    } catch (_) {}
     return null;
   }
 
