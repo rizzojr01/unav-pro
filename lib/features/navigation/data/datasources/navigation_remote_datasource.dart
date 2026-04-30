@@ -116,7 +116,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
         'offset_in_meters': offsetInMeters,
         'image_compression': imageCompression,
         'user_picked_coordinates': userPickedCoordinates,
-        'fcm_token': ?fcmToken,
+        if (fcmToken != null) 'fcm_token': fcmToken,
       };
 
       final response = await post(ApiRoutes.getRoute, data: payload);
