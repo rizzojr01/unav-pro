@@ -1,27 +1,33 @@
+import 'dart:math' as math;
+
 import '../entities/ar_pose.dart';
 import '../entities/localized_pose.dart';
 
 /// Converts an ARKit camera pose into floorplan pixel coordinates.
 ///
-/// Coordinate systems (with ARKit worldAlignment = .gravityAndHeading):
+/// Mirrors the NavigationController._transformTrackedPose logic from ar_temp,
+/// which uses a sumHeadingDeg rotation to bridge the AR world frame and the
+/// floorplan image frame — making it work for any floorplan orientation, not
+/// only North-up maps.
 ///
-///   AR world frame (right-handed, gravity + compass aligned):
-///     +X = geographic East
-///     −Z = geographic North  (+Z = South)
-///     +Y = up
+/// Coordinate systems:
+///   AR world frame (ARKit worldAlignment = .gravityAndHeading):
+///     +X = East, +Y = Up, +Z = South
 ///
 ///   Native → Dart mapping (AppDelegate.swift):
-///     pose.x = worldX          (East,   metres)
-///     pose.y = −worldZ         (North,  metres — positive = North)
-///     pose.z = worldY          (Height, metres)
+///     pose.x = worldX  (East, metres)
+///     pose.y = −worldZ (North, metres — positive = North)
+///     pose.z = worldY  (Height, metres)
+///
+///   Math plane (intermediate, Y-up 2D):
+///     x = East  (worldX)
+///     y = North (−worldZ)
 ///
 ///   Floorplan (image) frame:
-///     +X = East  (pixels right)
-///     +Y = South (pixels down)
+///     +X = right (East at 0° heading)
+///     +Y = down  (South at 0° heading)
 ///
-/// Because gravityAndHeading already aligns AR world axes with the real-world
-/// compass, NO additional rotation is needed — only a unit conversion and a
-/// sign flip for the North→South axis.
+///   image ↔ math plane: flip Y  (mathY = −imageY)
 class ArPoseTransformer {
   const ArPoseTransformer();
 
@@ -31,31 +37,63 @@ class ArPoseTransformer {
     required LocalizedPose referenceFloorplanPose,
     required double metersPerPixel,
   }) {
-    // Displacement from the AR session anchor (metres, compass-aligned).
-    final deltaEast  = currentArPose.x - originArPose.x; // East  (m)
-    final deltaNorth = currentArPose.y - originArPose.y; // North (m)
+    // Extract planar (East, North) coordinates from each pose.
+    final originArPoint = _extractArPlanarPoint(originArPose);
+    final currentArPoint = _extractArPlanarPoint(currentArPose);
 
-    // Convert to floorplan pixels.
-    // East  → FP +X (same direction).
-    // North → FP −Y (FP +Y is South, so North flips sign).
-    final fpDeltaX =  deltaEast  / metersPerPixel;
-    final fpDeltaY = -deltaNorth / metersPerPixel;
+    final arDeltaX = currentArPoint.x - originArPoint.x; // East  delta (m)
+    final arDeltaY = currentArPoint.y - originArPoint.y; // North delta (m)
 
-    // Convert heading.
-    // AR:  0 = East, increases counter-clockwise.
-    // FP:  0 = East, increases clockwise.
-    // → FP heading = −AR heading (mod 360).
-    final fpHeading = _normalizeDegrees(-currentArPose.heading);
+    // sumHeadingDeg = the total rotation that maps AR world deltas onto the
+    // floorplan math-plane. It combines:
+    //   - reference.heading: camera bearing recorded in the floorplan frame
+    //   - captureHeading: AR yaw at session start (0=East, CCW in AR world)
+    final captureHeading = _normalizeDegrees(originArPose.heading);
+    final currentHeading = _normalizeDegrees(currentArPose.heading);
+    final sumHeadingDeg =
+        _normalizeDegrees(referenceFloorplanPose.heading + captureHeading);
+    final sumHeadingRad = sumHeadingDeg * math.pi / 180.0;
+
+    // Rotate AR world deltas into the floorplan math-plane frame (CW rotation).
+    final rotatedX =
+        arDeltaX * math.cos(sumHeadingRad) + arDeltaY * math.sin(sumHeadingRad);
+    final rotatedY =
+        arDeltaY * math.cos(sumHeadingRad) - arDeltaX * math.sin(sumHeadingRad);
+
+    final deltaFloorplanMathX = rotatedX / metersPerPixel;
+    final deltaFloorplanMathY = rotatedY / metersPerPixel;
+
+    // Reference point: image → math plane (flip Y).
+    final refMathX = referenceFloorplanPose.x;
+    final refMathY = -referenceFloorplanPose.y;
+
+    final curMathX = refMathX + deltaFloorplanMathX;
+    final curMathY = refMathY + deltaFloorplanMathY;
+
+    // Math plane → image (flip Y back).
+    final fpX = curMathX;
+    final fpY = -curMathY;
+
+    // Heading in floorplan space: subtract current AR heading from sumHeading.
+    final fpHeading = _normalizeDegrees(sumHeadingDeg - currentHeading);
 
     return LocalizedPose(
       floorKey: referenceFloorplanPose.floorKey,
-      x: referenceFloorplanPose.x + fpDeltaX,
-      y: referenceFloorplanPose.y + fpDeltaY,
+      x: fpX,
+      y: fpY,
       z: currentArPose.z,
       heading: fpHeading,
       confidence: currentArPose.confidence,
       timestamp: currentArPose.timestamp,
     );
+  }
+
+  /// Extract a 2D math-plane point (East, North) from an AR pose.
+  /// Uses worldX/worldZ when available, falls back to pose.x / −pose.y.
+  math.Point<double> _extractArPlanarPoint(ArPose pose) {
+    final worldX = pose.worldX ?? pose.x;
+    final worldZ = pose.worldZ ?? -pose.y; // worldZ = South; −worldZ = North
+    return math.Point<double>(worldX, -worldZ); // (East, North)
   }
 
   double _normalizeDegrees(double value) {

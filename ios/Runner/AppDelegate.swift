@@ -194,12 +194,12 @@ private final class IOSArTrackingBridge: NSObject, FlutterStreamHandler, ARSessi
     }
 
     let configuration = ARWorldTrackingConfiguration()
-    // Use gravityAndHeading to fuse compass with world tracking.
-    // This ensures ARKit's -Z (forward) always points geographic north
-    // regardless of which direction the device faces at session start.
-    // This is critical for AR path plotting to work correctly when the
-    // user rotates during the loading state.
-    configuration.worldAlignment = .gravityAndHeading
+    // Use .gravity (not .gravityAndHeading) so the AR world frame is
+    // session-relative, matching ar_temp. The Flutter transformer bridges
+    // the session frame to floorplan space using
+    // sumHeadingDeg = reference.heading + captureHeading, which works for
+    // any floorplan orientation and avoids compass/magnetometer interference.
+    configuration.worldAlignment = .gravity
     session.run(configuration, options: isSessionRunning ? [] : [.resetTracking, .removeExistingAnchors])
     isSessionRunning = true
     result(nil)

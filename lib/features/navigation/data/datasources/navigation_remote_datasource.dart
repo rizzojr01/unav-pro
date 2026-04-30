@@ -7,6 +7,53 @@ import '../../../../shared/services/fcm_service.dart';
 import 'package:smart_sense/core/constants/api_routes.dart';
 import '../models/route_model.dart';
 
+// ─── Temporary mock ──────────────────────────────────────────────────────────
+// Set to true while the backend is down. Flip back to false when it's up.
+const bool _kUseMockRoute = true;
+
+const Map<String, dynamic> _kMockRouteJson = {
+  'id': 'mock-route-001',
+  'meters_per_pixel': null, // will use app default (0.05)
+  'multifloor_navigation_steps': [
+    {
+      'floor': '1', // TODO: replace with your real floor key
+      'steps': [
+        {
+          'from': {'x': 1739.804452917344, 'y': 1146.1793065244783},
+          'to': {'x': 1739.804452917344, 'y': 1146.1793065244783},
+          'distance_meters': 0.0,
+          'distance_feet': 0,
+        },
+        {
+          'from': {'x': 1739.804452917344, 'y': 1146.1793065244783},
+          'to': {'x': 1970.8333333333335, 'y': 1156.25},
+          'distance_meters': 5.101018168115349,
+          'distance_feet': 17,
+        },
+        {
+          'from': {'x': 1970.8333333333335, 'y': 1156.25},
+          'to': {'x': 1979.1666666666667, 'y': 1437.5},
+          'distance_meters': 6.206710112656697,
+          'distance_feet': 20,
+        },
+        {
+          'from': {'x': 1979.1666666666667, 'y': 1437.5},
+          'to': {'x': 5041.666666666667, 'y': 1431.25},
+          'distance_meters': 67.55467040171544,
+          'distance_feet': 222,
+        },
+        {
+          'from': {'x': 5041.666666666667, 'y': 1431.25},
+          'to': {'x': 4937.209302325581, 'y': 1134.8837209302326},
+          'distance_meters': 6.931614834242284,
+          'distance_feet': 23,
+        },
+      ],
+    },
+  ],
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 abstract class NavigationRemoteDataSource {
   Future<RouteModel> getRoute({
     required String destinationId,
@@ -45,6 +92,11 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
     double offsetInMeters = 0.0,
     double? heading,
   }) async {
+    if (_kUseMockRoute) {
+      debugPrint('[NavigationDataSource] Using mock route (backend offline).');
+      return RouteModel.fromJson(_kMockRouteJson);
+    }
+
     return executeCall<RouteModel>(() async {
       final fcmToken = getIt<FcmService>().token;
 

@@ -281,24 +281,52 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     }
 
     final mpp = (_metersPerPixel == 1.0) ? 0.05 : _metersPerPixel!;
+    final reference = _referencePose!;
+    final origin = _originArPose!;
 
-    // pixelToAr: convert floorplan pixel coordinates to ARKit world-space.
-    //
-    // With worldAlignment = .gravityAndHeading the AR world is compass-aligned:
-    //   AR world +X = geographic East  ↔  floorplan +X (pixels right)
-    //   AR world +Z = geographic South ↔  floorplan +Y (pixels down)
-    //
-    // The reference floorplan position (refX, refY) corresponds to the AR
-    // session origin (0, 0, 0) — i.e., where the camera was when the session
-    // started. Converting any floorplan point is therefore just:
-    //   arX = (px − refX) × mpp    [pixels East  → metres East]
-    //   arZ = (py − refY) × mpp    [pixels South → metres South (AR +Z)]
-    //
-    // No rotation matrix is needed because the axes are already aligned.
-    List<double> pixelToAr(double px, double py) {
-      final arX = (px - _referencePose!.x) * mpp;
-      final arZ = (py - _referencePose!.y) * mpp;
-      return [arX, 0, arZ];
+    // Mirroring ar_temp's _floorplanPointToArWorld:
+    //   sumHeadingDeg rotates between the floorplan math-plane and AR world.
+    final captureHeading = _normalizeDegrees(origin.heading);
+    final sumHeadingDeg = _normalizeDegrees(reference.heading + captureHeading);
+    final sumHeadingRad = sumHeadingDeg * math.pi / 180.0;
+
+    // Origin pose in math-plane (East, North).
+    final originWorldX = origin.worldX ?? origin.x;
+    final originWorldZ = origin.worldZ ?? -origin.y;
+    final originMathX = originWorldX;
+    final originMathY = -originWorldZ; // North
+
+    // Reference in math-plane (flip Y from image).
+    final refMathX = reference.x;
+    final refMathY = -reference.y;
+
+    // Floor Y: 1.35 m below camera (ar_temp constant _overlayFloorOffsetMeters).
+    final cameraWorldY = origin.worldY ?? origin.z;
+    final floorWorldY = cameraWorldY - 1.35;
+
+    // Converts a floorplan image point to ARKit world-space [worldX, worldY, worldZ].
+    List<double> floorplanToArWorld(double px, double py) {
+      // Image → math plane
+      final mathX = px;
+      final mathY = -py;
+
+      final deltaMetersX = (mathX - refMathX) * mpp;
+      final deltaMetersY = (mathY - refMathY) * mpp;
+
+      // CCW rotation by sumHeadingRad (inverse of _transformTrackedPose CW rotation)
+      final arDeltaX =
+          deltaMetersX * math.cos(sumHeadingRad) - deltaMetersY * math.sin(sumHeadingRad);
+      final arDeltaY =
+          deltaMetersX * math.sin(sumHeadingRad) + deltaMetersY * math.cos(sumHeadingRad);
+
+      final targetMathX = originMathX + arDeltaX;
+      final targetMathY = originMathY + arDeltaY;
+
+      // Math plane (East, North) → AR world: worldX = East, worldZ = −North
+      final worldX = targetMathX;
+      final worldZ = -targetMathY;
+
+      return [worldX, floorWorldY, worldZ];
     }
 
     final routePoints = _route!.steps
@@ -306,23 +334,23 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
         .toList();
     routePoints.add(Offset(_route!.steps.last.to.x, _route!.steps.last.to.y));
 
-    final allPathAr = routePoints.map((p) => pixelToAr(p.dx, p.dy)).toList();
+    final allPathAr =
+        routePoints.map((p) => floorplanToArWorld(p.dx, p.dy)).toList();
 
-    // Active path: from current position to next waypoint, then all subsequent
     final nextWaypoint = routePoints[update.nextWaypointIndex];
     final activePathAr = [
-      pixelToAr(currentPose.x, currentPose.y),
+      floorplanToArWorld(currentPose.x, currentPose.y),
       ...routePoints
           .skip(update.nextWaypointIndex)
-          .map((p) => pixelToAr(p.dx, p.dy)),
+          .map((p) => floorplanToArWorld(p.dx, p.dy)),
     ];
 
     _poseRepository.updateOverlay(
       pathPoints: allPathAr,
       activePathPoints: activePathAr,
-      futurePathPoints: [], // Optional
-      nextWaypoint: pixelToAr(nextWaypoint.dx, nextWaypoint.dy),
-      destination: pixelToAr(routePoints.last.dx, routePoints.last.dy),
+      futurePathPoints: [],
+      nextWaypoint: floorplanToArWorld(nextWaypoint.dx, nextWaypoint.dy),
+      destination: floorplanToArWorld(routePoints.last.dx, routePoints.last.dy),
     );
   }
 

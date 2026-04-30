@@ -310,7 +310,14 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     final backendAng = widget.apiInitialHeading;
     final refHead = widget.capturedReferenceHeading; // compass at shutter
 
-    // Priority 1: live compass delta (most accurate, continuous).
+    // Priority 1: AR pose heading — already in floorplan space (0=East, CW).
+    // Most accurate: no magnetic interference, continuous once AR is running.
+    // Formula: -(arHeading + 90°) rotates map so camera's forward faces up.
+    if (widget.arRawHeading != null) {
+      return -(widget.arRawHeading! + 90.0) * (math.pi / 180.0);
+    }
+
+    // Priority 2: live compass delta (fallback before AR localizes).
     if (widget.liveCompassHeading != null &&
         refHead != null &&
         backendAng != null) {
@@ -320,10 +327,8 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       return -(backendAng + delta + 90.0) * (math.pi / 180.0);
     }
 
-    // Priority 2: static delta (headingAtStart - capturedReferenceHeading).
-    // Used before compass fires or as fallback. This is the delta captured
-    // between shutter and server response — not a live value, but correct
-    // for the initial placement after loading.
+    // Priority 3: static delta (headingAtStart - capturedReferenceHeading).
+    // Used before compass fires. Correct for initial placement after loading.
     if (backendAng != null &&
         refHead != null &&
         widget.headingAtStart != null) {
@@ -333,7 +338,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       return -(backendAng + delta + 90.0) * (math.pi / 180.0);
     }
 
-    // Priority 3: no delta available — show map at backend ang, no user offset.
+    // Priority 4: no delta available — show map at backend ang, no user offset.
     if (backendAng != null) {
       return -(backendAng + 90.0) * (math.pi / 180.0);
     }
@@ -500,9 +505,28 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       return;
     }
 
+    // If InteractiveViewer changed the matrix since our last write (user panned
+    // or pinch-zoomed), capture the new pan/scale before we overwrite it.
+    final currentMatrix = _transformationController.value;
+    if (_lastTransformMatrix != null) {
+      final oldS = _lastTransformMatrix!.storage;
+      final newS = currentMatrix.storage;
+      final translationDiff =
+          (oldS[12] - newS[12]).abs() + (oldS[13] - newS[13]).abs();
+      final scaleDiff =
+          (currentMatrix.getMaxScaleOnAxis() - _cachedScale!).abs();
+      if (translationDiff > 0.01 || scaleDiff > 0.01) {
+        _cachedScale = currentMatrix.getMaxScaleOnAxis();
+        _cachedPanOffset = MatrixUtils.transformPoint(
+          currentMatrix,
+          Offset(userDisplayX, userDisplayY),
+        );
+      }
+    }
+
     final now = DateTime.now();
-    final timeDelta = _lastRotationUpdateTime == null 
-        ? 0 
+    final timeDelta = _lastRotationUpdateTime == null
+        ? 0
         : now.difference(_lastRotationUpdateTime!).inMilliseconds;
     _lastRotationUpdateTime = now;
 

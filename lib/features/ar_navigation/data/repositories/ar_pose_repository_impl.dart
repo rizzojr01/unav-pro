@@ -91,6 +91,9 @@ class ArPoseRepositoryImpl implements ArPoseRepository {
               (data[ArChannelContract.timestampKey] as num?)?.toInt() ??
                   DateTime.now().millisecondsSinceEpoch,
             ),
+            worldX: (data[ArChannelContract.worldXKey] as num?)?.toDouble(),
+            worldY: (data[ArChannelContract.worldYKey] as num?)?.toDouble(),
+            worldZ: (data[ArChannelContract.worldZKey] as num?)?.toDouble(),
           );
         });
   }

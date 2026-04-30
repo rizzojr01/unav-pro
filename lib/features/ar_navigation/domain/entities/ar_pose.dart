@@ -7,6 +7,11 @@ class ArPose extends Equatable {
   final double heading;
   final double confidence;
   final DateTime timestamp;
+  // Raw ARKit world-space coordinates (metres, gravityAndHeading aligned)
+  // +X = East, +Y = Up, +Z = South
+  final double? worldX;
+  final double? worldY;
+  final double? worldZ;
 
   const ArPose({
     required this.x,
@@ -15,6 +20,9 @@ class ArPose extends Equatable {
     required this.heading,
     required this.confidence,
     required this.timestamp,
+    this.worldX,
+    this.worldY,
+    this.worldZ,
   });
 
   ArPose copyWith({
@@ -24,6 +32,9 @@ class ArPose extends Equatable {
     double? heading,
     double? confidence,
     DateTime? timestamp,
+    double? worldX,
+    double? worldY,
+    double? worldZ,
   }) {
     return ArPose(
       x: x ?? this.x,
@@ -32,9 +43,12 @@ class ArPose extends Equatable {
       heading: heading ?? this.heading,
       confidence: confidence ?? this.confidence,
       timestamp: timestamp ?? this.timestamp,
+      worldX: worldX ?? this.worldX,
+      worldY: worldY ?? this.worldY,
+      worldZ: worldZ ?? this.worldZ,
     );
   }
 
   @override
-  List<Object?> get props => [x, y, z, heading, confidence, timestamp];
+  List<Object?> get props => [x, y, z, heading, confidence, timestamp, worldX, worldY, worldZ];
 }
