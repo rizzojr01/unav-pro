@@ -66,7 +66,6 @@ class MapView extends StatefulWidget {
 
 class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   late AnimationController _routeAnimationController;
-  late AnimationController _rotationAnimationController;
   final TransformationController _transformationController =
       TransformationController();
 
@@ -80,26 +79,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   List<DestinationEntity> _filteredDestinations = [];
 
-  // Last heading (degrees) that was actually applied to the map matrix.
-  // Used to suppress small sensor noise — only rotate when the change exceeds
-  // the dead-zone threshold.
-  double? _lastAppliedHeading;
-  static const double _rotationDeadZoneDeg = 2.0;
-
-  // Smooth rotation animation state
-  double? _targetRotationRadians;
-  double? _currentRotationRadians;
-  
-  // Cached pan offset to preserve during rotation animation
-  Offset? _cachedPanOffset;
-  double? _cachedScale;
-  
-  // Continuous smooth animation parameters
-  double _smoothRotationVelocity = 0.0; // rad/ms
-  DateTime? _lastRotationUpdateTime;
-  
-  // Track if user is manually interacting (panning/zooming)
-  Matrix4? _lastTransformMatrix;
 
   String _calculateDeltaString() {
     if (widget.headingAtStart == null ||
@@ -123,11 +102,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(seconds: 10),
     )..repeat();
-
-    _rotationAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 150),
-    );
 
     _decodeFloorPlan();
     _filteredDestinations = widget.destinations;
@@ -200,8 +174,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   void didUpdateWidget(MapView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.floorPlanBase64 != widget.floorPlanBase64) {
-      _lastAppliedHeading =
-          null; // reset so first rotation after floor change always applies
       setState(() {
         _imageSize = null;
         _isAutoCentered = true;
@@ -211,44 +183,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     }
     if (oldWidget.destinations != widget.destinations) {
       _filteredDestinations = widget.destinations;
-    }
-
-    // Real-time rotation: trigger when the live compass value changes by more
-    // than the dead-zone. We track the raw compass value for the threshold
-    // check — the actual rotation matrix is always computed delta-only inside
-    // _getRotationRadians(), so no absolute heading ever reaches the matrix.
-    final newCompass =
-        widget.liveCompassHeading ?? widget.arRawHeading ?? widget.userHeading;
-    if (newCompass != null && _imageSize != null) {
-      final last = _lastAppliedHeading;
-      final double change;
-      if (last == null) {
-        change = 360.0; // first reading — always apply
-      } else {
-        double d = (newCompass - last).abs() % 360.0;
-        if (d > 180.0) d = 360.0 - d;
-        change = d;
-      }
-
-      if (change >= _rotationDeadZoneDeg) {
-        _lastAppliedHeading = newCompass;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          final box = context.findRenderObject() as RenderBox?;
-          if (box == null) return;
-
-          if (_isAutoCentered) {
-            _recenterOnUser(
-              box.size,
-              _imageSize!,
-              initialZoom: _transformationController.value.getMaxScaleOnAxis(),
-              animate: false,
-            );
-          } else {
-            _updateRotationOnly(box.size, _imageSize!);
-          }
-        });
-      }
     }
 
     final bool routeChanged =
@@ -271,7 +205,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   @override
   void dispose() {
     _routeAnimationController.dispose();
-    _rotationAnimationController.dispose();
     _transformationController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -294,68 +227,33 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     return Offset.zero;
   }
 
-  /// Returns the rotation angle in radians to apply to the map matrix.
+  /// Heading (degrees, screen-up = 0°) for the user arrow.
   ///
-  /// ALWAYS delta-only. Never uses absolute heading values.
-  ///
-  /// formula: rotation = -(backendAng + delta + 90°)
-  ///
-  ///   backendAng = apiInitialHeading  (0=East CW, floorplan-space)
-  ///   delta      = compassNow - compassAtCapture  (normalized ±180°)
-  ///
-  /// When delta=0 (user hasn't moved since capture) the map sits at the
-  /// initial backend orientation. Every degree the user rotates clockwise
-  /// adds +1° to delta, rotating the map by exactly that amount.
-  double _getRotationRadians() {
+  /// Fixed one-time static delta: plotHeading − captureHeading applied to
+  /// the backend orientation angle. Arrow never rotates after route load.
+  double? _arrowHeadingDeg() {
     final backendAng = widget.apiInitialHeading;
-    final refHead = widget.capturedReferenceHeading; // compass at shutter
+    if (backendAng == null) return widget.userHeading;
 
-    // Priority 1: AR pose heading — already in floorplan space (0=East, CW).
-    // Most accurate: no magnetic interference, continuous once AR is running.
-    // Formula: -(arHeading + 90°) rotates map so camera's forward faces up.
-    if (widget.arRawHeading != null) {
-      return -(widget.arRawHeading! + 90.0) * (math.pi / 180.0);
-    }
+    final refHead = widget.capturedReferenceHeading;
+    final plotHead = widget.headingAtStart;
+    final delta = (refHead != null && plotHead != null)
+        ? _shortestArc(plotHead - refHead)
+        : 0.0;
 
-    // Priority 2: live compass delta (fallback before AR localizes).
-    if (widget.liveCompassHeading != null &&
-        refHead != null &&
-        backendAng != null) {
-      double delta = widget.liveCompassHeading! - refHead;
-      if (delta > 180) delta -= 360;
-      if (delta < -180) delta += 360;
-      return -(backendAng + delta + 90.0) * (math.pi / 180.0);
-    }
+    return (backendAng + delta + 90.0) % 360.0;
+  }
 
-    // Priority 3: static delta (headingAtStart - capturedReferenceHeading).
-    // Used before compass fires. Correct for initial placement after loading.
-    if (backendAng != null &&
-        refHead != null &&
-        widget.headingAtStart != null) {
-      double delta = widget.headingAtStart! - refHead;
-      if (delta > 180) delta -= 360;
-      if (delta < -180) delta += 360;
-      return -(backendAng + delta + 90.0) * (math.pi / 180.0);
-    }
-
-    // Priority 4: no delta available — show map at backend ang, no user offset.
-    if (backendAng != null) {
-      return -(backendAng + 90.0) * (math.pi / 180.0);
-    }
-
-    return 0.0;
+  double _shortestArc(double deg) {
+    var d = deg % 360.0;
+    if (d > 180) d -= 360;
+    if (d < -180) d += 360;
+    return d;
   }
 
   void _initializeView(Size containerSize, Size imageSize) {
     if (_hasInitializedView || !widget.autoCenterOnUser) return;
     _hasInitializedView = true;
-    
-    // Set initial rotation and pan values so the very first frame of the
-    // continuous rotation loop has a correct baseline.
-    final initialRotation = _getRotationRadians();
-    _currentRotationRadians = initialRotation;
-    _targetRotationRadians = initialRotation;
-    
     _recenterOnUser(containerSize, imageSize, initialZoom: 3.5, animate: false);
   }
 
@@ -385,13 +283,8 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     final userDisplayY =
         userPos.dy * scaleY + (containerSize.height - displayHeight) / 2;
 
-    // Use current heading for rotation so recenter also respects orientation.
-    // Returns 0.0 (north-up) when no heading data is available yet.
-    final double rotation = _getRotationRadians();
-
     final targetMatrix = Matrix4.identity()
       ..translate(containerSize.width / 2, containerSize.height * 0.5)
-      ..rotateZ(rotation)
       ..translate(-userDisplayX * initialZoom, -userDisplayY * initialZoom)
       ..scale(initialZoom);
 
@@ -417,154 +310,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     }
   }
 
-  void _updateRotationOnly(Size containerSize, Size imageSize) {
-    final userPos = _getUserCoords();
-    final imageAR = imageSize.width / imageSize.height;
-    final containerAR = containerSize.width / containerSize.height;
-
-    double displayWidth, displayHeight;
-    if (imageAR > containerAR) {
-      displayWidth = containerSize.width;
-      displayHeight = containerSize.width / imageAR;
-    } else {
-      displayHeight = containerSize.height;
-      displayWidth = containerSize.height * imageAR;
-    }
-
-    final scaleX = displayWidth / imageSize.width;
-    final scaleY = displayHeight / imageSize.height;
-    final userDisplayX =
-        userPos.dx * scaleX + (containerSize.width - displayWidth) / 2;
-    final userDisplayY =
-        userPos.dy * scaleY + (containerSize.height - displayHeight) / 2;
-
-    final targetRotation = _getRotationRadians();
-    _targetRotationRadians = targetRotation;
-    
-    // Check if user panned (transformation matrix changed by something other than our rotation)
-    final currentMatrix = _transformationController.value;
-    
-    // Detect transformation changes by comparing with our last known update
-    if (_lastTransformMatrix != null) {
-      final oldS = _lastTransformMatrix!.storage;
-      final newS = currentMatrix.storage;
-      
-      // Calculate user's screen position in CURRENT matrix
-      // (This reflects where they ARE right now, including any manual pan)
-      final userScreenPos = MatrixUtils.transformPoint(
-        currentMatrix,
-        Offset(userDisplayX, userDisplayY),
-      );
-
-      // Detect manual transformation changes (translation or scale)
-      bool manuallyChanged = false;
-      final translationDiff = (oldS[12] - newS[12]).abs() + (oldS[13] - newS[13]).abs();
-      
-      if (translationDiff > 0.5) {
-        manuallyChanged = true;
-      }
-      
-      if (manuallyChanged) {
-        // User panned/zoomed - update cached values to track their new screen position
-        _cachedScale = currentMatrix.getMaxScaleOnAxis();
-        _cachedPanOffset = userScreenPos;
-      }
-    }
-    
-    // Cache the current pan offset and scale (on first call or if not yet set)
-    if (_cachedPanOffset == null || _cachedScale == null) {
-      _cachedScale = currentMatrix.getMaxScaleOnAxis();
-      _cachedPanOffset = MatrixUtils.transformPoint(
-        currentMatrix,
-        Offset(userDisplayX, userDisplayY),
-      );
-    }
-
-    // Initialize current rotation on first call IF it hasn't been set by _initializeView
-    _currentRotationRadians ??= targetRotation;
-    
-    _lastTransformMatrix = currentMatrix;
-
-
-    // Set up continuous animation that runs every frame
-    if (!_rotationAnimationController.isAnimating) {
-      _lastRotationUpdateTime = DateTime.now();
-      
-      _rotationAnimationController.removeListener(() {});
-      _rotationAnimationController.addListener(() {
-        _applyRotationUpdate(userDisplayX, userDisplayY);
-      });
-      
-      // Run animation indefinitely (we control it manually)
-      _rotationAnimationController.repeat();
-    }
-  }
-
-  void _applyRotationUpdate(double userDisplayX, double userDisplayY) {
-    if (!mounted || _targetRotationRadians == null || _cachedPanOffset == null || _cachedScale == null) {
-      return;
-    }
-
-    // If InteractiveViewer changed the matrix since our last write (user panned
-    // or pinch-zoomed), capture the new pan/scale before we overwrite it.
-    final currentMatrix = _transformationController.value;
-    if (_lastTransformMatrix != null) {
-      final oldS = _lastTransformMatrix!.storage;
-      final newS = currentMatrix.storage;
-      final translationDiff =
-          (oldS[12] - newS[12]).abs() + (oldS[13] - newS[13]).abs();
-      final scaleDiff =
-          (currentMatrix.getMaxScaleOnAxis() - _cachedScale!).abs();
-      if (translationDiff > 0.01 || scaleDiff > 0.01) {
-        _cachedScale = currentMatrix.getMaxScaleOnAxis();
-        _cachedPanOffset = MatrixUtils.transformPoint(
-          currentMatrix,
-          Offset(userDisplayX, userDisplayY),
-        );
-      }
-    }
-
-    final now = DateTime.now();
-    final timeDelta = _lastRotationUpdateTime == null
-        ? 0
-        : now.difference(_lastRotationUpdateTime!).inMilliseconds;
-    _lastRotationUpdateTime = now;
-
-    final currentRot = _currentRotationRadians!;
-    final targetRot = _targetRotationRadians!;
-
-    // Calculate angle difference with wrap-around
-    var angleDiff = targetRot - currentRot;
-    if (angleDiff > math.pi) angleDiff -= 2 * math.pi;
-    if (angleDiff < -math.pi) angleDiff += 2 * math.pi;
-
-    // Smoothly interpolate toward target at max 500 deg/sec
-    const maxDegreesPerSec = 500.0;
-    const maxRadiansPerSec = maxDegreesPerSec * math.pi / 180.0;
-    final maxRadiansPerMs = maxRadiansPerSec / 1000.0;
-    final maxChange = maxRadiansPerMs * timeDelta;
-
-    double newRot;
-    if (angleDiff.abs() < maxChange) {
-      // Close enough to target, snap to it
-      newRot = targetRot;
-    } else {
-      // Move toward target at max speed
-      newRot = currentRot + (angleDiff.sign * maxChange);
-    }
-
-    _currentRotationRadians = newRot;
-
-    // Build new matrix using cached pan offset
-    final newMatrix = Matrix4.identity()
-      ..translate(_cachedPanOffset!.dx, _cachedPanOffset!.dy)
-      ..rotateZ(newRot)
-      ..translate(-userDisplayX * _cachedScale!, -userDisplayY * _cachedScale!)
-      ..scale(_cachedScale!);
-
-    _transformationController.value = newMatrix;
-    _lastTransformMatrix = newMatrix;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -861,19 +606,13 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
 
     if (isUser) {
       final size = ((isCheckpoint ? 12.0 : 16.0) * zoom).clamp(4.0, 48.0);
-
-      // The map rotates so the user's forward direction always faces screen-up.
-      // Therefore the user arrow must always point straight up (0°) on screen —
-      // no counter-rotation needed.
-      const markerHeading = 0.0;
-
       return Positioned(
         left: pos.dx - size / 2,
         top: pos.dy - size / 2,
         child: UserPositionMarker(
           size: size,
           isCheckpoint: isCheckpoint,
-          heading: markerHeading,
+          heading: _arrowHeadingDeg() ?? heading ?? 0.0,
           showPulse: !isCheckpoint,
         ),
       );

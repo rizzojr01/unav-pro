@@ -1,6 +1,14 @@
 import '../../domain/entities/route_entity.dart';
 import 'multi_floor_navigation_step_model.dart';
 
+// Indoor floorplans: 1 px is typically 0.005–0.5 m.
+// If the value exceeds 1.0 the backend sent feet/pixel — convert to meters.
+double? _normalizeToMetersPerPixel(double? raw) {
+  if (raw == null) return null;
+  if (raw > 1.0) return raw * 0.3048; // feet → meters
+  return raw;
+}
+
 class RouteModel extends RouteEntity {
   const RouteModel({
     required super.entityId,
@@ -24,7 +32,7 @@ class RouteModel extends RouteEntity {
           json['id'] as String? ??
           DateTime.now().millisecondsSinceEpoch.toString(),
       multiFloorSteps: multiSteps,
-      metersPerPixel: json['meters_per_pixel']?.toDouble(),
+      metersPerPixel: _normalizeToMetersPerPixel(json['meters_per_pixel']?.toDouble()),
     );
   }
 
