@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:smart_sense/core/constants/app_text.dart';
 import 'package:smart_sense/injection.dart';
 import 'package:smart_sense/routes/app_router.dart';
+import 'package:smart_sense/shared/services/location_config_service.dart';
 import 'package:smart_sense/theme/app_theme.dart';
 import 'package:smart_sense/theme/theme_bloc.dart';
 import 'package:smart_sense/features/auth/presentation/bloc/auth_bloc.dart';
@@ -23,16 +24,17 @@ class App extends StatelessWidget {
       ],
       child: BlocBuilder<ThemeBloc, ThemeState>(
         builder: (context, state) {
-          return FcmBannerOverlay(
-            child: MaterialApp.router(
-              title: AppText.appName,
-              debugShowCheckedModeBanner: false,
-              theme: AppTheme.light(state.palette.scheme),
-              darkTheme: AppTheme.light(
-                state.palette.scheme,
-              ), // Always use light theme
-              themeMode: ThemeMode.light, // Force light theme
-              routerConfig: AppRouter.router,
+          return ValueListenableBuilder<bool>(
+            valueListenable: getIt<LocationConfigService>().debugBannerNotifier,
+            builder: (_, showBanner, __) => FcmBannerOverlay(
+              child: MaterialApp.router(
+                title: AppText.appName,
+                debugShowCheckedModeBanner: showBanner,
+                theme: AppTheme.light(state.palette.scheme),
+                darkTheme: AppTheme.light(state.palette.scheme),
+                themeMode: ThemeMode.light,
+                routerConfig: AppRouter.router,
+              ),
             ),
           );
         },

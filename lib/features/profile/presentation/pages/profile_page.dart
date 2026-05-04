@@ -655,6 +655,68 @@ class ProfilePage extends StatelessWidget {
                 indent: 68,
                 color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
               ),
+              // Debug Banner Toggle
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.errorContainer.withValues(
+                          alpha: 0.3,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.developer_mode_outlined,
+                        color: theme.colorScheme.error,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Debug Banner',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Show debug banner on map UI',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: locationConfig.showDebugBanner,
+                      onChanged: (value) async {
+                        await locationConfig.setShowDebugBanner(value);
+                        setState(() {});
+                      },
+                      activeColor: theme.colorScheme.error,
+                    ),
+                  ],
+                ),
+              ),
+              Divider(
+                height: 1,
+                indent: 68,
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ),
               // Floor Map Testing
               InkWell(
                 onTap: () {
