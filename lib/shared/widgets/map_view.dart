@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fuzzy/fuzzy.dart';
+import 'package:get_it/get_it.dart';
+import 'package:smart_sense/shared/services/location_config_service.dart';
 
 import '../../features/ar_navigation/presentation/bloc/ar_navigation_bloc.dart';
 import '../../features/ar_navigation/presentation/bloc/ar_navigation_state.dart';
@@ -32,9 +34,6 @@ class MapView extends StatefulWidget {
 
   final double? userHeading;
   final double? arRawHeading;
-  // Live compass heading (0=North CW) streamed directly from FlutterCompass.
-  // This is the primary source for real-time map rotation.
-  final double? liveCompassHeading;
   final double? apiInitialHeading;
   final double? capturedReferenceHeading;
   final double? headingAtStart;
@@ -54,7 +53,6 @@ class MapView extends StatefulWidget {
     this.onRelocalize,
     this.userHeading,
     this.arRawHeading,
-    this.liveCompassHeading,
     this.apiInitialHeading,
     this.capturedReferenceHeading,
     this.headingAtStart,
@@ -75,24 +73,18 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   bool _isSearching = false;
   bool _hasInitializedView = false;
   bool _isAutoCentered = true;
-
   final TextEditingController _searchController = TextEditingController();
   List<DestinationEntity> _filteredDestinations = [];
 
-
   String _calculateDeltaString() {
-    if (widget.headingAtStart == null ||
-        widget.capturedReferenceHeading == null) {
-      if (widget.headingAtStart == null &&
-          widget.capturedReferenceHeading == null)
-        return "N/A (Both Null)";
-      if (widget.headingAtStart == null) return "N/A (Plot Null)";
-      return "N/A (Ref Null)";
+    if (widget.userHeading == null || widget.apiInitialHeading == null) {
+      return "N/A";
     }
-    double d = widget.headingAtStart! - widget.capturedReferenceHeading!;
-    if (d > 180) d -= 360;
-    if (d < -180) d += 360;
-    return d.toStringAsFixed(1);
+    double delta = widget.userHeading! - widget.apiInitialHeading!;
+    var result = delta % 360.0;
+    if (result < -180.0) result += 360.0;
+    if (result >= 180.0) result -= 360.0;
+    return result.toStringAsFixed(1);
   }
 
   @override
@@ -126,17 +118,17 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     MemoryImage(_floorPlanBytes!)
         .resolve(const ImageConfiguration())
         .addListener(
-          ImageStreamListener((info, _) {
-            if (mounted) {
-              setState(() {
-                _imageSize = Size(
-                  info.image.width.toDouble(),
-                  info.image.height.toDouble(),
-                );
-              });
-            }
-          }),
-        );
+      ImageStreamListener((info, _) {
+        if (mounted) {
+          setState(() {
+            _imageSize = Size(
+              info.image.width.toDouble(),
+              info.image.height.toDouble(),
+            );
+          });
+        }
+      }),
+    );
   }
 
   void _onSearchChanged() {
@@ -176,7 +168,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     if (oldWidget.floorPlanBase64 != widget.floorPlanBase64) {
       setState(() {
         _imageSize = null;
-        _isAutoCentered = true;
         _hasInitializedView = false;
       });
       _decodeFloorPlan();
@@ -185,12 +176,24 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       _filteredDestinations = widget.destinations;
     }
 
+    // First heading update: snap user to screen center so rotation pivots on them.
+    if (oldWidget.userHeading == null &&
+        widget.userHeading != null &&
+        _imageSize != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final box = context.findRenderObject() as RenderBox?;
+        if (box == null) return;
+        _recenterOnUser(box.size, _imageSize!, initialZoom: 3.5, animate: true);
+      });
+    }
+
     final bool routeChanged =
         (oldWidget.route == null && widget.route != null) ||
-        (oldWidget.route != null &&
-            widget.route != null &&
-            oldWidget.route!.entityId != widget.route!.entityId) ||
-        (oldWidget.floorPlanBase64 != widget.floorPlanBase64);
+            (oldWidget.route != null &&
+                widget.route != null &&
+                oldWidget.route!.entityId != widget.route!.entityId) ||
+            (oldWidget.floorPlanBase64 != widget.floorPlanBase64);
 
     if (routeChanged && _imageSize != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -227,34 +230,20 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     return Offset.zero;
   }
 
-  /// Heading (degrees, screen-up = 0°) for the user arrow.
-  ///
-  /// Fixed one-time static delta: plotHeading − captureHeading applied to
-  /// the backend orientation angle. Arrow never rotates after route load.
-  double? _arrowHeadingDeg() {
-    final backendAng = widget.apiInitialHeading;
-    if (backendAng == null) return widget.userHeading;
-
-    final refHead = widget.capturedReferenceHeading;
-    final plotHead = widget.headingAtStart;
-    final delta = (refHead != null && plotHead != null)
-        ? _shortestArc(plotHead - refHead)
-        : 0.0;
-
-    return (backendAng + delta + 90.0) % 360.0;
-  }
-
-  double _shortestArc(double deg) {
-    var d = deg % 360.0;
-    if (d > 180) d -= 360;
-    if (d < -180) d += 360;
-    return d;
-  }
-
   void _initializeView(Size containerSize, Size imageSize) {
     if (_hasInitializedView || !widget.autoCenterOnUser) return;
     _hasInitializedView = true;
     _recenterOnUser(containerSize, imageSize, initialZoom: 3.5, animate: false);
+  }
+
+  /// Current map rotation in radians.
+  /// Formula matches main branch: -(heading + 90) * π/180
+  /// Converts backend math angle (0=East CW) to a rotation where
+  /// the user's heading direction points to the top of the screen.
+  double get _mapRotationRad {
+    final h = widget.userHeading;
+    if (h == null) return 0.0;
+    return -(h + 90.0) * math.pi / 180.0;
   }
 
   void _recenterOnUser(
@@ -283,25 +272,29 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     final userDisplayY =
         userPos.dy * scaleY + (containerSize.height - displayHeight) / 2;
 
+    // Place the user at the screen center in IV space.
+    // Transform.rotate (outside IV) pivots around the screen center, so a user
+    // at screen center stays pinned there during any rotation — no compensation needed.
+    final cx = containerSize.width / 2;
+    final cy = containerSize.height / 2;
     final targetMatrix = Matrix4.identity()
-      ..translate(containerSize.width / 2, containerSize.height * 0.5)
-      ..translate(-userDisplayX * initialZoom, -userDisplayY * initialZoom)
+      ..translate(
+          cx - userDisplayX * initialZoom, cy - userDisplayY * initialZoom)
       ..scale(initialZoom);
 
     if (animate) {
-      final animation =
-          Matrix4Tween(
-            begin: _transformationController.value,
-            end: targetMatrix,
-          ).animate(
-            CurvedAnimation(
-              parent: AnimationController(
-                vsync: this,
-                duration: const Duration(milliseconds: 300),
-              )..forward(),
-              curve: Curves.easeOutCubic,
-            ),
-          );
+      final animation = Matrix4Tween(
+        begin: _transformationController.value,
+        end: targetMatrix,
+      ).animate(
+        CurvedAnimation(
+          parent: AnimationController(
+            vsync: this,
+            duration: const Duration(milliseconds: 300),
+          )..forward(),
+          curve: Curves.easeOutCubic,
+        ),
+      );
       animation.addListener(() {
         _transformationController.value = animation.value;
       });
@@ -309,7 +302,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       _transformationController.value = targetMatrix;
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -351,211 +343,234 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
 
         return Stack(
           children: [
-            InteractiveViewer(
-              transformationController: _transformationController,
-              minScale: 0.1,
-              maxScale: 8.0,
-              boundaryMargin: const EdgeInsets.all(400),
-              onInteractionStart: (details) {
-                if (details.pointerCount > 0) {
-                  setState(() => _isAutoCentered = false);
-                }
-              },
-              child: Center(
-                child: SizedBox(
-                  width: displayWidth,
-                  height: displayHeight,
-                  child: Stack(
-                    children: [
-                      Image.memory(_floorPlanBytes!, fit: BoxFit.fill),
-                      if (widget.route != null)
-                        BlocBuilder<ArNavigationBloc, ArNavigationState>(
-                          builder: (context, arState) {
-                            List<Offset> pathCoords;
-                            if (arState is ArNavigationTracking &&
-                                arState.trackedPath.isNotEmpty) {
-                              pathCoords = arState.trackedPath;
-                            } else {
-                              pathCoords = widget.route!.steps
-                                  .expand(
-                                    (s) => [
-                                      Offset(s.from.x, s.from.y),
-                                      Offset(s.to.x, s.to.y),
-                                    ],
-                                  )
-                                  .toList();
-                            }
-
-                            return AnimatedBuilder(
-                              animation: _routeAnimationController,
-                              builder: (context, _) => CustomPaint(
-                                size: Size(displayWidth, displayHeight),
-                                painter: RoutePainter(
-                                  coords: pathCoords,
-                                  scaleX: scaleX,
-                                  scaleY: scaleY,
-                                  animationValue:
-                                      _routeAnimationController.value,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // Debug Info Panel
-            Positioned(
-              left: 16,
-              top: 100,
-              child: IgnorePointer(
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'DEBUG INFO',
-                        style: TextStyle(
-                          color: Colors.amber,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'API Ang: ${widget.apiInitialHeading?.toStringAsFixed(1) ?? "N/A"}°',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                        ),
-                      ),
-                      Text(
-                        'Pose Ang: ${widget.userHeading?.toStringAsFixed(1) ?? "N/A"}°',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                        ),
-                      ),
-                      Text(
-                        'AR Raw: ${widget.arRawHeading?.toStringAsFixed(1) ?? "N/A"}°',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                        ),
-                      ),
-                      Text(
-                        'Ref Head: ${widget.capturedReferenceHeading?.toStringAsFixed(1) ?? "N/A"}°',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                        ),
-                      ),
-                      Text(
-                        'Plot Head: ${widget.headingAtStart?.toStringAsFixed(1) ?? "N/A"}°',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                        ),
-                      ),
-                      Text(
-                        'Delta: ${_calculateDeltaString()}°',
-                        style: const TextStyle(
-                          color: Colors.cyanAccent,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'Map Rot: ${(_transformationController.value.storage[1] != 0 || _transformationController.value.storage[0] != 0) ? (math.atan2(_transformationController.value.storage[1], _transformationController.value.storage[0]) * (180.0 / math.pi)).toStringAsFixed(1) : "0.0"}°',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                        ),
-                      ),
-                      Text(
-                        'Auto-Center: $_isAutoCentered',
-                        style: TextStyle(
-                          color: _isAutoCentered ? Colors.green : Colors.red,
-                          fontSize: 11,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'API Ang (Used for AR): ${widget.apiInitialHeading?.toStringAsFixed(1) ?? "N/A"}°',
-                        style: const TextStyle(
-                          color: Colors.orangeAccent,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            AnimatedBuilder(
-              animation: _transformationController,
-              builder: (context, _) {
-                final zoom = _transformationController.value
-                    .getMaxScaleOnAxis();
-                return Stack(
+            // Rotating layer: IV + markers wrapped together so markers stay
+            // aligned with the rotated map content.
+            // Formula: -(heading + 90) * π/180 puts user's heading at screen top.
+            // (matches main branch convention; heading 270°=North → 0 rotation)
+            Positioned.fill(
+              child: Transform.rotate(
+                angle: _mapRotationRad,
+                child: Stack(
                   children: [
-                    ...widget.destinations.map(
-                      (d) => _buildMarker(
-                        d.x,
-                        d.y,
-                        scaleX,
-                        scaleY,
-                        centerOffsetX,
-                        centerOffsetY,
-                        zoom,
-                        isPOI: true,
-                        name: d.name,
-                        destination: d,
+                    InteractiveViewer(
+                      transformationController: _transformationController,
+                      minScale: 0.1,
+                      maxScale: 8.0,
+                      boundaryMargin: const EdgeInsets.all(400),
+                      onInteractionStart: (_) {},
+                      child: Center(
+                        child: SizedBox(
+                          width: displayWidth,
+                          height: displayHeight,
+                          child: Stack(
+                            children: [
+                              Image.memory(_floorPlanBytes!, fit: BoxFit.fill),
+                              if (widget.route != null)
+                                BlocBuilder<ArNavigationBloc,
+                                    ArNavigationState>(
+                                  builder: (context, arState) {
+                                    List<Offset> pathCoords;
+                                    if (arState is ArNavigationTracking &&
+                                        arState.trackedPath.isNotEmpty) {
+                                      pathCoords = arState.trackedPath;
+                                    } else {
+                                      pathCoords = widget.route!.steps
+                                          .expand(
+                                            (s) => [
+                                              Offset(s.from.x, s.from.y),
+                                              Offset(s.to.x, s.to.y),
+                                            ],
+                                          )
+                                          .toList();
+                                    }
+
+                                    return AnimatedBuilder(
+                                      animation: _routeAnimationController,
+                                      builder: (context, _) => CustomPaint(
+                                        size: Size(displayWidth, displayHeight),
+                                        painter: RoutePainter(
+                                          coords: pathCoords,
+                                          scaleX: scaleX,
+                                          scaleY: scaleY,
+                                          animationValue:
+                                              _routeAnimationController.value,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                    if (widget.route != null && widget.route!.steps.isNotEmpty)
-                      _buildMarker(
-                        widget.route!.steps.last.to.x,
-                        widget.route!.steps.last.to.y,
-                        scaleX,
-                        scaleY,
-                        centerOffsetX,
-                        centerOffsetY,
-                        zoom,
-                        isTarget: true,
-                      ),
-                    _buildMarker(
-                      _getUserCoords().dx,
-                      _getUserCoords().dy,
-                      scaleX,
-                      scaleY,
-                      centerOffsetX,
-                      centerOffsetY,
-                      zoom,
-                      isUser: true,
-                      isCheckpoint: widget.isCheckpoint,
-                      heading: widget.userHeading,
+                    AnimatedBuilder(
+                      animation: _transformationController,
+                      builder: (context, _) {
+                        final zoom =
+                            _transformationController.value.getMaxScaleOnAxis();
+                        return Stack(
+                          children: [
+                            ...widget.destinations.map(
+                              (d) => _buildMarker(
+                                d.x,
+                                d.y,
+                                scaleX,
+                                scaleY,
+                                centerOffsetX,
+                                centerOffsetY,
+                                zoom,
+                                isPOI: true,
+                                name: d.name,
+                                destination: d,
+                              ),
+                            ),
+                            if (widget.route != null &&
+                                widget.route!.steps.isNotEmpty)
+                              _buildMarker(
+                                widget.route!.steps.last.to.x,
+                                widget.route!.steps.last.to.y,
+                                scaleX,
+                                scaleY,
+                                centerOffsetX,
+                                centerOffsetY,
+                                zoom,
+                                isTarget: true,
+                              ),
+                            _buildMarker(
+                              _getUserCoords().dx, _getUserCoords().dy,
+                              scaleX, scaleY, centerOffsetX, centerOffsetY,
+                              zoom,
+                              isUser: true,
+                              isCheckpoint: widget.isCheckpoint,
+                              // Markers are inside Transform.rotate(-(h+90)°).
+                              // Counter-rotate the arrow by +(h+90)° so net = 0
+                              // → arrow always points straight up on screen.
+                              // Same formula works for both live AR and static angle.
+                              heading: widget.userHeading != null
+                                  ? (widget.userHeading! + 90.0) % 360.0
+                                  : (widget.apiInitialHeading != null
+                                      ? (widget.apiInitialHeading! + 90.0) %
+                                            360.0
+                                      : null),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
+                ),
+              ),
+            ),
+
+            // Debug Info Panel — gated by the debug banner toggle in profile settings
+            ValueListenableBuilder<bool>(
+              valueListenable:
+                  GetIt.instance<LocationConfigService>().debugBannerNotifier,
+              builder: (_, showDebug, __) {
+                if (!showDebug) return const SizedBox.shrink();
+                return Positioned(
+                  left: 16,
+                  top: 100,
+                  child: IgnorePointer(
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'DEBUG INFO',
+                            style: TextStyle(
+                              color: Colors.amber,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'API Ang: ${widget.apiInitialHeading?.toStringAsFixed(1) ?? "N/A"}°',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                            ),
+                          ),
+                          Text(
+                            'Pose Ang: ${widget.userHeading?.toStringAsFixed(1) ?? "N/A"}°',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                            ),
+                          ),
+                          Text(
+                            'AR Raw: ${widget.arRawHeading?.toStringAsFixed(1) ?? "N/A"}°',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                            ),
+                          ),
+                          Text(
+                            'Ref Head: ${widget.capturedReferenceHeading?.toStringAsFixed(1) ?? "N/A"}°',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                            ),
+                          ),
+                          Text(
+                            'Plot Head: ${widget.headingAtStart?.toStringAsFixed(1) ?? "N/A"}°',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                            ),
+                          ),
+                          Text(
+                            'Delta: ${_calculateDeltaString()}°',
+                            style: const TextStyle(
+                              color: Colors.cyanAccent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'Map Rot: ${(_transformationController.value.storage[1] != 0 || _transformationController.value.storage[0] != 0) ? (math.atan2(_transformationController.value.storage[1], _transformationController.value.storage[0]) * (180.0 / math.pi)).toStringAsFixed(1) : "0.0"}°',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                            ),
+                          ),
+                          Text(
+                            'Auto-Center: $_isAutoCentered',
+                            style: TextStyle(
+                              color:
+                                  _isAutoCentered ? Colors.green : Colors.red,
+                              fontSize: 11,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'API Ang (Used for AR): ${widget.apiInitialHeading?.toStringAsFixed(1) ?? "N/A"}°',
+                            style: const TextStyle(
+                              color: Colors.orangeAccent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 );
               },
             ),
+
             MapControls(
               right: 16 + widget.mapControlsRightOffset,
               onSearch: () => setState(() => _isSearching = true),
               onReset: () {
-                setState(() => _isAutoCentered = true);
                 _recenterOnUser(
                   containerSize,
                   _imageSize!,
@@ -612,7 +627,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         child: UserPositionMarker(
           size: size,
           isCheckpoint: isCheckpoint,
-          heading: _arrowHeadingDeg() ?? heading ?? 0.0,
+          heading: heading ?? 0.0,
           showPulse: !isCheckpoint,
         ),
       );
@@ -685,9 +700,8 @@ class RoutePainter extends CustomPainter {
       }
     }
 
-    final metrics = path.computeMetrics().isNotEmpty
-        ? path.computeMetrics().first
-        : null;
+    final metrics =
+        path.computeMetrics().isNotEmpty ? path.computeMetrics().first : null;
     if (metrics == null) return;
 
     canvas.drawPath(

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:smart_sense/features/navigation/domain/entities/route_entity.dart';
 import '../../domain/entities/ar_pose.dart';
@@ -27,9 +28,9 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   RouteEntity? _route;
   ArTrackingState _lastState = ArTrackingState.idle;
   int _lastWaypointIndex = 0;
-  // Compass delta: how much the user rotated between image capture and route plot.
-  // Added to sumHeadingDeg so the AR path aligns correctly even if user turned during loading.
-  double _compassDeltaDeg = 0.0;
+  bool _wasApproachingWaypoint = false;
+  bool? _lastHeadingAligned;
+  static const double _headingLockThresholdDeg = 8.0;
 
   ArNavigationBloc({
     required ArPoseRepository poseRepository,
@@ -56,13 +57,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     _originArPose = null;
     _lastState = ArTrackingState.idle;
     _lastWaypointIndex = 0;
-
-    // Compute one-time compass delta: rotation between image capture and route plot.
-    final captured = event.capturedSensorHeading;
-    final plot = event.plotSensorHeading;
-    _compassDeltaDeg = (captured != null && plot != null)
-        ? _shortestArc(plot - captured)
-        : 0.0;
+    _wasApproachingWaypoint = false;
+    _lastHeadingAligned = null;
 
     await _soundService.init();
 
@@ -243,14 +239,9 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     return normalized;
   }
 
-  double _shortestArc(double angle) {
-    var a = angle % 360;
-    if (a < -180) a += 360;
-    if (a >= 180) a -= 360;
-    return a;
-  }
-
   void _handleAudioGuidance(ArTrackingUpdate update, LocalizedPose localizedPose) {
+    final mpp = (_metersPerPixel == 1.0) ? 0.05 : (_metersPerPixel ?? 0.05);
+
     // State transition cues
     if (update.state != _lastState) {
       if (update.state == ArTrackingState.arrived) {
@@ -258,17 +249,6 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       } else if (update.state == ArTrackingState.offRoute) {
         unawaited(_soundService.playCue(GuidanceEventType.offRoute));
         unawaited(_soundService.primeDirectionalGuidance());
-      } else if (_lastState == ArTrackingState.offRoute &&
-          update.state == ArTrackingState.tracking) {
-        _soundService.updateDirectionalGuidance(
-          isActive: false,
-          severity: 0,
-          direction: AudioCueDirection.center,
-          headingErrorDeg: 180,
-          relativeAngleDeg: 0,
-          sourceDistanceMeters: 6,
-          distanceToWaypointMeters: 6,
-        );
       }
       _lastState = update.state;
     }
@@ -281,57 +261,92 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     }
     _lastWaypointIndex = update.nextWaypointIndex;
 
-    // Continuous directional guidance while off-route
-    if (update.state == ArTrackingState.offRoute) {
-      final mpp = (_metersPerPixel == 1.0) ? 0.05 : (_metersPerPixel ?? 0.05);
-      final (headingErrorDeg, relativeAngleDeg, direction) =
-          _computeDirectionalGuidance(update, localizedPose);
-
-      _soundService.updateDirectionalGuidance(
-        isActive: true,
-        severity: update.offRouteSeverity,
-        direction: direction,
-        headingErrorDeg: headingErrorDeg,
-        relativeAngleDeg: relativeAngleDeg,
-        sourceDistanceMeters: update.distanceToPathPx * mpp,
-        distanceToWaypointMeters: update.distanceToNextWaypointPx * mpp,
-      );
+    // Approaching-waypoint cue: fires once on threshold crossing
+    if (update.isApproachingWaypoint && !_wasApproachingWaypoint) {
+      unawaited(_soundService.playCue(GuidanceEventType.approachingWaypoint));
     }
+    _wasApproachingWaypoint = update.isApproachingWaypoint;
+
+    // Heading latch haptic: edge-triggered on alignment with next waypoint
+    final signedDelta = _signedHeadingDeltaToNextWaypoint(update, localizedPose);
+    final headingErrorDeg = signedDelta.abs();
+    final headingAligned = headingErrorDeg <= _headingLockThresholdDeg;
+    if (update.state == ArTrackingState.tracking) {
+      _emitHeadingLatchHapticIfNeeded(headingAligned);
+    } else {
+      _lastHeadingAligned = null;
+    }
+
+    // Continuous directional guidance — active whenever there are waypoints ahead,
+    // matching reference: always on except at arrived/localizing.
+    final isActive = update.trackedPath.length >= 2 &&
+        update.state != ArTrackingState.arrived &&
+        update.state != ArTrackingState.localizing;
+
+    final headingDirection = headingAligned
+        ? AudioCueDirection.center
+        : (signedDelta > 0 ? AudioCueDirection.right : AudioCueDirection.left);
+
+    final severity = update.state == ArTrackingState.offRoute
+        ? update.offRouteSeverity.clamp(0.35, 1.0)
+        : _normalizedHeadingSeverity(headingErrorDeg);
+
+    final direction = update.state == ArTrackingState.offRoute
+        ? update.offRouteDirection
+        : headingDirection;
+
+    _soundService.updateDirectionalGuidance(
+      isActive: isActive,
+      severity: severity,
+      direction: direction,
+      headingErrorDeg: headingErrorDeg,
+      relativeAngleDeg: signedDelta,
+      sourceDistanceMeters: 6.0,
+      distanceToWaypointMeters: update.distanceToNextWaypointPx * mpp,
+    );
   }
 
-  (double headingErrorDeg, double relativeAngleDeg, AudioCueDirection direction)
-      _computeDirectionalGuidance(ArTrackingUpdate update, LocalizedPose pose) {
-    if (_route == null || _route!.steps.isEmpty) {
-      return (180, 0, AudioCueDirection.center);
-    }
+  double _normalizedHeadingSeverity(double headingErrorDeg) {
+    const start = _headingLockThresholdDeg;
+    const end = 70.0;
+    return ((headingErrorDeg - start) / (end - start)).clamp(0.0, 1.0);
+  }
 
+  double _signedHeadingDeltaToNextWaypoint(
+    ArTrackingUpdate update,
+    LocalizedPose pose,
+  ) {
+    if (_route == null || _route!.steps.isEmpty) return 180;
     final routePoints = _route!.steps
         .map((s) => Offset(s.from.x, s.from.y))
         .toList();
     routePoints.add(Offset(_route!.steps.last.to.x, _route!.steps.last.to.y));
+    final idx = update.nextWaypointIndex.clamp(0, routePoints.length - 1);
+    final waypoint = routePoints[idx];
+    final dx = waypoint.dx - pose.x;
+    final dy = waypoint.dy - pose.y;
+    if (Offset(dx, dy).distance <= 1e-3) return 0;
+    final bearingDeg = _normalizeDegrees(math.atan2(dy, dx) * 180.0 / math.pi);
+    return _signedHeadingDeltaDeg(pose.heading, bearingDeg);
+  }
 
-    final waypoint =
-        routePoints[update.nextWaypointIndex.clamp(0, routePoints.length - 1)];
+  void _emitHeadingLatchHapticIfNeeded(bool headingAligned) {
+    final previous = _lastHeadingAligned;
+    _lastHeadingAligned = headingAligned;
+    if (previous == null || previous == headingAligned) return;
+    unawaited(_playLatchHaptic(lockedIn: headingAligned));
+  }
 
-    final mathDx = waypoint.dx - pose.x;
-    final mathDy = waypoint.dy - pose.y;
-    final targetAngle =
-        _normalizeDegrees(math.atan2(mathDy, mathDx) * 180.0 / math.pi);
-
-    final headingDelta = _signedHeadingDeltaDeg(pose.heading, targetAngle);
-    final headingErrorDeg = headingDelta.abs();
-    final relativeAngleDeg = headingDelta;
-
-    final AudioCueDirection direction;
-    if (headingErrorDeg < 15) {
-      direction = AudioCueDirection.center;
-    } else if (headingDelta > 0) {
-      direction = AudioCueDirection.right;
+  Future<void> _playLatchHaptic({required bool lockedIn}) async {
+    if (lockedIn) {
+      await HapticFeedback.heavyImpact();
+      await Future<void>.delayed(const Duration(milliseconds: 35));
+      await HapticFeedback.selectionClick();
     } else {
-      direction = AudioCueDirection.left;
+      await HapticFeedback.mediumImpact();
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+      await HapticFeedback.lightImpact();
     }
-
-    return (headingErrorDeg, relativeAngleDeg, direction);
   }
 
   void _handleArOverlay(ArTrackingUpdate update, LocalizedPose currentPose) {
@@ -343,13 +358,13 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     final reference = _referencePose!;
     final origin = _originArPose!;
 
-    // Mirroring ar_temp's _floorplanPointToArWorld:
-    //   sumHeadingDeg rotates between the floorplan math-plane and AR world.
-    // _compassDeltaDeg corrects for user rotation between image capture and route plot:
-    //   if user turned 90° left during loading, path shifts 90° right in AR world.
+    // Matches ar_temp _floorplanPointToArWorld:
+    //   sumHeadingDeg = reference.heading + captureHeading (AR yaw at session start).
+    // Must use identical angle as ArPoseTransformer (forward direction) so path and
+    // tracked position share the same rotation frame.
     final captureHeading = _normalizeDegrees(origin.heading);
     final sumHeadingDeg = _normalizeDegrees(
-      reference.heading + captureHeading + _compassDeltaDeg,
+      reference.heading + captureHeading,
     );
     final sumHeadingRad = sumHeadingDeg * math.pi / 180.0;
 

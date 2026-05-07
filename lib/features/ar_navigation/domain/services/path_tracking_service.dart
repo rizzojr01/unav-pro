@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../entities/localized_pose.dart';
+import '../models/audio_cue_direction.dart';
 import 'package:smart_sense/features/navigation/domain/entities/route_entity.dart';
 
 enum ArTrackingState { idle, localizing, tracking, offRoute, arrived }
@@ -12,6 +13,9 @@ class ArTrackingUpdate {
   final double distanceToNextWaypointPx;
   final double distanceToPathPx;
   final double offRouteSeverity;
+  final AudioCueDirection offRouteDirection;
+  final Offset? projectedPathPoint;
+  final bool isApproachingWaypoint;
   final ArTrackingState state;
   final LocalizedPose? localizedPose;
 
@@ -22,6 +26,9 @@ class ArTrackingUpdate {
     required this.distanceToNextWaypointPx,
     required this.distanceToPathPx,
     required this.offRouteSeverity,
+    required this.offRouteDirection,
+    required this.isApproachingWaypoint,
+    this.projectedPathPoint,
     required this.state,
     this.localizedPose,
   });
@@ -29,6 +36,7 @@ class ArTrackingUpdate {
 
 class PathTrackingService {
   static const double _offRouteThresholdMeters = 2.0;
+  static const double _approachThresholdMeters = 4.5;
   static const double _turnNowThresholdMeters = 0.95;
 
   const PathTrackingService();
@@ -53,6 +61,8 @@ class PathTrackingService {
         distanceToNextWaypointPx: 0,
         distanceToPathPx: 0,
         offRouteSeverity: 0,
+        offRouteDirection: AudioCueDirection.center,
+        isApproachingWaypoint: false,
         state: ArTrackingState.localizing,
         localizedPose: pose,
       );
@@ -67,6 +77,7 @@ class PathTrackingService {
     final fixedPolyline = <Offset>[Offset(anchor.x, anchor.y), ...routePoints];
 
     final offRouteThresholdPx = _offRouteThresholdMeters / metersPerPixel;
+    final approachThresholdPx = _approachThresholdMeters / metersPerPixel;
     final turnNowThresholdPx = _turnNowThresholdMeters / metersPerPixel;
 
     final projection = _projectToPath(fixedPolyline, currentPoint);
@@ -92,8 +103,16 @@ class PathTrackingService {
 
     final distanceToNextWaypointPx =
         (routePoints[activeWaypointIndex] - currentPoint).distance;
-    final offRouteSeverity = (projection.distanceToPathPx / offRouteThresholdPx)
+
+    final offRouteSeverity = ((projection.distanceToPathPx - offRouteThresholdPx) /
+            (240.0 - offRouteThresholdPx))
         .clamp(0.0, 1.0);
+
+    final offRouteDirection = _computeOffRouteDirection(
+      headingDeg: pose.heading,
+      currentPoint: currentPoint,
+      projectedPoint: projection.projectedPoint,
+    );
 
     ArTrackingState state = ArTrackingState.tracking;
     if (projection.distanceToPathPx > offRouteThresholdPx) {
@@ -103,6 +122,10 @@ class PathTrackingService {
       state = ArTrackingState.arrived;
     }
 
+    final isApproachingWaypoint = state == ArTrackingState.tracking &&
+        distanceToNextWaypointPx <= approachThresholdPx &&
+        distanceToNextWaypointPx > turnNowThresholdPx;
+
     return ArTrackingUpdate(
       trackedPath: trackedPath,
       nextWaypointIndex: activeWaypointIndex,
@@ -110,6 +133,9 @@ class PathTrackingService {
       distanceToNextWaypointPx: distanceToNextWaypointPx,
       distanceToPathPx: projection.distanceToPathPx,
       offRouteSeverity: offRouteSeverity,
+      offRouteDirection: offRouteDirection,
+      projectedPathPoint: projection.projectedPoint,
+      isApproachingWaypoint: isApproachingWaypoint,
       state: state,
       localizedPose: pose,
     );
@@ -160,6 +186,22 @@ class PathTrackingService {
       segmentIndex: bestSegmentIndex,
       distanceToPathPx: math.sqrt(bestDistanceSq),
     );
+  }
+
+  // Cross-product of forward vector vs correction-to-path to determine L/R.
+  // Uses image-plane convention: heading 0=East, +Y=down, cross<0=left.
+  AudioCueDirection _computeOffRouteDirection({
+    required double headingDeg,
+    required Offset currentPoint,
+    required Offset projectedPoint,
+  }) {
+    final correction = projectedPoint - currentPoint;
+    if (correction.distance <= 1e-3) return AudioCueDirection.center;
+    final theta = headingDeg * math.pi / 180.0;
+    final forward = Offset(math.cos(theta), -math.sin(theta));
+    final cross = (forward.dx * correction.dy) - (forward.dy * correction.dx);
+    if (cross.abs() <= 1e-3) return AudioCueDirection.center;
+    return cross < 0 ? AudioCueDirection.left : AudioCueDirection.right;
   }
 }
 

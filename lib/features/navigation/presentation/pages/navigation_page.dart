@@ -354,7 +354,6 @@ class _NavigationMapViewState extends State<_NavigationMapView>
         final arRawHeading = (arState is ArNavigationTracking)
             ? arState.currentPose?.heading
             : null;
-
         final apiInitialHeading =
             (widget.currentLocation as LocationEntity).ang ??
             widget.userPickedCoordinates?['heading']?.toDouble();
@@ -375,9 +374,9 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                     userHeading: displayHeading,
                     arRawHeading: arRawHeading,
                     apiInitialHeading: apiInitialHeading,
-                    capturedReferenceHeading:
-                        widget.capturedReferenceHeading ??
+                    capturedReferenceHeading: widget.capturedReferenceHeading ??
                         widget.userPickedCoordinates?['heading']?.toDouble(),
+                    headingAtStart: widget.headingAtStart,
                     route: _routeForSelectedFloor,
                     floorPlanBase64: _floorPlanForSelected,
                     destinations: _destsForSelectedFloor,
@@ -399,7 +398,6 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                       extra: widget.destination,
                     ),
                     mapControlsRightOffset: 0,
-                    headingAtStart: widget.headingAtStart,
                   ),
 
                   if (_isMultiFloor)

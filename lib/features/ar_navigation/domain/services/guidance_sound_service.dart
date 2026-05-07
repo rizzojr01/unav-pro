@@ -209,7 +209,6 @@ class _StereoGuidanceAudioRenderer implements _GuidanceAudioRenderer {
   double? _guidanceSeverity;
   AudioCueDirection _guidanceDirection = AudioCueDirection.center;
   double _guidanceHeadingErrorDeg = 180;
-  double _guidanceRelativeAngleDeg = 0;
   double _distanceToWaypointMeters = _distanceTempoFarMeters;
   bool _guidanceToneActive = false;
 
@@ -255,7 +254,6 @@ class _StereoGuidanceAudioRenderer implements _GuidanceAudioRenderer {
     _guidanceSeverity = severity;
     _guidanceDirection = direction;
     _guidanceHeadingErrorDeg = headingErrorDeg;
-    _guidanceRelativeAngleDeg = relativeAngleDeg;
     _distanceToWaypointMeters = distanceToWaypointMeters;
 
     if (_guidanceToneActive) {
@@ -396,17 +394,13 @@ class _StereoGuidanceAudioRenderer implements _GuidanceAudioRenderer {
       headingErrorDeg: _guidanceHeadingErrorDeg,
       direction: _guidanceDirection,
     );
-    final balance = _stereoBalanceForRelativeAngle(
-      relativeAngleDeg: _guidanceRelativeAngleDeg,
-      direction: _guidanceDirection,
-    );
 
     try {
       await _offRoutePlayer.play(
         asset,
         mode: PlayerMode.lowLatency,
         volume: volume,
-        balance: balance,
+        balance: 0,
       );
       await _offRoutePlayer.setPlaybackRate(rate);
     } catch (_) {}
@@ -417,29 +411,10 @@ class _StereoGuidanceAudioRenderer implements _GuidanceAudioRenderer {
     _guidanceSeverity = null;
     _guidanceDirection = AudioCueDirection.center;
     _guidanceHeadingErrorDeg = 180;
-    _guidanceRelativeAngleDeg = 0;
     _distanceToWaypointMeters = _distanceTempoFarMeters;
     _guidanceTimer?.cancel();
     _guidanceTimer = null;
     unawaited(_offRoutePlayer.stop());
-  }
-
-  double _stereoBalanceForRelativeAngle({
-    required double relativeAngleDeg,
-    required AudioCueDirection direction,
-  }) {
-    final normalizedDeg = (((relativeAngleDeg + 180) % 360) - 180).toDouble();
-    final theta = normalizedDeg * math.pi / 180.0;
-    final signedPan = -math.sin(theta);
-    final lateralStrength = signedPan.abs();
-    final eased = lateralStrength * lateralStrength * (3 - (2 * lateralStrength));
-    final panFromAngle = signedPan * _lerpDouble(0.0, 1.0, eased);
-
-    if (panFromAngle.abs() > 0.01) {
-      return panFromAngle.clamp(-1.0, 1.0);
-    }
-
-    return 0.0;
   }
 
   AssetSource _selectGuidanceAsset({
@@ -448,9 +423,17 @@ class _StereoGuidanceAudioRenderer implements _GuidanceAudioRenderer {
   }) {
     final useChime = headingErrorDeg < (_chimeFocusThresholdDeg + 4);
     if (useChime) {
-      return _offRouteChimeCenterAsset;
+      return switch (direction) {
+        AudioCueDirection.left => _offRouteChimeLeftAsset,
+        AudioCueDirection.right => _offRouteChimeRightAsset,
+        AudioCueDirection.center => _offRouteChimeCenterAsset,
+      };
     }
-    return _offRouteDrumCenterAsset;
+    return switch (direction) {
+      AudioCueDirection.left => _offRouteDrumLeftAsset,
+      AudioCueDirection.right => _offRouteDrumRightAsset,
+      AudioCueDirection.center => _offRouteDrumCenterAsset,
+    };
   }
 
   int _guidanceIntervalMs({
