@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -451,7 +450,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                                   ? (widget.userHeading! + 90.0) % 360.0
                                   : (widget.apiInitialHeading != null
                                       ? (widget.apiInitialHeading! + 90.0) %
-                                            360.0
+                                          360.0
                                       : null),
                             ),
                           ],
