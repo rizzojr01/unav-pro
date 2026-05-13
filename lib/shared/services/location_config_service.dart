@@ -26,12 +26,16 @@ class LocationConfigService {
   static const String _keyAlternateSampleImagePath =
       'alternate_sample_image_path';
   static const String _keyOffsetInMeters = 'navigation_offset_in_meters';
+  static const String _keyUnit = 'navigation_unit';
   static const String _keyShowDebugBanner = 'debug_show_banner';
 
   LocationConfigService(this._prefs);
 
   late final ValueNotifier<bool> debugBannerNotifier =
       ValueNotifier(_prefs.getBool(_keyShowDebugBanner) ?? false);
+
+  late final ValueNotifier<String> unitNotifier =
+      ValueNotifier(_prefs.getString(_keyUnit) ?? 'meter');
 
   /// Get whether to use sample image for localization
   bool get useSampleImage => _prefs.getBool(_keyUseSampleImage) ?? false;
@@ -96,6 +100,14 @@ class LocationConfigService {
 
   Future<void> setOffsetInMeters(double value) async {
     await _prefs.setDouble(_keyOffsetInMeters, value);
+  }
+
+  /// Unit (feet/meter)
+  String get unit => unitNotifier.value;
+
+  Future<void> setUnit(String value) async {
+    unitNotifier.value = value;
+    await _prefs.setString(_keyUnit, value);
   }
 
   bool get showDebugBanner => debugBannerNotifier.value;

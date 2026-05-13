@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:smart_sense/features/navigation/domain/entities/route_entity.dart';
+import 'package:smart_sense/shared/services/location_config_service.dart';
 import '../../domain/entities/ar_pose.dart';
 import '../../domain/entities/localized_pose.dart';
 import '../../domain/models/audio_cue_direction.dart';
@@ -20,40 +21,65 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   final ArPoseTransformer _poseTransformer;
   final PathTrackingService _pathTracker;
   final GuidanceSoundService _soundService;
+  final LocationConfigService _locationConfig;
 
-  StreamSubscription<ArPose>? _poseSubscription;
-  ArPose? _originArPose;
-  LocalizedPose? _referencePose;
   double? _metersPerPixel;
+  double _apiInitialHeading = 0.0;
+  List<Offset> _floorplanPath = [];
+  String _destinationName = '';
+
+  LocalizedPose? _referencePose;
   RouteEntity? _route;
-  ArTrackingState _lastState = ArTrackingState.idle;
+  ArPose? _originArPose;
+  ArTrackingState? _lastState;
   int _lastWaypointIndex = 0;
   bool _wasApproachingWaypoint = false;
   bool? _lastHeadingAligned;
+
   static const double _headingLockThresholdDeg = 8.0;
+
+  StreamSubscription? _poseSubscription;
 
   ArNavigationBloc({
     required ArPoseRepository poseRepository,
     required ArPoseTransformer poseTransformer,
     required PathTrackingService pathTracker,
     required GuidanceSoundService soundService,
-  }) : _poseRepository = poseRepository,
-       _poseTransformer = poseTransformer,
-       _pathTracker = pathTracker,
-       _soundService = soundService,
-       super(const ArNavigationInitial()) {
-    on<StartArTrackingEvent>(_onStartTracking);
-    on<StopArTrackingEvent>(_onStopTracking);
-    on<ArPoseUpdatedEvent>(_onPoseUpdated);
+    required LocationConfigService locationConfig,
+  })  : _poseRepository = poseRepository,
+        _poseTransformer = poseTransformer,
+        _pathTracker = pathTracker,
+        _soundService = soundService,
+        _locationConfig = locationConfig,
+        super(const ArNavigationInitial()) {
+    on<StartArNavigation>(_onStartNavigation);
+    on<UpdateArPose>(_onUpdatePose);
+    on<StopArNavigation>(_onStopNavigation);
+
+    _locationConfig.unitNotifier.addListener(_onUnitChanged);
   }
 
-  Future<void> _onStartTracking(
-    StartArTrackingEvent event,
+  void _onUnitChanged() {
+    _soundService.unit = _locationConfig.unit;
+  }
+
+  Future<void> _onStartNavigation(
+    StartArNavigation event,
     Emitter<ArNavigationState> emit,
   ) async {
     _referencePose = event.referencePose;
-    _metersPerPixel = event.metersPerPixel;
     _route = event.route;
+
+    // --- Unit Scaling Fix ---
+    // If backend is configured for feet, it sends 'feet per pixel'.
+    // We must convert this to 'meters per pixel' for the AR world (Metric).
+    double mpp = event.metersPerPixel ?? 0.05;
+    if (mpp == 1.0) mpp = 0.05; // Use fallback for unscaled/invalid backend values
+
+    if (_locationConfig.unit == 'feet') {
+      mpp *= 0.3048; // Convert feet-per-pixel to meters-per-pixel
+    }
+    _metersPerPixel = mpp;
     _originArPose = null;
     _lastState = ArTrackingState.idle;
     _lastWaypointIndex = 0;
@@ -64,7 +90,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
 
     await _poseSubscription?.cancel();
     _poseSubscription = _poseRepository.watchPose().listen((pose) {
-      add(ArPoseUpdatedEvent(pose));
+      add(UpdateArPose(pose));
     });
 
     await _poseRepository.start();
@@ -79,8 +105,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     );
   }
 
-  Future<void> _onStopTracking(
-    StopArTrackingEvent event,
+  Future<void> _onStopNavigation(
+    StopArNavigation event,
     Emitter<ArNavigationState> emit,
   ) async {
     await _poseSubscription?.cancel();
@@ -98,8 +124,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     emit(const ArNavigationInitial());
   }
 
-  void _onPoseUpdated(
-    ArPoseUpdatedEvent event,
+  void _onUpdatePose(
+    UpdateArPose event,
     Emitter<ArNavigationState> emit,
   ) {
     if (_referencePose == null || _metersPerPixel == null || _route == null) {
@@ -120,8 +146,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     // space assuming the camera faces backendAng at session start.
     _originArPose ??= event.pose;
 
-    // Use a realistic fallback if metersPerPixel is 1.0 (unscaled)
-    final effectiveMpp = (_metersPerPixel == 1.0) ? 0.05 : _metersPerPixel!;
+    // Use already-corrected metersPerPixel from _onStartNavigation
+    final effectiveMpp = _metersPerPixel ?? 0.05;
 
     // ArPoseTransformer now produces correctly-aligned FP coordinates and
     // heading directly from ARKit's gravityAndHeading world frame.
@@ -195,10 +221,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     );
 
     final angle = headingDelta.abs().round();
-
-    final mpp = (_metersPerPixel == 1.0) ? 0.05 : (_metersPerPixel ?? 0.05);
-    final distanceMeters = update.distanceToNextWaypointPx * mpp;
-
+    final effectiveMpp = _metersPerPixel ?? 0.05;
+    final distanceMeters = update.distanceToNextWaypointPx * effectiveMpp;
     final distanceText = _formatDistance(distanceMeters);
 
     if (angle <= 25) {
@@ -210,8 +234,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   }
 
   String _formatDistance(double distanceMeters) {
-    // TODO: Get unit from settings
-    const unit = 'meter';
+    final unit = _soundService.unit;
     if (unit == 'feet') {
       final feet = distanceMeters * 3.28084;
       return feet >= 10
@@ -240,7 +263,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   }
 
   void _handleAudioGuidance(ArTrackingUpdate update, LocalizedPose localizedPose) {
-    final mpp = (_metersPerPixel == 1.0) ? 0.05 : (_metersPerPixel ?? 0.05);
+    final effectiveMpp = _metersPerPixel ?? 0.05;
+    final distanceMeters = update.distanceToNextWaypointPx * effectiveMpp;
 
     // State transition cues
     if (update.state != _lastState) {
@@ -302,7 +326,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       headingErrorDeg: headingErrorDeg,
       relativeAngleDeg: signedDelta,
       sourceDistanceMeters: 6.0,
-      distanceToWaypointMeters: update.distanceToNextWaypointPx * mpp,
+      distanceToWaypointMeters: distanceMeters,
     );
   }
 
@@ -354,7 +378,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       return;
     }
 
-    final mpp = (_metersPerPixel == 1.0) ? 0.05 : _metersPerPixel!;
+    final effectiveMpp = _metersPerPixel ?? 0.05;
     final reference = _referencePose!;
     final origin = _originArPose!;
 
@@ -391,8 +415,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       final mathX = px;
       final mathY = -py;
 
-      final deltaMetersX = (mathX - refMathX) * mpp;
-      final deltaMetersY = (mathY - refMathY) * mpp;
+      final deltaMetersX = (mathX - refMathX) * effectiveMpp;
+      final deltaMetersY = (mathY - refMathY) * effectiveMpp;
 
       // CCW rotation by sumHeadingRad (inverse of _transformTrackedPose CW rotation)
       final arDeltaX =
@@ -437,6 +461,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
 
   @override
   Future<void> close() {
+    _locationConfig.unitNotifier.removeListener(_onUnitChanged);
     _poseSubscription?.cancel();
     _poseRepository.stop();
     _soundService.updateDirectionalGuidance(

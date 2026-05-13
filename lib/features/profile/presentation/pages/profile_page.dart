@@ -112,6 +112,14 @@ class ProfilePage extends StatelessWidget {
                           subtitle: '${getIt<LocationConfigService>().offsetInMeters}m',
                           onTap: () => _showOffsetSettings(context),
                         ),
+                        _SettingsItem(
+                          icon: Icons.straighten_rounded,
+                          title: 'Measurement Unit',
+                          subtitle: getIt<LocationConfigService>().unit == 'feet'
+                              ? 'Imperial (feet)'
+                              : 'Metric (meter)',
+                          onTap: () => _showUnitSettings(context),
+                        ),
                       ]),
                       const SizedBox(height: 32),
                       _buildSectionTitle(context, 'SUPPORT'),
@@ -923,6 +931,124 @@ class ProfilePage extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showUnitSettings(BuildContext context) {
+    final theme = Theme.of(context);
+    final locationConfig = getIt<LocationConfigService>();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'MEASUREMENT UNIT',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            _buildUnitOption(
+              context,
+              'meter',
+              'Metric (meters)',
+              Icons.square_foot_rounded,
+              locationConfig.unit == 'meter',
+            ),
+            const SizedBox(height: 12),
+            _buildUnitOption(
+              context,
+              'feet',
+              'Imperial (feet)',
+              Icons.straighten_rounded,
+              locationConfig.unit == 'feet',
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUnitOption(
+    BuildContext context,
+    String value,
+    String label,
+    IconData icon,
+    bool isSelected,
+  ) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: () async {
+        await getIt<LocationConfigService>().setUnit(value);
+        if (context.mounted) {
+          Navigator.pop(context);
+          (context as Element).markNeedsBuild();
+        }
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outlineVariant,
+            width: isSelected ? 2 : 1,
+          ),
+          color: isSelected
+              ? theme.colorScheme.primary.withValues(alpha: 0.05)
+              : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 16),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface,
+              ),
+            ),
+            const Spacer(),
+            if (isSelected)
+              Icon(Icons.check_circle_rounded, color: theme.colorScheme.primary),
           ],
         ),
       ),

@@ -108,7 +108,7 @@ class _NavigationPageState extends State<NavigationPage> {
         0.0;
 
     context.read<ArNavigationBloc>().add(
-      StartArTrackingEvent(
+      StartArNavigation(
         referencePose: LocalizedPose(
           floorKey: state.currentLocation.floor ?? 'unknown',
           x: state.currentLocation.x,
@@ -120,9 +120,6 @@ class _NavigationPageState extends State<NavigationPage> {
         ),
         metersPerPixel: floorScale,
         route: state.route,
-        capturedSensorHeading: widget.userPickedCoordinates?['heading']
-            ?.toDouble(),
-        plotSensorHeading: state.headingAtStart,
       ),
     );
   }

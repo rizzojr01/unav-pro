@@ -10,22 +10,15 @@ abstract class ArNavigationEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class StartArTrackingEvent extends ArNavigationEvent {
+class StartArNavigation extends ArNavigationEvent {
   final LocalizedPose referencePose;
   final double metersPerPixel;
   final RouteEntity route;
-  /// Compass heading at image capture time (0=North CW).
-  final double? capturedSensorHeading;
-  /// Compass heading at route-plot time (0=North CW).
-  /// Delta vs capturedSensorHeading corrects for user rotation during loading.
-  final double? plotSensorHeading;
 
-  const StartArTrackingEvent({
+  const StartArNavigation({
     required this.referencePose,
     required this.metersPerPixel,
     required this.route,
-    this.capturedSensorHeading,
-    this.plotSensorHeading,
   });
 
   @override
@@ -33,17 +26,15 @@ class StartArTrackingEvent extends ArNavigationEvent {
     referencePose,
     metersPerPixel,
     route,
-    capturedSensorHeading,
-    plotSensorHeading,
   ];
 }
 
-class StopArTrackingEvent extends ArNavigationEvent {}
+class StopArNavigation extends ArNavigationEvent {}
 
-class ArPoseUpdatedEvent extends ArNavigationEvent {
+class UpdateArPose extends ArNavigationEvent {
   final ArPose pose;
 
-  const ArPoseUpdatedEvent(this.pose);
+  const UpdateArPose(this.pose);
 
   @override
   List<Object?> get props => [pose];

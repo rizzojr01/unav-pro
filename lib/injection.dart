@@ -305,13 +305,16 @@ Future<void> initializeDependencies() async {
   getIt.registerLazySingleton<ArPoseRepository>(() => ArPoseRepositoryImpl());
   getIt.registerLazySingleton(() => ArPoseTransformer());
   getIt.registerLazySingleton(() => PathTrackingService());
-  getIt.registerLazySingleton(() => GuidanceSoundService());
+  getIt.registerLazySingleton(
+    () => GuidanceSoundService(unit: getIt<LocationConfigService>().unit),
+  );
   getIt.registerFactory(
     () => ArNavigationBloc(
       poseRepository: getIt<ArPoseRepository>(),
       poseTransformer: getIt<ArPoseTransformer>(),
       pathTracker: getIt<PathTrackingService>(),
       soundService: getIt<GuidanceSoundService>(),
+      locationConfig: getIt<LocationConfigService>(),
     ),
   );
 }

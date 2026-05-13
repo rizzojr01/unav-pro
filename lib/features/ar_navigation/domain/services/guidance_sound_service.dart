@@ -37,6 +37,10 @@ class AudioOutputStatus {
 
 class GuidanceSoundService {
   final GuidanceAudioMode preferredMode;
+  String _unit;
+  String get unit => _unit;
+  set unit(String value) => _unit = value;
+
   late final _GuidanceAudioRenderer _stereoRenderer;
   late final _MethodChannelSpatialAudioRenderer _spatialRenderer;
   _GuidanceAudioRenderer? _activeRenderer;
@@ -45,9 +49,10 @@ class GuidanceSoundService {
 
   GuidanceSoundService({
     this.preferredMode = GuidanceAudioMode.auto,
+    String unit = 'meter',
     AudioPlayer? eventPlayer,
     AudioPlayer? offRoutePlayer,
-  }) {
+  }) : _unit = unit {
     _stereoRenderer = _StereoGuidanceAudioRenderer(
       eventPlayer: eventPlayer,
       offRoutePlayer: offRoutePlayer,
