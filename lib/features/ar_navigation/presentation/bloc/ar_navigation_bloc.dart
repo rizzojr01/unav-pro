@@ -26,10 +26,6 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   final AppLogger _logger = getIt<AppLogger>();
 
   double? _metersPerPixel;
-  double _apiInitialHeading = 0.0;
-  List<Offset> _floorplanPath = [];
-  String _destinationName = '';
-
   LocalizedPose? _referencePose;
   RouteEntity? _route;
   ArPose? _originArPose;
@@ -79,9 +75,10 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     // --- Unit Scaling Fix ---
     // If backend is configured for feet, it sends 'feet per pixel'.
     // We must convert this to 'meters per pixel' for the AR world (Metric).
-    double mpp = event.metersPerPixel ?? 0.05;
-    if (mpp == 1.0)
+    double mpp = event.metersPerPixel;
+    if (mpp == 1.0) {
       mpp = 0.05; // Use fallback for unscaled/invalid backend values
+    }
 
     if (_locationConfig.unit == 'feet') {
       mpp *= 0.3048; // Convert feet-per-pixel to meters-per-pixel
