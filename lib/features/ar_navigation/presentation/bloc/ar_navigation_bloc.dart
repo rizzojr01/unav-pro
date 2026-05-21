@@ -40,8 +40,10 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   bool? _lastHeadingAligned;
   double? _lastFrameHeading;
   double? _lastFrameConfidence;
+  int _ignoredOriginFrameCount = 0;
 
   static const double _headingLockThresholdDeg = 8.0;
+  static const double _minimumOriginConfidence = 0.5;
 
   StreamSubscription? _poseSubscription;
 
@@ -79,7 +81,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     // If backend is configured for feet, it sends 'feet per pixel'.
     // We must convert this to 'meters per pixel' for the AR world (Metric).
     double mpp = event.metersPerPixel ?? 0.05;
-    if (mpp == 1.0) mpp = 0.05; // Use fallback for unscaled/invalid backend values
+    if (mpp == 1.0)
+      mpp = 0.05; // Use fallback for unscaled/invalid backend values
 
     if (_locationConfig.unit == 'feet') {
       mpp *= 0.3048; // Convert feet-per-pixel to meters-per-pixel
@@ -92,16 +95,15 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     _lastHeadingAligned = null;
     _lastFrameHeading = null;
     _lastFrameConfidence = null;
+    _ignoredOriginFrameCount = 0;
 
-    _logger.info(
-      '🚀 ArNavigationBloc: Starting AR Navigation\n'
-      '  - Place: ${_locationConfig.place}\n'
-      '  - Building: ${_locationConfig.building}\n'
-      '  - Floor: ${event.referencePose.floorKey}\n'
-      '  - API Reference Heading (API Ang): ${event.referencePose.heading.toStringAsFixed(1)}°\n'
-      '  - Raw MetersPerPixel: ${event.metersPerPixel}\n'
-      '  - Effective MetersPerPixel (unit: ${_locationConfig.unit}): $mpp'
-    );
+    _logger.info('🚀 ArNavigationBloc: Starting AR Navigation\n'
+        '  - Place: ${_locationConfig.place}\n'
+        '  - Building: ${_locationConfig.building}\n'
+        '  - Floor: ${event.referencePose.floorKey}\n'
+        '  - API Reference Heading (API Ang): ${event.referencePose.heading.toStringAsFixed(1)}°\n'
+        '  - Raw MetersPerPixel: ${event.metersPerPixel}\n'
+        '  - Effective MetersPerPixel (unit: ${_locationConfig.unit}): $mpp');
 
     await _soundService.init();
 
@@ -151,40 +153,51 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
 
     final isFirstFrame = _originArPose == null;
     if (isFirstFrame) {
+      if (!_isUsableOriginPose(event.pose)) {
+        _ignoredOriginFrameCount++;
+        _logger.warning(
+            '⏳ AR origin frame ignored while tracking initializes:\n'
+            '  - Ignored Frames: $_ignoredOriginFrameCount\n'
+            '  - Candidate Heading: ${event.pose.heading.toStringAsFixed(1)}°\n'
+            '  - Candidate Confidence: ${event.pose.confidence.toStringAsFixed(2)}\n'
+            '  - Required Confidence: ${_minimumOriginConfidence.toStringAsFixed(2)}');
+        _lastFrameHeading = event.pose.heading;
+        _lastFrameConfidence = event.pose.confidence;
+        return;
+      }
+
       _originArPose = event.pose;
-      _logger.info(
-        '🏁 AR NAVIGATION POINT ZERO INITIALIZED!\n'
-        '  - Origin AR Heading (Yaw): ${event.pose.heading.toStringAsFixed(1)}°\n'
-        '  - Origin Position: (x: ${event.pose.x.toStringAsFixed(2)}, y: ${event.pose.y.toStringAsFixed(2)}, z: ${event.pose.z.toStringAsFixed(2)})\n'
-        '  - Origin Confidence: ${event.pose.confidence.toStringAsFixed(2)}\n'
-        '  - API Reference Heading: ${_referencePose!.heading.toStringAsFixed(1)}°\n'
-        '  - Initial Calculated sumHeadingDeg: ${((_referencePose!.heading + event.pose.heading) % 360.0).toStringAsFixed(1)}°'
-      );
+      _logger.info('🏁 AR NAVIGATION POINT ZERO INITIALIZED!\n'
+          '  - Origin AR Heading (Yaw): ${event.pose.heading.toStringAsFixed(1)}°\n'
+          '  - Origin Position: (x: ${event.pose.x.toStringAsFixed(2)}, y: ${event.pose.y.toStringAsFixed(2)}, z: ${event.pose.z.toStringAsFixed(2)})\n'
+          '  - Origin Confidence: ${event.pose.confidence.toStringAsFixed(2)}\n'
+          '  - Ignored Startup Frames: $_ignoredOriginFrameCount\n'
+          '  - API Reference Heading: ${_referencePose!.heading.toStringAsFixed(1)}°\n'
+          '  - Initial Calculated sumHeadingDeg: ${((_referencePose!.heading + event.pose.heading) % 360.0).toStringAsFixed(1)}°');
     } else {
       // 1. Detect Real Sensor Flicks (sudden frame-to-frame snaps)
       if (_lastFrameHeading != null) {
-        final double frameDelta = (event.pose.heading - _lastFrameHeading!) % 360.0;
-        final double normalizedFrameDelta = frameDelta > 180.0 ? frameDelta - 360.0 : frameDelta;
+        final double frameDelta =
+            (event.pose.heading - _lastFrameHeading!) % 360.0;
+        final double normalizedFrameDelta =
+            frameDelta > 180.0 ? frameDelta - 360.0 : frameDelta;
 
         if (normalizedFrameDelta.abs() > 8.0) {
-          _logger.warning(
-            '⚡ AR Sensor Flick/Snap Detected:\n'
-            '  - Previous Frame Heading: ${_lastFrameHeading!.toStringAsFixed(1)}°\n'
-            '  - New Calibrated Heading: ${event.pose.heading.toStringAsFixed(1)}°\n'
-            '  - Sudden Snap Delta: ${normalizedFrameDelta.toStringAsFixed(1)}°\n'
-            '  - Tracking Confidence: ${event.pose.confidence.toStringAsFixed(2)}'
-          );
+          _logger.warning('⚡ AR Sensor Flick/Snap Detected:\n'
+              '  - Previous Frame Heading: ${_lastFrameHeading!.toStringAsFixed(1)}°\n'
+              '  - New Calibrated Heading: ${event.pose.heading.toStringAsFixed(1)}°\n'
+              '  - Sudden Snap Delta: ${normalizedFrameDelta.toStringAsFixed(1)}°\n'
+              '  - Tracking Confidence: ${event.pose.confidence.toStringAsFixed(2)}');
         }
       }
 
       // 2. Log Tracking Confidence Transitions (e.g. limited -> normal)
-      if (_lastFrameConfidence != null && event.pose.confidence != _lastFrameConfidence) {
-        _logger.info(
-          '📶 Tracking Confidence Transition:\n'
-          '  - Previous Confidence: ${_lastFrameConfidence!.toStringAsFixed(2)}\n'
-          '  - New Confidence: ${event.pose.confidence.toStringAsFixed(2)}\n'
-          '  - Current Raw Heading: ${event.pose.heading.toStringAsFixed(1)}°'
-        );
+      if (_lastFrameConfidence != null &&
+          event.pose.confidence != _lastFrameConfidence) {
+        _logger.info('📶 Tracking Confidence Transition:\n'
+            '  - Previous Confidence: ${_lastFrameConfidence!.toStringAsFixed(2)}\n'
+            '  - New Confidence: ${event.pose.confidence.toStringAsFixed(2)}\n'
+            '  - Current Raw Heading: ${event.pose.heading.toStringAsFixed(1)}°');
       }
     }
 
@@ -208,11 +221,9 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
 
     // Trace starting coordinate alignment mapping on Frame 1
     if (isFirstFrame) {
-      _logger.info(
-        '📍 AR First Localized Coordinates calculated:\n'
-        '  - Raw Screen Coordinates: (x: ${localizedPose.x.toStringAsFixed(1)}, y: ${localizedPose.y.toStringAsFixed(1)})\n'
-        '  - Initial Transformed User Heading (fpHeading): ${localizedPose.heading.toStringAsFixed(1)}°'
-      );
+      _logger.info('📍 AR First Localized Coordinates calculated:\n'
+          '  - Raw Screen Coordinates: (x: ${localizedPose.x.toStringAsFixed(1)}, y: ${localizedPose.y.toStringAsFixed(1)})\n'
+          '  - Initial Transformed User Heading (fpHeading): ${localizedPose.heading.toStringAsFixed(1)}°');
     }
 
     final previousWaypointIndex = state is ArNavigationTracking
@@ -253,9 +264,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
 
     if (_route == null || _route!.steps.isEmpty) return null;
 
-    final routePoints = _route!.steps
-        .map((s) => Offset(s.from.x, s.from.y))
-        .toList();
+    final routePoints =
+        _route!.steps.map((s) => Offset(s.from.x, s.from.y)).toList();
     routePoints.add(Offset(_route!.steps.last.to.x, _route!.steps.last.to.y));
 
     final waypoint =
@@ -317,7 +327,16 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     return normalized;
   }
 
-  void _handleAudioGuidance(ArTrackingUpdate update, LocalizedPose localizedPose) {
+  bool _isUsableOriginPose(ArPose pose) {
+    return pose.confidence >= _minimumOriginConfidence &&
+        pose.heading.isFinite &&
+        pose.x.isFinite &&
+        pose.y.isFinite &&
+        pose.z.isFinite;
+  }
+
+  void _handleAudioGuidance(
+      ArTrackingUpdate update, LocalizedPose localizedPose) {
     final effectiveMpp = _metersPerPixel ?? 0.05;
     final distanceMeters = update.distanceToNextWaypointPx * effectiveMpp;
 
@@ -347,7 +366,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     _wasApproachingWaypoint = update.isApproachingWaypoint;
 
     // Heading latch haptic: edge-triggered on alignment with next waypoint
-    final signedDelta = _signedHeadingDeltaToNextWaypoint(update, localizedPose);
+    final signedDelta =
+        _signedHeadingDeltaToNextWaypoint(update, localizedPose);
     final headingErrorDeg = signedDelta.abs();
     final headingAligned = headingErrorDeg <= _headingLockThresholdDeg;
     if (update.state == ArTrackingState.tracking) {
@@ -396,9 +416,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     LocalizedPose pose,
   ) {
     if (_route == null || _route!.steps.isEmpty) return 180;
-    final routePoints = _route!.steps
-        .map((s) => Offset(s.from.x, s.from.y))
-        .toList();
+    final routePoints =
+        _route!.steps.map((s) => Offset(s.from.x, s.from.y)).toList();
     routePoints.add(Offset(_route!.steps.last.to.x, _route!.steps.last.to.y));
     final idx = update.nextWaypointIndex.clamp(0, routePoints.length - 1);
     final waypoint = routePoints[idx];
@@ -474,10 +493,10 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       final deltaMetersY = (mathY - refMathY) * effectiveMpp;
 
       // CCW rotation by sumHeadingRad (inverse of _transformTrackedPose CW rotation)
-      final arDeltaX =
-          deltaMetersX * math.cos(sumHeadingRad) - deltaMetersY * math.sin(sumHeadingRad);
-      final arDeltaY =
-          deltaMetersX * math.sin(sumHeadingRad) + deltaMetersY * math.cos(sumHeadingRad);
+      final arDeltaX = deltaMetersX * math.cos(sumHeadingRad) -
+          deltaMetersY * math.sin(sumHeadingRad);
+      final arDeltaY = deltaMetersX * math.sin(sumHeadingRad) +
+          deltaMetersY * math.cos(sumHeadingRad);
 
       final targetMathX = originMathX + arDeltaX;
       final targetMathY = originMathY + arDeltaY;
@@ -489,9 +508,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       return [worldX, floorWorldY, worldZ];
     }
 
-    final routePoints = _route!.steps
-        .map((s) => Offset(s.from.x, s.from.y))
-        .toList();
+    final routePoints =
+        _route!.steps.map((s) => Offset(s.from.x, s.from.y)).toList();
     routePoints.add(Offset(_route!.steps.last.to.x, _route!.steps.last.to.y));
 
     final allPathAr =
