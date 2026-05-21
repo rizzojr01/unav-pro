@@ -40,7 +40,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   ArPose? _lastPoseForDistance;
 
   static const double _headingLockThresholdDeg = 8.0;
-  static const double _minimumOriginConfidence = 0.5;
+  static const double _minimumOriginConfidence = 1.0;
 
   StreamSubscription? _poseSubscription;
 
