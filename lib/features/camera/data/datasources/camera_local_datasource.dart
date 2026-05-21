@@ -25,13 +25,22 @@ class CameraLocalDataSourceImpl extends BaseLocalDataSource
       }
 
       // Initialize camera controller
-      _cameraController = CameraController(
-        cameras.first,
-        ResolutionPreset.high,
-        enableAudio: false,
-      );
-
-      await _cameraController!.initialize();
+      try {
+        _cameraController = CameraController(
+          cameras.first,
+          ResolutionPreset.high,
+          enableAudio: false,
+        );
+        await _cameraController!.initialize();
+      } catch (_) {
+        await _cameraController?.dispose();
+        _cameraController = CameraController(
+          cameras.first,
+          ResolutionPreset.medium,
+          enableAudio: false,
+        );
+        await _cameraController!.initialize();
+      }
 
       // Capture image
       final XFile image = await _cameraController!.takePicture();

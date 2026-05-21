@@ -2010,6 +2010,7 @@ class _AlternateSampleImageSettingsSheetState
   final locationConfig = getIt<LocationConfigService>();
 
   final List<String> _sampleImages = [
+    'assets/node_images/00001.png',
     for (int n = 1; n <= 20; n++)
       for (final dir in ['E', 'N', 'S', 'W'])
         'assets/node_images/Node${n}_$dir.jpg',

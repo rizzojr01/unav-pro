@@ -176,9 +176,11 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     }
 
     // First heading update: snap user to screen center so rotation pivots on them.
-    if (oldWidget.userHeading == null &&
-        widget.userHeading != null &&
-        _imageSize != null) {
+    // Triggers on either the first AR-derived heading OR the first API heading
+    // (whichever arrives first), since both drive _mapRotationRad.
+    final hadHeading = oldWidget.userHeading != null || oldWidget.apiInitialHeading != null;
+    final hasHeading = widget.userHeading != null || widget.apiInitialHeading != null;
+    if (!hadHeading && hasHeading && _imageSize != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final box = context.findRenderObject() as RenderBox?;
@@ -236,11 +238,14 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   }
 
   /// Current map rotation in radians.
-  /// Formula matches main branch: -(heading + 90) * π/180
-  /// Converts backend math angle (0=East CW) to a rotation where
-  /// the user's heading direction points to the top of the screen.
+  /// Formula: -(heading + 90) * π/180 — puts user's forward direction at screen top.
+  ///
+  /// Uses AR-tracked floor-plan heading (userHeading) when available.
+  /// Falls back to apiInitialHeading (= API Ang from backend localization) so the
+  /// map is already correctly oriented before AR tracking fires its first pose.
+  /// At Point Zero, fpHeading == API_Ang exactly, so the transition is seamless.
   double get _mapRotationRad {
-    final h = widget.userHeading;
+    final h = widget.userHeading ?? widget.apiInitialHeading;
     if (h == null) return 0.0;
     return -(h + 90.0) * math.pi / 180.0;
   }

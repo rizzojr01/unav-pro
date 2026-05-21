@@ -116,13 +116,25 @@ class _LocationInputViewState extends State<LocationInputView> {
         return;
       }
 
-      _controller = CameraController(
-        cameras.first,
-        ResolutionPreset.high,
-        enableAudio: false,
-      );
+      // Try high resolution first; fall back to medium on cast errors (PlatformSize
+      // bug seen on some iOS versions with certain camera presets).
+      try {
+        _controller = CameraController(
+          cameras.first,
+          ResolutionPreset.high,
+          enableAudio: false,
+        );
+        await _controller!.initialize();
+      } catch (_) {
+        await _controller?.dispose();
+        _controller = CameraController(
+          cameras.first,
+          ResolutionPreset.medium,
+          enableAudio: false,
+        );
+        await _controller!.initialize();
+      }
 
-      await _controller!.initialize();
       if (mounted) {
         setState(() => _isInitializing = false);
       }
