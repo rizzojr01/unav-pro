@@ -36,6 +36,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   double? _lastFrameHeading;
   double? _lastFrameConfidence;
   int _ignoredOriginFrameCount = 0;
+  double _arTravelDistance = 0.0;
+  ArPose? _lastPoseForDistance;
 
   static const double _headingLockThresholdDeg = 8.0;
   static const double _minimumOriginConfidence = 0.5;
@@ -85,6 +87,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     }
     _metersPerPixel = mpp;
     _originArPose = null;
+    _arTravelDistance = 0.0;
+    _lastPoseForDistance = null;
     _lastState = ArTrackingState.idle;
     _lastWaypointIndex = 0;
     _wasApproachingWaypoint = false;
@@ -163,6 +167,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       }
 
       _originArPose = event.pose;
+      _lastPoseForDistance = event.pose;
+      _arTravelDistance = 0.0;
       _logger.info('🏁 AR NAVIGATION POINT ZERO INITIALIZED!\n'
           '  - Origin AR Heading (Yaw): ${event.pose.heading.toStringAsFixed(1)}°\n'
           '  - Origin Position: (x: ${event.pose.x.toStringAsFixed(2)}, y: ${event.pose.y.toStringAsFixed(2)}, z: ${event.pose.z.toStringAsFixed(2)})\n'
@@ -171,6 +177,25 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
           '  - API Reference Heading: ${_referencePose!.heading.toStringAsFixed(1)}°\n'
           '  - Initial Calculated sumHeadingDeg: ${((_referencePose!.heading + event.pose.heading) % 360.0).toStringAsFixed(1)}°');
     } else {
+      if (_lastPoseForDistance != null) {
+        final currentX = event.pose.worldX ?? event.pose.x;
+        final currentY = event.pose.worldY ?? event.pose.y;
+        final currentZ = event.pose.worldZ ?? event.pose.z;
+
+        final lastX = _lastPoseForDistance!.worldX ?? _lastPoseForDistance!.x;
+        final lastY = _lastPoseForDistance!.worldY ?? _lastPoseForDistance!.y;
+        final lastZ = _lastPoseForDistance!.worldZ ?? _lastPoseForDistance!.z;
+
+        final dx = currentX - lastX;
+        final dy = currentY - lastY;
+        final dz = currentZ - lastZ;
+        final stepDistance = math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (stepDistance >= 0.05) {
+          _arTravelDistance += stepDistance;
+          _lastPoseForDistance = event.pose;
+        }
+      }
+
       // 1. Detect Real Sensor Flicks (sudden frame-to-frame snaps)
       if (_lastFrameHeading != null) {
         final double frameDelta =
@@ -248,6 +273,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
         remainingDistancePx: update.remainingDistancePx,
         distanceToNextWaypointPx: update.distanceToNextWaypointPx,
         guidanceMessage: guidanceMessage,
+        arTravelDistance: _arTravelDistance,
       ),
     );
   }

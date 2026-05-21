@@ -23,6 +23,7 @@ class ArNavigationTracking extends ArNavigationState {
   final double remainingDistancePx;
   final double distanceToNextWaypointPx;
   final String? guidanceMessage;
+  final double arTravelDistance;
 
   const ArNavigationTracking({
     this.currentPose,
@@ -32,6 +33,7 @@ class ArNavigationTracking extends ArNavigationState {
     required this.remainingDistancePx,
     required this.distanceToNextWaypointPx,
     this.guidanceMessage,
+    this.arTravelDistance = 0.0,
   });
 
   @override
@@ -43,5 +45,6 @@ class ArNavigationTracking extends ArNavigationState {
     remainingDistancePx,
     distanceToNextWaypointPx,
     guidanceMessage,
+    arTravelDistance,
   ];
 }
