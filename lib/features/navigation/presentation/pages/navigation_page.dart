@@ -354,6 +354,9 @@ class _NavigationMapViewState extends State<_NavigationMapView>
         final arTravelDistance = (arState is ArNavigationTracking)
             ? arState.arTravelDistance
             : 0.0;
+        final arConfidence = (arState is ArNavigationTracking)
+            ? arState.currentPose?.confidence
+            : null;
         final apiInitialHeading =
             (widget.currentLocation as LocationEntity).ang ??
             widget.userPickedCoordinates?['heading']?.toDouble();
@@ -374,6 +377,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                     userHeading: displayHeading,
                     arRawHeading: arRawHeading,
                     arTravelDistance: arTravelDistance,
+                    arConfidence: arConfidence,
                     apiInitialHeading: apiInitialHeading,
                     capturedReferenceHeading: widget.capturedReferenceHeading ??
                         widget.userPickedCoordinates?['heading']?.toDouble(),

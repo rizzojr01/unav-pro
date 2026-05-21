@@ -34,6 +34,7 @@ class MapView extends StatefulWidget {
   final double? userHeading;
   final double? arRawHeading;
   final double? arTravelDistance;
+  final double? arConfidence;
   final double? apiInitialHeading;
   final double? capturedReferenceHeading;
   final double? headingAtStart;
@@ -54,6 +55,7 @@ class MapView extends StatefulWidget {
     this.userHeading,
     this.arRawHeading,
     this.arTravelDistance,
+    this.arConfidence,
     this.apiInitialHeading,
     this.capturedReferenceHeading,
     this.headingAtStart,
@@ -521,6 +523,13 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                           ),
                           Text(
                             'AR Track Len: ${widget.arTravelDistance?.toStringAsFixed(1) ?? "0.0"} m',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                            ),
+                          ),
+                          Text(
+                            'AR Conf: ${widget.arConfidence?.toStringAsFixed(2) ?? "N/A"}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11,
