@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:smart_sense/features/navigation/domain/entities/route_entity.dart';
 import 'package:smart_sense/shared/services/location_config_service.dart';
+import 'package:smart_sense/core/utils/logger.dart';
+import 'package:smart_sense/injection.dart';
 import '../../domain/entities/ar_pose.dart';
 import '../../domain/entities/localized_pose.dart';
 import '../../domain/models/audio_cue_direction.dart';
@@ -22,6 +24,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   final PathTrackingService _pathTracker;
   final GuidanceSoundService _soundService;
   final LocationConfigService _locationConfig;
+  final AppLogger _logger = getIt<AppLogger>();
 
   double? _metersPerPixel;
   double _apiInitialHeading = 0.0;
@@ -35,6 +38,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   int _lastWaypointIndex = 0;
   bool _wasApproachingWaypoint = false;
   bool? _lastHeadingAligned;
+  double? _lastFrameHeading;
+  double? _lastFrameConfidence;
 
   static const double _headingLockThresholdDeg = 8.0;
 
@@ -85,6 +90,18 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     _lastWaypointIndex = 0;
     _wasApproachingWaypoint = false;
     _lastHeadingAligned = null;
+    _lastFrameHeading = null;
+    _lastFrameConfidence = null;
+
+    _logger.info(
+      '🚀 ArNavigationBloc: Starting AR Navigation\n'
+      '  - Place: ${_locationConfig.place}\n'
+      '  - Building: ${_locationConfig.building}\n'
+      '  - Floor: ${event.referencePose.floorKey}\n'
+      '  - API Reference Heading (API Ang): ${event.referencePose.heading.toStringAsFixed(1)}°\n'
+      '  - Raw MetersPerPixel: ${event.metersPerPixel}\n'
+      '  - Effective MetersPerPixel (unit: ${_locationConfig.unit}): $mpp'
+    );
 
     await _soundService.init();
 
@@ -132,19 +149,48 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       return;
     }
 
-    // Anchor the world origin to the first real AR pose from ARKit.
-    // We use the raw pose as-is — no heading override.
-    //
-    // Why: ARKit heading (yawDegrees in AppDelegate) is 0=East CCW, relative
-    // to wherever the camera faced at session start. It is NOT in the same
-    // coordinate system as capturedSensorHeading (compass, 0=North CW).
-    // Overriding with capturedSensorHeading mixes two incompatible systems
-    // and produces a wrong sumHeadingDeg in ArPoseTransformer.
-    //
-    // The correct alignment is handled by pixelToAr using the static
-    // (270 - backendAng) rotation, which maps the floorplan to ARKit world
-    // space assuming the camera faces backendAng at session start.
-    _originArPose ??= event.pose;
+    final isFirstFrame = _originArPose == null;
+    if (isFirstFrame) {
+      _originArPose = event.pose;
+      _logger.info(
+        '🏁 AR NAVIGATION POINT ZERO INITIALIZED!\n'
+        '  - Origin AR Heading (Yaw): ${event.pose.heading.toStringAsFixed(1)}°\n'
+        '  - Origin Position: (x: ${event.pose.x.toStringAsFixed(2)}, y: ${event.pose.y.toStringAsFixed(2)}, z: ${event.pose.z.toStringAsFixed(2)})\n'
+        '  - Origin Confidence: ${event.pose.confidence.toStringAsFixed(2)}\n'
+        '  - API Reference Heading: ${_referencePose!.heading.toStringAsFixed(1)}°\n'
+        '  - Initial Calculated sumHeadingDeg: ${((_referencePose!.heading + event.pose.heading) % 360.0).toStringAsFixed(1)}°'
+      );
+    } else {
+      // 1. Detect Real Sensor Flicks (sudden frame-to-frame snaps)
+      if (_lastFrameHeading != null) {
+        final double frameDelta = (event.pose.heading - _lastFrameHeading!) % 360.0;
+        final double normalizedFrameDelta = frameDelta > 180.0 ? frameDelta - 360.0 : frameDelta;
+
+        if (normalizedFrameDelta.abs() > 8.0) {
+          _logger.warning(
+            '⚡ AR Sensor Flick/Snap Detected:\n'
+            '  - Previous Frame Heading: ${_lastFrameHeading!.toStringAsFixed(1)}°\n'
+            '  - New Calibrated Heading: ${event.pose.heading.toStringAsFixed(1)}°\n'
+            '  - Sudden Snap Delta: ${normalizedFrameDelta.toStringAsFixed(1)}°\n'
+            '  - Tracking Confidence: ${event.pose.confidence.toStringAsFixed(2)}'
+          );
+        }
+      }
+
+      // 2. Log Tracking Confidence Transitions (e.g. limited -> normal)
+      if (_lastFrameConfidence != null && event.pose.confidence != _lastFrameConfidence) {
+        _logger.info(
+          '📶 Tracking Confidence Transition:\n'
+          '  - Previous Confidence: ${_lastFrameConfidence!.toStringAsFixed(2)}\n'
+          '  - New Confidence: ${event.pose.confidence.toStringAsFixed(2)}\n'
+          '  - Current Raw Heading: ${event.pose.heading.toStringAsFixed(1)}°'
+        );
+      }
+    }
+
+    // Keep history of the previous frame state for real-time differential tracking
+    _lastFrameHeading = event.pose.heading;
+    _lastFrameConfidence = event.pose.confidence;
 
     // Use already-corrected metersPerPixel from _onStartNavigation
     final effectiveMpp = _metersPerPixel ?? 0.05;
@@ -159,6 +205,15 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       referenceFloorplanPose: _referencePose!,
       metersPerPixel: effectiveMpp,
     );
+
+    // Trace starting coordinate alignment mapping on Frame 1
+    if (isFirstFrame) {
+      _logger.info(
+        '📍 AR First Localized Coordinates calculated:\n'
+        '  - Raw Screen Coordinates: (x: ${localizedPose.x.toStringAsFixed(1)}, y: ${localizedPose.y.toStringAsFixed(1)})\n'
+        '  - Initial Transformed User Heading (fpHeading): ${localizedPose.heading.toStringAsFixed(1)}°'
+      );
+    }
 
     final previousWaypointIndex = state is ArNavigationTracking
         ? (state as ArNavigationTracking).nextWaypointIndex
