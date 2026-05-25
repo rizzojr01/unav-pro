@@ -75,7 +75,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   bool _hasImageError = false;
   bool _isSearching = false;
   bool _hasInitializedView = false;
-  bool _isAutoCentered = true;
+  final bool _isAutoCentered = true;
   final TextEditingController _searchController = TextEditingController();
   List<DestinationEntity> _filteredDestinations = [];
 
@@ -288,9 +288,13 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     final cx = containerSize.width / 2;
     final cy = containerSize.height / 2;
     final targetMatrix = Matrix4.identity()
-      ..translate(
-          cx - userDisplayX * initialZoom, cy - userDisplayY * initialZoom)
-      ..scale(initialZoom);
+      ..translateByDouble(
+        cx - userDisplayX * initialZoom,
+        cy - userDisplayY * initialZoom,
+        0,
+        1,
+      )
+      ..scaleByDouble(initialZoom, initialZoom, initialZoom, 1);
 
     if (animate) {
       final animation = Matrix4Tween(

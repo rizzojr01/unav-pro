@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../domain/entities/route_entity.dart';
 import 'multi_floor_navigation_step_model.dart';
 
@@ -9,6 +11,31 @@ double? _normalizeToMetersPerPixel(double? raw) {
   // If raw > 1.0, it's almost certainly feet per pixel (e.g. 5.0 fpp).
   if (raw > 1.0) return raw * 0.3048; // feet to meters
   return raw;
+}
+
+double? _deriveMetersPerPixelFromSteps(
+  List<MultiFloorNavigationStepModel> multiSteps,
+) {
+  final samples = <double>[];
+  for (final floorStep in multiSteps) {
+    for (final step in floorStep.steps) {
+      final dx = step.to.x - step.from.x;
+      final dy = step.to.y - step.from.y;
+      final pixelDistance = math.sqrt(dx * dx + dy * dy);
+      if (pixelDistance <= 1e-6 || step.distanceMeters <= 0) continue;
+
+      final metersPerPixel = step.distanceMeters / pixelDistance;
+      if (metersPerPixel.isFinite && metersPerPixel > 0) {
+        samples.add(metersPerPixel);
+      }
+    }
+  }
+
+  if (samples.isEmpty) return null;
+  samples.sort();
+  final middle = samples.length ~/ 2;
+  if (samples.length.isOdd) return samples[middle];
+  return (samples[middle - 1] + samples[middle]) / 2.0;
 }
 
 class RouteModel extends RouteEntity {
@@ -32,9 +59,8 @@ class RouteModel extends RouteEntity {
       entityId: json['id'] as String? ??
           DateTime.now().millisecondsSinceEpoch.toString(),
       multiFloorSteps: multiSteps,
-      metersPerPixel: _normalizeToMetersPerPixel(
-        json['meters_per_pixel']?.toDouble(),
-      ),
+      metersPerPixel: _deriveMetersPerPixelFromSteps(multiSteps) ??
+          _normalizeToMetersPerPixel(json['meters_per_pixel']?.toDouble()),
     );
   }
 

@@ -1,0 +1,3670 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Eda API",
+        "description": "Server-centered indoor navigation API.",
+        "version": "0.1.0"
+    },
+    "paths": {
+        "/v1/health": {
+            "get": {
+                "summary": "Health",
+                "operationId": "health_v1_health_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": true,
+                                    "type": "object",
+                                    "title": "Response Health V1 Health Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/speech/transcribe": {
+            "post": {
+                "tags": [
+                    "speech"
+                ],
+                "summary": "Transcribe Speech",
+                "operationId": "transcribe_speech_v1_speech_transcribe_post",
+                "parameters": [
+                    {
+                        "name": "language",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "Language"
+                        }
+                    },
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Body_transcribe_speech_v1_speech_transcribe_post"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SpeechTranscriptionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/speech/synthesize": {
+            "post": {
+                "tags": [
+                    "speech"
+                ],
+                "summary": "Synthesize Speech",
+                "operationId": "synthesize_speech_v1_speech_synthesize_post",
+                "parameters": [
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SpeechSynthesisRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SpeechSynthesisResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agent/interpret": {
+            "post": {
+                "tags": [
+                    "agent"
+                ],
+                "summary": "Interpret Destination",
+                "operationId": "interpret_destination_v1_agent_interpret_post",
+                "parameters": [
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/InterpretRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InterpretResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agent/converse": {
+            "post": {
+                "tags": [
+                    "agent"
+                ],
+                "summary": "Converse",
+                "description": "One turn of the server-driven voice agent: STT -> LLM -> TTS.",
+                "operationId": "converse_v1_agent_converse_post",
+                "parameters": [
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Body_converse_v1_agent_converse_post"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConverseResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/agent/mapping-assistant": {
+            "post": {
+                "tags": [
+                    "agent"
+                ],
+                "summary": "Interpret Mapping Assistant",
+                "operationId": "interpret_mapping_assistant_v1_agent_mapping_assistant_post",
+                "parameters": [
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MappingAssistantRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MappingAssistantResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/routes/plan": {
+            "post": {
+                "tags": [
+                    "routing"
+                ],
+                "summary": "Plan Route",
+                "operationId": "plan_route_v1_routes_plan_post",
+                "parameters": [
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RoutePlanRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RoutePlanResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/routes/plan/legacy": {
+            "post": {
+                "tags": [
+                    "routing"
+                ],
+                "summary": "Plan Route Legacy",
+                "description": "Legacy endpoint kept for the Phase-4 API contract test.\n\nInternally uses the same planner; serializes to the older flat\n``node_ids`` + ``instructions`` (string list) shape.",
+                "operationId": "plan_route_legacy_v1_routes_plan_legacy_post",
+                "parameters": [
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LegacyRoutePlanRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegacyRoutePlanResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/routes/update": {
+            "post": {
+                "tags": [
+                    "routing"
+                ],
+                "summary": "Update Route",
+                "operationId": "update_route_v1_routes_update_post",
+                "parameters": [
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RouteUpdateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RouteUpdateResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/maps": {
+            "get": {
+                "tags": [
+                    "maps"
+                ],
+                "summary": "List Maps",
+                "operationId": "list_maps_v1_maps_get",
+                "parameters": [
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ListMapsResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/maps/catalog": {
+            "get": {
+                "tags": [
+                    "maps"
+                ],
+                "summary": "Map Catalog",
+                "description": "Compact identity summary of every built map — what the navigation\nagent reads to pick which map the user means.",
+                "operationId": "map_catalog_v1_maps_catalog_get",
+                "parameters": [
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MapCatalogResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/maps/{map_id}/preview.png": {
+            "get": {
+                "tags": [
+                    "maps"
+                ],
+                "summary": "Map Preview",
+                "description": "Serve the top-down preview PNG the routing build wrote for the\nrequested map (and optionally a specific floor of a multi-floor\nbuilding).",
+                "operationId": "map_preview_v1_maps__map_id__preview_png_get",
+                "parameters": [
+                    {
+                        "name": "map_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Map Id"
+                        }
+                    },
+                    {
+                        "name": "floor_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "Floor Id"
+                        }
+                    },
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/maps/{map_id}": {
+            "get": {
+                "tags": [
+                    "maps"
+                ],
+                "summary": "Get Map",
+                "description": "Return the full map graph + destination hierarchy. Tries the DB\nfirst (capture graphs from the M5/M6 build pipeline) and falls back\nto the in-process sample for tests/offline dev.",
+                "operationId": "get_map_v1_maps__map_id__get",
+                "parameters": [
+                    {
+                        "name": "map_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Map Id"
+                        }
+                    },
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MapDetailResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "maps"
+                ],
+                "summary": "Delete Map",
+                "description": "Remove a map from the catalog and reclaim its disk + DB state.\n\nCascades the parent ``venue`` row (which cascades ``map_versions``\nand ``map_graph_documents``), then deletes every capture session\ndirectory the map referenced. ``map_build_jobs`` rows for those\ncaptures are deleted too — they would otherwise dangle with a\nforeign-key-free ``capture_session_id``.\n\n404 means the map was already gone, which we treat as success so\nthe phone's delete button is idempotent across retries.",
+                "operationId": "delete_map_v1_maps__map_id__delete",
+                "parameters": [
+                    {
+                        "name": "map_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Map Id"
+                        }
+                    },
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MapDeleteResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/mapping/capture-sessions/{session_id}/map-build": {
+            "get": {
+                "tags": [
+                    "mapping"
+                ],
+                "summary": "Get Map Build Status",
+                "description": "Return the latest map-build job state for ``session_id``.\n\nWhen the queue path is disabled (no Postgres / no Redis) returns\n503 because there is no durable job state to report.",
+                "operationId": "get_map_build_status_v1_mapping_capture_sessions__session_id__map_build_get",
+                "parameters": [
+                    {
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Session Id"
+                        }
+                    },
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MapBuildJobStatus"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/captures/{session_id}/sidecar/{relative_path}": {
+            "post": {
+                "tags": [
+                    "captures"
+                ],
+                "summary": "Upload Sidecar",
+                "description": "Stream a single sidecar file (poses.jsonl, depth-NNNNNN.{f32,json},\nmesh-NNNNNN.{json,vertices.f32,normals.f32,faces.u32,classification.u8},\nworldmap.bin) into ``assets/lidar/{relative_path}``. Idempotent on\n``(session_id, relative_path)`` — replays overwrite the on-disk file,\nmatching the chunk endpoint's semantics.",
+                "operationId": "upload_sidecar_v1_captures__session_id__sidecar__relative_path__post",
+                "parameters": [
+                    {
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Session Id"
+                        }
+                    },
+                    {
+                        "name": "relative_path",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Relative Path"
+                        }
+                    },
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SidecarAck"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/captures/{session_id}/finalize": {
+            "post": {
+                "tags": [
+                    "captures"
+                ],
+                "summary": "Finalize Upload",
+                "description": "Phone signals that recording stopped and every chunk has been\naccepted. Server verifies completeness, assembles, and enqueues\nmap_build.",
+                "operationId": "finalize_upload_v1_captures__session_id__finalize_post",
+                "parameters": [
+                    {
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Session Id"
+                        }
+                    },
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FinalizeRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FinalizeResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/captures/{session_id}/worldmap": {
+            "get": {
+                "tags": [
+                    "captures"
+                ],
+                "summary": "Download Worldmap",
+                "description": "Serve the ARWorldMap blob the iOS native side saved on the prior\ncapture's ``stop()``. The phone downloads this before calling\n``lidar.start(resume:true)`` so ARKit can relocalize against the\nsame coordinate frame.",
+                "operationId": "download_worldmap_v1_captures__session_id__worldmap_get",
+                "parameters": [
+                    {
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Session Id"
+                        }
+                    },
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/captures/{session_id}": {
+            "delete": {
+                "tags": [
+                    "captures"
+                ],
+                "summary": "Abort Upload",
+                "description": "Drop the bookkeeping row. Use when the operator cancels a\nrecording before finalizing — keeps the GC list short.",
+                "operationId": "abort_upload_v1_captures__session_id__delete",
+                "parameters": [
+                    {
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Session Id"
+                        }
+                    },
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": true,
+                                    "title": "Response Abort Upload V1 Captures  Session Id  Delete"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/localize/warmup": {
+            "post": {
+                "tags": [
+                    "localize"
+                ],
+                "summary": "Warmup",
+                "description": "Pre-load the pipeline for ``capture_session_id`` so the first\nreal ``/v1/localize`` doesn't pay the ~12 s cold-load tax.\n\nBuilds the pipeline (if not cached), then runs ``ensure_loaded()``\nwhich paginates: mesh decode, SfM tracks, descriptor cache. Safe to\ncall multiple times — subsequent invocations short-circuit on the\ncache. The client uses this on map selection to gate the ``Go``\nbutton until the server is hot.",
+                "operationId": "warmup_v1_localize_warmup_post",
+                "parameters": [
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Body_warmup_v1_localize_warmup_post"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": true,
+                                    "title": "Response Warmup V1 Localize Warmup Post"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/localize/": {
+            "post": {
+                "tags": [
+                    "localize"
+                ],
+                "summary": "Localize",
+                "operationId": "localize_v1_localize__post",
+                "parameters": [
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Body_localize_v1_localize__post"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LocalizationResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/localize/refine/": {
+            "post": {
+                "tags": [
+                    "localize"
+                ],
+                "summary": "Refine",
+                "operationId": "refine_v1_localize_refine__post",
+                "parameters": [
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Body_refine_v1_localize_refine__post"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RefineResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/localize/multi/": {
+            "post": {
+                "tags": [
+                    "localize"
+                ],
+                "summary": "Localize Multi",
+                "operationId": "localize_multi_v1_localize_multi__post",
+                "parameters": [
+                    {
+                        "name": "x-eda-client",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "X-Eda-Client"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Body_localize_multi_v1_localize_multi__post"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MultiLocalizationResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/debug/clientlog": {
+            "post": {
+                "tags": [
+                    "debug"
+                ],
+                "summary": "Clientlog",
+                "operationId": "clientlog_v1_debug_clientlog_post",
+                "requestBody": {
+                    "content": {
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Body_clientlog_v1_debug_clientlog_post"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "boolean"
+                                    },
+                                    "type": "object",
+                                    "title": "Response Clientlog V1 Debug Clientlog Post"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "AccessibilityPreferencesSchema": {
+                "properties": {
+                    "wheelchair": {
+                        "type": "boolean",
+                        "title": "Wheelchair",
+                        "default": false
+                    },
+                    "avoid_stairs": {
+                        "type": "boolean",
+                        "title": "Avoid Stairs",
+                        "default": false
+                    },
+                    "avoid_elevators": {
+                        "type": "boolean",
+                        "title": "Avoid Elevators",
+                        "default": false
+                    },
+                    "avoid_escalators": {
+                        "type": "boolean",
+                        "title": "Avoid Escalators",
+                        "default": false
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "title": "AccessibilityPreferencesSchema",
+                "description": "User preferences fed into the planner.\n\nExtra options are scoped now so the API contract is stable; new\nbooleans are additive."
+            },
+            "Body_clientlog_v1_debug_clientlog_post": {
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "tag": {
+                        "type": "string",
+                        "title": "Tag",
+                        "default": "client"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "message"
+                ],
+                "title": "Body_clientlog_v1_debug_clientlog_post"
+            },
+            "Body_converse_v1_agent_converse_post": {
+                "properties": {
+                    "audio": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "contentMediaType": "application/octet-stream"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Audio"
+                    },
+                    "text": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Text"
+                    },
+                    "history": {
+                        "type": "string",
+                        "title": "History",
+                        "default": "[]"
+                    },
+                    "context": {
+                        "type": "string",
+                        "title": "Context",
+                        "default": "{}"
+                    },
+                    "language": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Language"
+                    }
+                },
+                "type": "object",
+                "title": "Body_converse_v1_agent_converse_post"
+            },
+            "Body_localize_multi_v1_localize_multi__post": {
+                "properties": {
+                    "capture_session_id": {
+                        "type": "string",
+                        "title": "Capture Session Id"
+                    },
+                    "images": {
+                        "items": {
+                            "type": "string",
+                            "contentMediaType": "application/octet-stream"
+                        },
+                        "type": "array",
+                        "title": "Images"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "capture_session_id",
+                    "images"
+                ],
+                "title": "Body_localize_multi_v1_localize_multi__post"
+            },
+            "Body_localize_v1_localize__post": {
+                "properties": {
+                    "capture_session_id": {
+                        "type": "string",
+                        "title": "Capture Session Id"
+                    },
+                    "image": {
+                        "type": "string",
+                        "contentMediaType": "application/octet-stream",
+                        "title": "Image"
+                    },
+                    "prior_x": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Prior X"
+                    },
+                    "prior_y": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Prior Y"
+                    },
+                    "prior_z": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Prior Z"
+                    },
+                    "prior_yaw": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Prior Yaw"
+                    },
+                    "prior_radius_m": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Prior Radius M"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "capture_session_id",
+                    "image"
+                ],
+                "title": "Body_localize_v1_localize__post"
+            },
+            "Body_refine_v1_localize_refine__post": {
+                "properties": {
+                    "capture_session_id": {
+                        "type": "string",
+                        "title": "Capture Session Id"
+                    },
+                    "arkit_transform": {
+                        "type": "string",
+                        "title": "Arkit Transform"
+                    },
+                    "t_map_arkit_initial": {
+                        "type": "string",
+                        "title": "T Map Arkit Initial"
+                    },
+                    "rgb_intrinsics": {
+                        "type": "string",
+                        "title": "Rgb Intrinsics"
+                    },
+                    "rgb_width": {
+                        "type": "integer",
+                        "title": "Rgb Width"
+                    },
+                    "rgb_height": {
+                        "type": "integer",
+                        "title": "Rgb Height"
+                    },
+                    "rotation_quadrant": {
+                        "type": "integer",
+                        "title": "Rotation Quadrant"
+                    },
+                    "depth_width": {
+                        "type": "integer",
+                        "title": "Depth Width",
+                        "default": 192
+                    },
+                    "depth_height": {
+                        "type": "integer",
+                        "title": "Depth Height",
+                        "default": 256
+                    },
+                    "depth_frame": {
+                        "type": "string",
+                        "contentMediaType": "application/octet-stream",
+                        "title": "Depth Frame"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "capture_session_id",
+                    "arkit_transform",
+                    "t_map_arkit_initial",
+                    "rgb_intrinsics",
+                    "rgb_width",
+                    "rgb_height",
+                    "rotation_quadrant",
+                    "depth_frame"
+                ],
+                "title": "Body_refine_v1_localize_refine__post"
+            },
+            "Body_transcribe_speech_v1_speech_transcribe_post": {
+                "properties": {
+                    "file": {
+                        "type": "string",
+                        "contentMediaType": "application/octet-stream",
+                        "title": "File"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "file"
+                ],
+                "title": "Body_transcribe_speech_v1_speech_transcribe_post"
+            },
+            "Body_warmup_v1_localize_warmup_post": {
+                "properties": {
+                    "capture_session_id": {
+                        "type": "string",
+                        "title": "Capture Session Id"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "capture_session_id"
+                ],
+                "title": "Body_warmup_v1_localize_warmup_post"
+            },
+            "CandidateMatch": {
+                "properties": {
+                    "keyframe_id": {
+                        "type": "string",
+                        "title": "Keyframe Id"
+                    },
+                    "similarity": {
+                        "type": "number",
+                        "title": "Similarity"
+                    },
+                    "match_count": {
+                        "type": "integer",
+                        "title": "Match Count"
+                    },
+                    "selected": {
+                        "type": "boolean",
+                        "title": "Selected"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "keyframe_id",
+                    "similarity",
+                    "match_count",
+                    "selected"
+                ],
+                "title": "CandidateMatch",
+                "description": "Per-candidate diagnostics that drove the pose decision."
+            },
+            "CaptureFrameMetadata": {
+                "properties": {
+                    "frame_id": {
+                        "type": "string",
+                        "title": "Frame Id"
+                    },
+                    "captured_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Captured At"
+                    },
+                    "rgb_asset_uri": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Rgb Asset Uri"
+                    },
+                    "depth_asset_uri": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Depth Asset Uri"
+                    },
+                    "mesh_asset_uri": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Mesh Asset Uri"
+                    },
+                    "arkit_transform": {
+                        "anyOf": [
+                            {
+                                "items": {
+                                    "items": {
+                                        "type": "number"
+                                    },
+                                    "type": "array"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Arkit Transform"
+                    },
+                    "imu": {
+                        "additionalProperties": {
+                            "type": "number"
+                        },
+                        "type": "object",
+                        "title": "Imu"
+                    },
+                    "annotation": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Annotation"
+                    }
+                },
+                "additionalProperties": true,
+                "type": "object",
+                "required": [
+                    "frame_id",
+                    "captured_at"
+                ],
+                "title": "CaptureFrameMetadata"
+            },
+            "CaptureImuSample": {
+                "properties": {
+                    "captured_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Captured At"
+                    },
+                    "accelerometer_m_s2": {
+                        "anyOf": [
+                            {
+                                "additionalProperties": {
+                                    "type": "number"
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Accelerometer M S2"
+                    },
+                    "gyroscope_rad_s": {
+                        "anyOf": [
+                            {
+                                "additionalProperties": {
+                                    "type": "number"
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Gyroscope Rad S"
+                    }
+                },
+                "additionalProperties": true,
+                "type": "object",
+                "required": [
+                    "captured_at"
+                ],
+                "title": "CaptureImuSample"
+            },
+            "CaptureManifest": {
+                "properties": {
+                    "session_id": {
+                        "type": "string",
+                        "title": "Session Id"
+                    },
+                    "sensors": {
+                        "anyOf": [
+                            {
+                                "items": {
+                                    "type": "string",
+                                    "enum": [
+                                        "rgb",
+                                        "arkit_pose",
+                                        "lidar_depth",
+                                        "lidar_mesh",
+                                        "imu",
+                                        "audio_note",
+                                        "user_annotation"
+                                    ]
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "additionalProperties": true,
+                                "type": "object"
+                            }
+                        ],
+                        "title": "Sensors"
+                    },
+                    "capture_app": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Capture App"
+                    },
+                    "map_identity": {
+                        "anyOf": [
+                            {
+                                "additionalProperties": true,
+                                "type": "object"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Map Identity"
+                    },
+                    "video_segments": {
+                        "items": {
+                            "$ref": "#/components/schemas/CaptureVideoSegment"
+                        },
+                        "type": "array",
+                        "title": "Video Segments"
+                    },
+                    "imu_samples": {
+                        "items": {
+                            "$ref": "#/components/schemas/CaptureImuSample"
+                        },
+                        "type": "array",
+                        "title": "Imu Samples"
+                    },
+                    "manual_marks": {
+                        "items": {
+                            "$ref": "#/components/schemas/CaptureManualMark"
+                        },
+                        "type": "array",
+                        "title": "Manual Marks"
+                    },
+                    "lidar_capture": {
+                        "anyOf": [
+                            {
+                                "additionalProperties": true,
+                                "type": "object"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Lidar Capture"
+                    },
+                    "frames": {
+                        "items": {
+                            "$ref": "#/components/schemas/CaptureFrameMetadata"
+                        },
+                        "type": "array",
+                        "title": "Frames"
+                    }
+                },
+                "additionalProperties": true,
+                "type": "object",
+                "required": [
+                    "session_id"
+                ],
+                "title": "CaptureManifest"
+            },
+            "CaptureManualMark": {
+                "properties": {
+                    "mark_id": {
+                        "type": "string",
+                        "title": "Mark Id"
+                    },
+                    "captured_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Captured At"
+                    },
+                    "label": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Label"
+                    },
+                    "place_name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Place Name"
+                    },
+                    "description": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Description"
+                    },
+                    "pose": {
+                        "anyOf": [
+                            {
+                                "items": {
+                                    "items": {
+                                        "type": "number"
+                                    },
+                                    "type": "array"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Pose"
+                    },
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "destination",
+                            "transition"
+                        ],
+                        "title": "Kind",
+                        "default": "destination"
+                    }
+                },
+                "additionalProperties": true,
+                "type": "object",
+                "required": [
+                    "mark_id",
+                    "captured_at"
+                ],
+                "title": "CaptureManualMark"
+            },
+            "CaptureVideoSegment": {
+                "properties": {
+                    "segment_id": {
+                        "type": "string",
+                        "title": "Segment Id"
+                    },
+                    "started_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Started At"
+                    },
+                    "ended_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Ended At"
+                    },
+                    "rgb_video_asset_uri": {
+                        "type": "string",
+                        "title": "Rgb Video Asset Uri"
+                    },
+                    "frame_rate_hint": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Frame Rate Hint"
+                    }
+                },
+                "additionalProperties": true,
+                "type": "object",
+                "required": [
+                    "segment_id",
+                    "started_at",
+                    "ended_at",
+                    "rgb_video_asset_uri"
+                ],
+                "title": "CaptureVideoSegment"
+            },
+            "ConverseResponse": {
+                "properties": {
+                    "transcript": {
+                        "type": "string",
+                        "title": "Transcript",
+                        "default": ""
+                    },
+                    "reply_text": {
+                        "type": "string",
+                        "title": "Reply Text",
+                        "default": ""
+                    },
+                    "reply_audio_base64": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Reply Audio Base64"
+                    },
+                    "reply_audio_format": {
+                        "type": "string",
+                        "title": "Reply Audio Format",
+                        "default": "wav"
+                    },
+                    "action": {
+                        "type": "string",
+                        "title": "Action",
+                        "default": "none"
+                    },
+                    "action_args": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Action Args"
+                    },
+                    "history": {
+                        "items": {
+                            "additionalProperties": true,
+                            "type": "object"
+                        },
+                        "type": "array",
+                        "title": "History"
+                    }
+                },
+                "type": "object",
+                "title": "ConverseResponse"
+            },
+            "DestinationBuilding": {
+                "properties": {
+                    "building": {
+                        "type": "string",
+                        "title": "Building"
+                    },
+                    "floors": {
+                        "items": {
+                            "$ref": "#/components/schemas/DestinationFloor"
+                        },
+                        "type": "array",
+                        "title": "Floors"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "building"
+                ],
+                "title": "DestinationBuilding"
+            },
+            "DestinationFloor": {
+                "properties": {
+                    "floor": {
+                        "type": "string",
+                        "title": "Floor"
+                    },
+                    "destinations": {
+                        "items": {
+                            "$ref": "#/components/schemas/DestinationOption"
+                        },
+                        "type": "array",
+                        "title": "Destinations"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "floor"
+                ],
+                "title": "DestinationFloor"
+            },
+            "DestinationOption": {
+                "properties": {
+                    "catalog_ref": {
+                        "type": "string",
+                        "title": "Catalog Ref"
+                    },
+                    "destination_id": {
+                        "type": "string",
+                        "title": "Destination Id"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "category": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Category"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "catalog_ref",
+                    "destination_id",
+                    "name"
+                ],
+                "title": "DestinationOption"
+            },
+            "DestinationPlace": {
+                "properties": {
+                    "place": {
+                        "type": "string",
+                        "title": "Place"
+                    },
+                    "buildings": {
+                        "items": {
+                            "$ref": "#/components/schemas/DestinationBuilding"
+                        },
+                        "type": "array",
+                        "title": "Buildings"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "place"
+                ],
+                "title": "DestinationPlace"
+            },
+            "EstimatedPose": {
+                "properties": {
+                    "coordinate_system": {
+                        "type": "string",
+                        "const": "capture_arkit_world",
+                        "title": "Coordinate System",
+                        "default": "capture_arkit_world"
+                    },
+                    "rotation": {
+                        "items": {
+                            "items": {
+                                "type": "number"
+                            },
+                            "type": "array"
+                        },
+                        "type": "array",
+                        "maxItems": 3,
+                        "minItems": 3,
+                        "title": "Rotation"
+                    },
+                    "translation": {
+                        "items": {
+                            "type": "number"
+                        },
+                        "type": "array",
+                        "maxItems": 3,
+                        "minItems": 3,
+                        "title": "Translation"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "rotation",
+                    "translation"
+                ],
+                "title": "EstimatedPose",
+                "description": "6-DoF pose in the map's coordinate frame.\n\n``rotation`` is a row-major 3x3 matrix. ``translation`` is a length-3\nvector. The frame is ``capture_arkit_world`` until we introduce a\nmap-relative frame in a future ADR."
+            },
+            "FinalizeRequest": {
+                "properties": {
+                    "manifest": {
+                        "$ref": "#/components/schemas/CaptureManifest"
+                    },
+                    "total_chunks": {
+                        "type": "integer",
+                        "minimum": 0.0,
+                        "title": "Total Chunks",
+                        "default": 0
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "manifest"
+                ],
+                "title": "FinalizeRequest",
+                "description": "Body of ``POST /v1/captures/{sid}/finalize``.\n\n``total_chunks`` is a legacy field from the removed chunked-mp4\nprotocol. New clients omit it; older clients may still send ``0``.\nThe route rejects any non-zero value with a 400."
+            },
+            "FinalizeResponse": {
+                "properties": {
+                    "session_id": {
+                        "type": "string",
+                        "title": "Session Id"
+                    },
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    },
+                    "chunk_count": {
+                        "type": "integer",
+                        "title": "Chunk Count"
+                    },
+                    "manifest_uri": {
+                        "type": "string",
+                        "title": "Manifest Uri"
+                    },
+                    "map_build_enqueued": {
+                        "type": "boolean",
+                        "title": "Map Build Enqueued"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "session_id",
+                    "status",
+                    "chunk_count",
+                    "manifest_uri",
+                    "map_build_enqueued"
+                ],
+                "title": "FinalizeResponse"
+            },
+            "FloorPosition": {
+                "properties": {
+                    "x": {
+                        "type": "number",
+                        "title": "X"
+                    },
+                    "y": {
+                        "type": "number",
+                        "title": "Y"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "x",
+                    "y"
+                ],
+                "title": "FloorPosition",
+                "description": "A free position on the floor plane (ARKit world x and z, metres)."
+            },
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "IcpStage": {
+                "properties": {
+                    "gate_m": {
+                        "type": "number",
+                        "title": "Gate M"
+                    },
+                    "fitness": {
+                        "type": "number",
+                        "title": "Fitness"
+                    },
+                    "rmse": {
+                        "type": "number",
+                        "title": "Rmse"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "gate_m",
+                    "fitness",
+                    "rmse"
+                ],
+                "title": "IcpStage",
+                "description": "Per-stage diagnostics from the coarse-to-fine ICP schedule."
+            },
+            "Instruction": {
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "start",
+                            "continue",
+                            "turn_left",
+                            "turn_right",
+                            "turn_around",
+                            "enter_door",
+                            "take_elevator",
+                            "take_stairs_up",
+                            "take_stairs_down",
+                            "take_escalator",
+                            "take_ramp",
+                            "arrive"
+                        ],
+                        "title": "Kind"
+                    },
+                    "text": {
+                        "type": "string",
+                        "title": "Text"
+                    },
+                    "distance_m": {
+                        "type": "number",
+                        "title": "Distance M",
+                        "default": 0.0
+                    },
+                    "bearing_change_deg": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Bearing Change Deg"
+                    },
+                    "edge_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Edge Id"
+                    },
+                    "to_node_id": {
+                        "type": "string",
+                        "title": "To Node Id"
+                    },
+                    "floor_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Floor Id"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "kind",
+                    "text",
+                    "to_node_id"
+                ],
+                "title": "Instruction"
+            },
+            "InterpretRequest": {
+                "properties": {
+                    "utterance": {
+                        "type": "string",
+                        "title": "Utterance"
+                    },
+                    "language": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Language"
+                    },
+                    "destination_hierarchy": {
+                        "items": {
+                            "$ref": "#/components/schemas/DestinationPlace"
+                        },
+                        "type": "array",
+                        "title": "Destination Hierarchy"
+                    },
+                    "map_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Map Id"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "utterance"
+                ],
+                "title": "InterpretRequest"
+            },
+            "InterpretResponse": {
+                "properties": {
+                    "intent": {
+                        "type": "string",
+                        "title": "Intent",
+                        "default": "navigate"
+                    },
+                    "candidate_refs": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Candidate Refs"
+                    },
+                    "needs_clarification": {
+                        "type": "boolean",
+                        "title": "Needs Clarification",
+                        "default": false
+                    },
+                    "message": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Message"
+                    }
+                },
+                "type": "object",
+                "title": "InterpretResponse"
+            },
+            "LegacyRoutePlanRequest": {
+                "properties": {
+                    "map_id": {
+                        "type": "string",
+                        "title": "Map Id"
+                    },
+                    "start_node_id": {
+                        "type": "string",
+                        "title": "Start Node Id"
+                    },
+                    "destination_ref": {
+                        "type": "string",
+                        "title": "Destination Ref"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "map_id",
+                    "start_node_id",
+                    "destination_ref"
+                ],
+                "title": "LegacyRoutePlanRequest"
+            },
+            "LegacyRoutePlanResponse": {
+                "properties": {
+                    "route_id": {
+                        "type": "string",
+                        "title": "Route Id"
+                    },
+                    "node_ids": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Node Ids"
+                    },
+                    "distance_m": {
+                        "type": "number",
+                        "title": "Distance M"
+                    },
+                    "instructions": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Instructions"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "route_id",
+                    "node_ids",
+                    "distance_m",
+                    "instructions"
+                ],
+                "title": "LegacyRoutePlanResponse"
+            },
+            "ListMapsResponse": {
+                "properties": {
+                    "maps": {
+                        "items": {
+                            "$ref": "#/components/schemas/MapSummary"
+                        },
+                        "type": "array",
+                        "title": "Maps"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "maps"
+                ],
+                "title": "ListMapsResponse"
+            },
+            "LocalizationResponse": {
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "title": "Success"
+                    },
+                    "capture_session_id": {
+                        "type": "string",
+                        "title": "Capture Session Id"
+                    },
+                    "map_package_schema_version": {
+                        "type": "string",
+                        "title": "Map Package Schema Version"
+                    },
+                    "estimator_backend": {
+                        "type": "string",
+                        "title": "Estimator Backend"
+                    },
+                    "descriptor_backend": {
+                        "type": "string",
+                        "title": "Descriptor Backend"
+                    },
+                    "matcher_backend": {
+                        "type": "string",
+                        "title": "Matcher Backend"
+                    },
+                    "pose": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/EstimatedPose"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "inlier_count": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Inlier Count"
+                    },
+                    "candidates": {
+                        "items": {
+                            "$ref": "#/components/schemas/CandidateMatch"
+                        },
+                        "type": "array",
+                        "title": "Candidates"
+                    },
+                    "failure_reason": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "no_descriptors_available",
+                                    "no_candidates_above_threshold",
+                                    "all_candidate_poses_implausible",
+                                    "pose_estimation_failed",
+                                    "map_package_missing"
+                                ]
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Failure Reason"
+                    },
+                    "failure_detail": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Failure Detail"
+                    },
+                    "produced_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Produced At"
+                    },
+                    "timing_ms": {
+                        "additionalProperties": {
+                            "type": "number"
+                        },
+                        "type": "object",
+                        "title": "Timing Ms"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "success",
+                    "capture_session_id",
+                    "map_package_schema_version",
+                    "estimator_backend",
+                    "descriptor_backend",
+                    "matcher_backend",
+                    "produced_at"
+                ],
+                "title": "LocalizationResponse",
+                "description": "Top-level response contract for ``POST /v1/localize``."
+            },
+            "MapBuildJobStatus": {
+                "properties": {
+                    "job_id": {
+                        "type": "string",
+                        "title": "Job Id"
+                    },
+                    "capture_session_id": {
+                        "type": "string",
+                        "title": "Capture Session Id"
+                    },
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    },
+                    "stage": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Stage"
+                    },
+                    "progress": {
+                        "type": "number",
+                        "title": "Progress",
+                        "default": 0.0
+                    },
+                    "attempt": {
+                        "type": "integer",
+                        "title": "Attempt",
+                        "default": 1
+                    },
+                    "enqueued_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Enqueued At"
+                    },
+                    "started_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Started At"
+                    },
+                    "completed_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Completed At"
+                    },
+                    "map_package_path": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Map Package Path"
+                    },
+                    "map_package_schema_version": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Map Package Schema Version"
+                    },
+                    "error_kind": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Error Kind"
+                    },
+                    "error_message": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Error Message"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "job_id",
+                    "capture_session_id",
+                    "status",
+                    "enqueued_at"
+                ],
+                "title": "MapBuildJobStatus",
+                "description": "HTTP-facing summary of a map-build job's lifecycle."
+            },
+            "MapCatalogResponse": {
+                "properties": {
+                    "maps": {
+                        "items": {
+                            "additionalProperties": true,
+                            "type": "object"
+                        },
+                        "type": "array",
+                        "title": "Maps"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "maps"
+                ],
+                "title": "MapCatalogResponse"
+            },
+            "MapDeleteResponse": {
+                "properties": {
+                    "map_id": {
+                        "type": "string",
+                        "title": "Map Id"
+                    },
+                    "deleted_capture_ids": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Deleted Capture Ids"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "map_id",
+                    "deleted_capture_ids"
+                ],
+                "title": "MapDeleteResponse"
+            },
+            "MapDetailResponse": {
+                "properties": {
+                    "map_id": {
+                        "type": "string",
+                        "title": "Map Id"
+                    },
+                    "graph": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Graph"
+                    },
+                    "destination_hierarchy": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Destination Hierarchy"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "map_id",
+                    "graph",
+                    "destination_hierarchy"
+                ],
+                "title": "MapDetailResponse"
+            },
+            "MapSummary": {
+                "properties": {
+                    "map_id": {
+                        "type": "string",
+                        "title": "Map Id"
+                    },
+                    "version": {
+                        "type": "string",
+                        "title": "Version"
+                    },
+                    "schema_version": {
+                        "type": "string",
+                        "title": "Schema Version"
+                    },
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    },
+                    "places": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Places"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "map_id",
+                    "version",
+                    "schema_version",
+                    "status",
+                    "places"
+                ],
+                "title": "MapSummary"
+            },
+            "MappingAssistantRequest": {
+                "properties": {
+                    "utterance": {
+                        "type": "string",
+                        "title": "Utterance"
+                    },
+                    "phase": {
+                        "type": "string",
+                        "title": "Phase",
+                        "default": "standby"
+                    },
+                    "map_name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Map Name"
+                    },
+                    "is_capturing": {
+                        "type": "boolean",
+                        "title": "Is Capturing",
+                        "default": false
+                    },
+                    "has_capture": {
+                        "type": "boolean",
+                        "title": "Has Capture",
+                        "default": false
+                    },
+                    "language": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Language"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "utterance"
+                ],
+                "title": "MappingAssistantRequest"
+            },
+            "MappingAssistantResponse": {
+                "properties": {
+                    "intent": {
+                        "type": "string",
+                        "title": "Intent",
+                        "default": "none"
+                    },
+                    "map_name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Map Name"
+                    },
+                    "message": {
+                        "type": "string",
+                        "title": "Message"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "message"
+                ],
+                "title": "MappingAssistantResponse"
+            },
+            "MultiLocalizationResponse": {
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "title": "Success"
+                    },
+                    "capture_session_id": {
+                        "type": "string",
+                        "title": "Capture Session Id"
+                    },
+                    "map_package_schema_version": {
+                        "type": "string",
+                        "title": "Map Package Schema Version",
+                        "default": ""
+                    },
+                    "estimator_backend": {
+                        "type": "string",
+                        "title": "Estimator Backend",
+                        "default": ""
+                    },
+                    "descriptor_backend": {
+                        "type": "string",
+                        "title": "Descriptor Backend",
+                        "default": ""
+                    },
+                    "matcher_backend": {
+                        "type": "string",
+                        "title": "Matcher Backend",
+                        "default": ""
+                    },
+                    "per_frame": {
+                        "items": {
+                            "$ref": "#/components/schemas/MultiPerFrameResult"
+                        },
+                        "type": "array",
+                        "title": "Per Frame"
+                    },
+                    "n_frames_used": {
+                        "type": "integer",
+                        "title": "N Frames Used",
+                        "default": 0
+                    },
+                    "failure_reason": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "no_descriptors_available",
+                                    "no_candidates_above_threshold",
+                                    "all_candidate_poses_implausible",
+                                    "pose_estimation_failed",
+                                    "map_package_missing"
+                                ]
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Failure Reason"
+                    },
+                    "failure_detail": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Failure Detail"
+                    },
+                    "produced_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Produced At"
+                    },
+                    "timing_ms": {
+                        "additionalProperties": {
+                            "type": "number"
+                        },
+                        "type": "object",
+                        "title": "Timing Ms"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "success",
+                    "capture_session_id",
+                    "produced_at"
+                ],
+                "title": "MultiLocalizationResponse",
+                "description": "Response contract for ``POST /v1/localize/multi``.\n\nCarries one :class:`MultiPerFrameResult` per input frame plus\npipeline-level diagnostics. ``success`` is True iff at least one\nframe survived the joint refinement; the client composes each\nframe's pose with the matching ARKit transform to derive N\nestimates of ``T_map_arkit`` and Karcher-fuses them locally before\nseeding the EKF."
+            },
+            "MultiPerFrameResult": {
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "title": "Success"
+                    },
+                    "pose": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/EstimatedPose"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "inlier_count": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Inlier Count"
+                    },
+                    "candidates": {
+                        "items": {
+                            "$ref": "#/components/schemas/CandidateMatch"
+                        },
+                        "type": "array",
+                        "title": "Candidates"
+                    },
+                    "failure_reason": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "no_descriptors_available",
+                                    "no_candidates_above_threshold",
+                                    "all_candidate_poses_implausible",
+                                    "pose_estimation_failed",
+                                    "map_package_missing"
+                                ]
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Failure Reason"
+                    },
+                    "failure_detail": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Failure Detail"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "success"
+                ],
+                "title": "MultiPerFrameResult",
+                "description": "One frame's slice of the joint multi-frame PnP output."
+            },
+            "RefineResponse": {
+                "properties": {
+                    "accepted": {
+                        "type": "boolean",
+                        "title": "Accepted"
+                    },
+                    "capture_session_id": {
+                        "type": "string",
+                        "title": "Capture Session Id"
+                    },
+                    "refined_t_map_arkit": {
+                        "items": {
+                            "type": "number"
+                        },
+                        "type": "array",
+                        "maxItems": 16,
+                        "minItems": 16,
+                        "title": "Refined T Map Arkit"
+                    },
+                    "delta_translation_m": {
+                        "type": "number",
+                        "title": "Delta Translation M"
+                    },
+                    "delta_rotation_deg": {
+                        "type": "number",
+                        "title": "Delta Rotation Deg"
+                    },
+                    "fitness": {
+                        "type": "number",
+                        "title": "Fitness"
+                    },
+                    "inlier_rmse": {
+                        "type": "number",
+                        "title": "Inlier Rmse"
+                    },
+                    "stages": {
+                        "items": {
+                            "$ref": "#/components/schemas/IcpStage"
+                        },
+                        "type": "array",
+                        "title": "Stages"
+                    },
+                    "failure_reason": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "map_package_missing",
+                                    "too_few_depth_points",
+                                    "low_fitness",
+                                    "large_alignment_delta",
+                                    "nan_transform"
+                                ]
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Failure Reason"
+                    },
+                    "produced_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Produced At"
+                    },
+                    "timing_ms": {
+                        "additionalProperties": {
+                            "type": "number"
+                        },
+                        "type": "object",
+                        "title": "Timing Ms"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "accepted",
+                    "capture_session_id",
+                    "refined_t_map_arkit",
+                    "delta_translation_m",
+                    "delta_rotation_deg",
+                    "fitness",
+                    "inlier_rmse",
+                    "produced_at"
+                ],
+                "title": "RefineResponse",
+                "description": "Response contract for ``POST /v1/localize/refine``.\n\n``refined_t_map_arkit`` is the polished alignment expressed as a row-\nmajor 4×4 transform (length-16 flat list). When ``accepted`` is False\nthe client should keep its prior alignment and treat this fix as a\nmiss; ``refined_t_map_arkit`` still reflects the ICP's best guess for\ndiagnostics."
+            },
+            "RoutePlanRequest": {
+                "properties": {
+                    "map_graph_id": {
+                        "type": "string",
+                        "title": "Map Graph Id"
+                    },
+                    "from_node_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "From Node Id"
+                    },
+                    "from_position": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/FloorPosition"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "to_node_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "To Node Id"
+                    },
+                    "to_destination_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "To Destination Id"
+                    },
+                    "accessibility": {
+                        "$ref": "#/components/schemas/AccessibilityPreferencesSchema"
+                    },
+                    "max_meters": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Max Meters"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "map_graph_id"
+                ],
+                "title": "RoutePlanRequest"
+            },
+            "RoutePlanResponse": {
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "title": "Success"
+                    },
+                    "map_graph_id": {
+                        "type": "string",
+                        "title": "Map Graph Id"
+                    },
+                    "from_node_id": {
+                        "type": "string",
+                        "title": "From Node Id"
+                    },
+                    "to_node_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "To Node Id"
+                    },
+                    "total_distance_m": {
+                        "type": "number",
+                        "title": "Total Distance M",
+                        "default": 0.0
+                    },
+                    "floor_change_count": {
+                        "type": "integer",
+                        "title": "Floor Change Count",
+                        "default": 0
+                    },
+                    "steps": {
+                        "items": {
+                            "$ref": "#/components/schemas/RouteStep"
+                        },
+                        "type": "array",
+                        "title": "Steps"
+                    },
+                    "failure_reason": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "graph_not_found",
+                                    "from_node_unknown",
+                                    "to_unresolved",
+                                    "no_path",
+                                    "exceeds_max_meters",
+                                    "exceeds_max_floor_changes"
+                                ]
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Failure Reason"
+                    },
+                    "failure_detail": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Failure Detail"
+                    },
+                    "produced_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Produced At"
+                    },
+                    "timing_ms": {
+                        "additionalProperties": {
+                            "type": "number"
+                        },
+                        "type": "object",
+                        "title": "Timing Ms"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "success",
+                    "map_graph_id",
+                    "from_node_id",
+                    "to_node_id",
+                    "produced_at"
+                ],
+                "title": "RoutePlanResponse"
+            },
+            "RouteStep": {
+                "properties": {
+                    "index": {
+                        "type": "integer",
+                        "title": "Index"
+                    },
+                    "from_node_id": {
+                        "type": "string",
+                        "title": "From Node Id"
+                    },
+                    "to_node_id": {
+                        "type": "string",
+                        "title": "To Node Id"
+                    },
+                    "edge_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Edge Id"
+                    },
+                    "edge_type": {
+                        "type": "string",
+                        "title": "Edge Type"
+                    },
+                    "distance_m": {
+                        "type": "number",
+                        "title": "Distance M"
+                    },
+                    "floor_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Floor Id"
+                    },
+                    "instruction": {
+                        "$ref": "#/components/schemas/Instruction"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "index",
+                    "from_node_id",
+                    "to_node_id",
+                    "edge_id",
+                    "edge_type",
+                    "distance_m",
+                    "floor_id",
+                    "instruction"
+                ],
+                "title": "RouteStep"
+            },
+            "RouteUpdateRequest": {
+                "properties": {
+                    "route_id": {
+                        "type": "string",
+                        "title": "Route Id"
+                    },
+                    "current_node_id": {
+                        "type": "string",
+                        "title": "Current Node Id"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "route_id",
+                    "current_node_id"
+                ],
+                "title": "RouteUpdateRequest"
+            },
+            "RouteUpdateResponse": {
+                "properties": {
+                    "route_id": {
+                        "type": "string",
+                        "title": "Route Id"
+                    },
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    },
+                    "message": {
+                        "type": "string",
+                        "title": "Message"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "route_id",
+                    "status",
+                    "message"
+                ],
+                "title": "RouteUpdateResponse"
+            },
+            "SidecarAck": {
+                "properties": {
+                    "session_id": {
+                        "type": "string",
+                        "title": "Session Id"
+                    },
+                    "relative_path": {
+                        "type": "string",
+                        "title": "Relative Path"
+                    },
+                    "bytes_written": {
+                        "type": "integer",
+                        "title": "Bytes Written"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "session_id",
+                    "relative_path",
+                    "bytes_written"
+                ],
+                "title": "SidecarAck"
+            },
+            "SpeechSynthesisRequest": {
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "title": "Text"
+                    },
+                    "language": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Language"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "text"
+                ],
+                "title": "SpeechSynthesisRequest"
+            },
+            "SpeechSynthesisResponse": {
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    },
+                    "audio_format": {
+                        "type": "string",
+                        "title": "Audio Format",
+                        "default": "mp3"
+                    },
+                    "audio_base64": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Audio Base64"
+                    },
+                    "model": {
+                        "type": "string",
+                        "title": "Model",
+                        "default": "mock-tts"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "status"
+                ],
+                "title": "SpeechSynthesisResponse"
+            },
+            "SpeechTranscriptionResponse": {
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "title": "Text"
+                    },
+                    "language": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Language"
+                    },
+                    "confidence": {
+                        "anyOf": [
+                            {
+                                "type": "number"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Confidence"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "text"
+                ],
+                "title": "SpeechTranscriptionResponse"
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    },
+                    "input": {
+                        "title": "Input"
+                    },
+                    "ctx": {
+                        "type": "object",
+                        "title": "Context"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
+            }
+        }
+    }
+}
