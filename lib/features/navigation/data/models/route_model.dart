@@ -1,13 +1,13 @@
 import '../../domain/entities/route_entity.dart';
 import 'multi_floor_navigation_step_model.dart';
 
-// Indoor floorplans: 1 px is typically 0.005–0.5 m.
-// If the value exceeds 1.0 the backend sent feet/pixel — convert to meters.
+// Indoor floorplans: 1 px is typically 0.005-0.5 m.
+// If the value exceeds 1.0 the backend likely sent feet/pixel; convert to m/px.
 double? _normalizeToMetersPerPixel(double? raw) {
   if (raw == null) return null;
   // Standard floorplans are usually 0.05 - 0.2 mpp.
   // If raw > 1.0, it's almost certainly feet per pixel (e.g. 5.0 fpp).
-  if (raw > 1.0) return raw * 0.3048; // feet → meters
+  if (raw > 1.0) return raw * 0.3048; // feet to meters
   return raw;
 }
 
@@ -19,8 +19,7 @@ class RouteModel extends RouteEntity {
   });
 
   factory RouteModel.fromJson(Map<String, dynamic> json) {
-    final multiSteps =
-        (json['multifloor_navigation_steps'] as List<dynamic>?)
+    final multiSteps = (json['multifloor_navigation_steps'] as List<dynamic>?)
             ?.map(
               (e) => MultiFloorNavigationStepModel.fromJson(
                 e as Map<String, dynamic>,
@@ -30,11 +29,12 @@ class RouteModel extends RouteEntity {
         [];
 
     return RouteModel(
-      entityId:
-          json['id'] as String? ??
+      entityId: json['id'] as String? ??
           DateTime.now().millisecondsSinceEpoch.toString(),
       multiFloorSteps: multiSteps,
-      metersPerPixel: _normalizeToMetersPerPixel(json['meters_per_pixel']?.toDouble()),
+      metersPerPixel: _normalizeToMetersPerPixel(
+        json['meters_per_pixel']?.toDouble(),
+      ),
     );
   }
 

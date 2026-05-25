@@ -36,11 +36,19 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   double? _lastFrameHeading;
   double? _lastFrameConfidence;
   int _ignoredOriginFrameCount = 0;
+  final List<ArPose> _originPoseCandidates = [];
+  DateTime? _originStabilizationStartedAt;
   double _arTravelDistance = 0.0;
   ArPose? _lastPoseForDistance;
 
   static const double _headingLockThresholdDeg = 8.0;
   static const double _minimumOriginConfidence = 1.0;
+  static const int _originStableFrameCount = 6;
+  static const double _originMaxHeadingSpreadDeg = 4.0;
+  static const double _originMaxPositionSpreadM = 0.35;
+  static const Duration _minimumOriginSettleDuration =
+      Duration(milliseconds: 700);
+  static const Duration _maximumOriginWaitDuration = Duration(seconds: 3);
 
   StreamSubscription? _poseSubscription;
 
@@ -74,16 +82,12 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     _referencePose = event.referencePose;
     _route = event.route;
 
-    // --- Unit Scaling Fix ---
-    // If backend is configured for feet, it sends 'feet per pixel'.
-    // We must convert this to 'meters per pixel' for the AR world (Metric).
+    // AR world tracking is always metric. The route model normalizes this
+    // value to meters-per-pixel before AR navigation starts; display unit only
+    // affects formatted guidance text/audio.
     double mpp = event.metersPerPixel;
     if (mpp == 1.0) {
       mpp = 0.05; // Use fallback for unscaled/invalid backend values
-    }
-
-    if (_locationConfig.unit == 'feet') {
-      mpp *= 0.3048; // Convert feet-per-pixel to meters-per-pixel
     }
     _metersPerPixel = mpp;
     _originArPose = null;
@@ -96,6 +100,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     _lastFrameHeading = null;
     _lastFrameConfidence = null;
     _ignoredOriginFrameCount = 0;
+    _resetOriginStabilization();
 
     _logger.info('🚀 ArNavigationBloc: Starting AR Navigation\n'
         '  - Place: ${_locationConfig.place}\n'
@@ -153,29 +158,33 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
 
     final isFirstFrame = _originArPose == null;
     if (isFirstFrame) {
-      if (!_isUsableOriginPose(event.pose)) {
+      final stableOriginPose = _selectStableOriginPose(event.pose);
+      if (stableOriginPose == null) {
         _ignoredOriginFrameCount++;
         _logger.warning(
             '⏳ AR origin frame ignored while tracking initializes:\n'
             '  - Ignored Frames: $_ignoredOriginFrameCount\n'
             '  - Candidate Heading: ${event.pose.heading.toStringAsFixed(1)}°\n'
             '  - Candidate Confidence: ${event.pose.confidence.toStringAsFixed(2)}\n'
-            '  - Required Confidence: ${_minimumOriginConfidence.toStringAsFixed(2)}');
+            '  - Required Confidence: ${_minimumOriginConfidence.toStringAsFixed(2)}\n'
+            '  - Stable Candidates: ${_originPoseCandidates.length}/$_originStableFrameCount');
         _lastFrameHeading = event.pose.heading;
         _lastFrameConfidence = event.pose.confidence;
         return;
       }
 
-      _originArPose = event.pose;
-      _lastPoseForDistance = event.pose;
+      _originArPose = stableOriginPose;
+      _lastPoseForDistance = stableOriginPose;
       _arTravelDistance = 0.0;
       _logger.info('🏁 AR NAVIGATION POINT ZERO INITIALIZED!\n'
-          '  - Origin AR Heading (Yaw): ${event.pose.heading.toStringAsFixed(1)}°\n'
-          '  - Origin Position: (x: ${event.pose.x.toStringAsFixed(2)}, y: ${event.pose.y.toStringAsFixed(2)}, z: ${event.pose.z.toStringAsFixed(2)})\n'
-          '  - Origin Confidence: ${event.pose.confidence.toStringAsFixed(2)}\n'
+          '  - Origin AR Heading (Yaw): ${stableOriginPose.heading.toStringAsFixed(1)}°\n'
+          '  - Origin Position: (x: ${stableOriginPose.x.toStringAsFixed(2)}, y: ${stableOriginPose.y.toStringAsFixed(2)}, z: ${stableOriginPose.z.toStringAsFixed(2)})\n'
+          '  - Origin Confidence: ${stableOriginPose.confidence.toStringAsFixed(2)}\n'
           '  - Ignored Startup Frames: $_ignoredOriginFrameCount\n'
+          '  - Stable Startup Frames: ${_originPoseCandidates.length}\n'
           '  - API Reference Heading: ${_referencePose!.heading.toStringAsFixed(1)}°\n'
-          '  - Initial Calculated sumHeadingDeg: ${((_referencePose!.heading + event.pose.heading) % 360.0).toStringAsFixed(1)}°');
+          '  - Initial Calculated sumHeadingDeg: ${((_referencePose!.heading + stableOriginPose.heading) % 360.0).toStringAsFixed(1)}°');
+      _resetOriginStabilization();
     } else {
       if (_lastPoseForDistance != null) {
         final currentX = event.pose.worldX ?? event.pose.x;
@@ -357,6 +366,94 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
         pose.z.isFinite;
   }
 
+  ArPose? _selectStableOriginPose(ArPose pose) {
+    if (!_isUsableOriginPose(pose)) {
+      _resetOriginStabilization();
+      return null;
+    }
+
+    _originStabilizationStartedAt ??= DateTime.now();
+    _originPoseCandidates.add(pose);
+    if (_originPoseCandidates.length > _originStableFrameCount) {
+      _originPoseCandidates.removeAt(0);
+    }
+
+    final settleElapsed =
+        DateTime.now().difference(_originStabilizationStartedAt!);
+    final hasEnoughFrames =
+        _originPoseCandidates.length >= _originStableFrameCount;
+    final hasSettled = settleElapsed >= _minimumOriginSettleDuration;
+
+    if (hasEnoughFrames && hasSettled && _originWindowIsStable()) {
+      return _averageOriginPose(_originPoseCandidates);
+    }
+
+    if (settleElapsed >= _maximumOriginWaitDuration &&
+        _originPoseCandidates.isNotEmpty) {
+      final fallback = _averageOriginPose(_originPoseCandidates);
+      _logger.warning('AR origin stability timeout; using best candidate:\n'
+          '  - Waited: ${settleElapsed.inMilliseconds} ms\n'
+          '  - Candidate Frames: ${_originPoseCandidates.length}\n'
+          '  - Averaged Heading: ${fallback.heading.toStringAsFixed(1)} deg');
+      return fallback;
+    }
+
+    return null;
+  }
+
+  bool _originWindowIsStable() {
+    if (_originPoseCandidates.length < _originStableFrameCount) return false;
+
+    final headings = _originPoseCandidates
+        .map((pose) => _normalizeDegrees(pose.heading))
+        .toList(growable: false);
+    final meanHeading = _circularMeanDegrees(headings);
+    final maxHeadingError = headings
+        .map((heading) => _signedHeadingDeltaDeg(meanHeading, heading).abs())
+        .fold<double>(0.0, math.max);
+
+    final first = _originPoseCandidates.first;
+    final firstX = first.worldX ?? first.x;
+    final firstY = first.worldY ?? first.y;
+    final firstZ = first.worldZ ?? first.z;
+    final maxPositionDelta = _originPoseCandidates.map((candidate) {
+      final dx = (candidate.worldX ?? candidate.x) - firstX;
+      final dy = (candidate.worldY ?? candidate.y) - firstY;
+      final dz = (candidate.worldZ ?? candidate.z) - firstZ;
+      return math.sqrt(dx * dx + dy * dy + dz * dz);
+    }).fold<double>(0.0, math.max);
+
+    return maxHeadingError <= _originMaxHeadingSpreadDeg &&
+        maxPositionDelta <= _originMaxPositionSpreadM;
+  }
+
+  ArPose _averageOriginPose(List<ArPose> poses) {
+    final latest = poses.last;
+    final averagedHeading = _circularMeanDegrees(
+      poses.map((pose) => _normalizeDegrees(pose.heading)),
+    );
+    return latest.copyWith(heading: averagedHeading);
+  }
+
+  double _circularMeanDegrees(Iterable<double> headings) {
+    double sinSum = 0;
+    double cosSum = 0;
+    var count = 0;
+    for (final heading in headings) {
+      final radians = heading * math.pi / 180.0;
+      sinSum += math.sin(radians);
+      cosSum += math.cos(radians);
+      count++;
+    }
+    if (count == 0) return 0;
+    return _normalizeDegrees(math.atan2(sinSum, cosSum) * 180.0 / math.pi);
+  }
+
+  void _resetOriginStabilization() {
+    _originPoseCandidates.clear();
+    _originStabilizationStartedAt = null;
+  }
+
   void _handleAudioGuidance(
       ArTrackingUpdate update, LocalizedPose localizedPose) {
     final effectiveMpp = _metersPerPixel ?? 0.05;
@@ -501,9 +598,9 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     // Path height: knee level (~0.5 m above floor, camera at ~1.5 m height).
     // Offset = cameraHeight - kneeHeight = 1.5 - 0.5 = 1.0 m.
     // Increase to lower the path; decrease to raise it.
-    const _pathHeightOffsetM = 1.0;
+    const pathHeightOffsetM = 1.0;
     final cameraWorldY = origin.worldY ?? origin.z;
-    final floorWorldY = cameraWorldY - _pathHeightOffsetM;
+    final floorWorldY = cameraWorldY - pathHeightOffsetM;
 
     // Converts a floorplan image point to ARKit world-space [worldX, worldY, worldZ].
     List<double> floorplanToArWorld(double px, double py) {
@@ -548,7 +645,10 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     _poseRepository.updateOverlay(
       pathPoints: allPathAr,
       activePathPoints: activePathAr,
-      futurePathPoints: [],
+      // Native renderers draw futurePathPoints as the persistent, lower-emphasis
+      // path layer. Keep the full route there so completed/behind segments do
+      // not disappear when waypoint advancement trims activePathPoints.
+      futurePathPoints: allPathAr,
       nextWaypoint: floorplanToArWorld(nextWaypoint.dx, nextWaypoint.dy),
       destination: floorplanToArWorld(routePoints.last.dx, routePoints.last.dy),
     );

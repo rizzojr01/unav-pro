@@ -182,8 +182,10 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     // First heading update: snap user to screen center so rotation pivots on them.
     // Triggers on either the first AR-derived heading OR the first API heading
     // (whichever arrives first), since both drive _mapRotationRad.
-    final hadHeading = oldWidget.userHeading != null || oldWidget.apiInitialHeading != null;
-    final hasHeading = widget.userHeading != null || widget.apiInitialHeading != null;
+    final hadHeading =
+        oldWidget.userHeading != null || oldWidget.apiInitialHeading != null;
+    final hasHeading =
+        widget.userHeading != null || widget.apiInitialHeading != null;
     if (!hadHeading && hasHeading && _imageSize != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -377,32 +379,55 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                                 BlocBuilder<ArNavigationBloc,
                                     ArNavigationState>(
                                   builder: (context, arState) {
-                                    List<Offset> pathCoords;
+                                    final fullRouteCoords = widget.route!.steps
+                                        .expand(
+                                          (s) => [
+                                            Offset(s.from.x, s.from.y),
+                                            Offset(s.to.x, s.to.y),
+                                          ],
+                                        )
+                                        .toList();
+
+                                    List<Offset> activePathCoords;
                                     if (arState is ArNavigationTracking &&
                                         arState.trackedPath.isNotEmpty) {
-                                      pathCoords = arState.trackedPath;
+                                      activePathCoords = arState.trackedPath;
                                     } else {
-                                      pathCoords = widget.route!.steps
-                                          .expand(
-                                            (s) => [
-                                              Offset(s.from.x, s.from.y),
-                                              Offset(s.to.x, s.to.y),
-                                            ],
-                                          )
-                                          .toList();
+                                      activePathCoords = fullRouteCoords;
                                     }
 
                                     return AnimatedBuilder(
                                       animation: _routeAnimationController,
-                                      builder: (context, _) => CustomPaint(
-                                        size: Size(displayWidth, displayHeight),
-                                        painter: RoutePainter(
-                                          coords: pathCoords,
-                                          scaleX: scaleX,
-                                          scaleY: scaleY,
-                                          animationValue:
-                                              _routeAnimationController.value,
-                                        ),
+                                      builder: (context, _) => Stack(
+                                        children: [
+                                          if (arState is ArNavigationTracking &&
+                                              arState.trackedPath.isNotEmpty)
+                                            CustomPaint(
+                                              size: Size(
+                                                  displayWidth, displayHeight),
+                                              painter: RoutePainter(
+                                                coords: fullRouteCoords,
+                                                scaleX: scaleX,
+                                                scaleY: scaleY,
+                                                animationValue:
+                                                    _routeAnimationController
+                                                        .value,
+                                                opacity: 0.28,
+                                              ),
+                                            ),
+                                          CustomPaint(
+                                            size: Size(
+                                                displayWidth, displayHeight),
+                                            painter: RoutePainter(
+                                              coords: activePathCoords,
+                                              scaleX: scaleX,
+                                              scaleY: scaleY,
+                                              animationValue:
+                                                  _routeAnimationController
+                                                      .value,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     );
                                   },
@@ -697,12 +722,14 @@ class RoutePainter extends CustomPainter {
   final List<Offset> coords;
   final double scaleX, scaleY;
   final double animationValue;
+  final double opacity;
 
   RoutePainter({
     required this.coords,
     required this.scaleX,
     required this.scaleY,
     required this.animationValue,
+    this.opacity = 1.0,
   });
 
   @override
@@ -731,7 +758,7 @@ class RoutePainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 10
-        ..color = const Color(0xFF4FC3F7).withValues(alpha: 0.15)
+        ..color = const Color(0xFF4FC3F7).withValues(alpha: 0.15 * opacity)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
     );
     canvas.drawPath(
@@ -739,7 +766,7 @@ class RoutePainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 6
-        ..color = Colors.white
+        ..color = Colors.white.withValues(alpha: opacity)
         ..strokeJoin = StrokeJoin.round
         ..strokeCap = StrokeCap.round,
     );
@@ -756,6 +783,7 @@ class RoutePainter extends CustomPainter {
             const Color(0xFF2196F3),
             i / segCount,
           )!
+              .withValues(alpha: opacity)
           ..strokeJoin = StrokeJoin.round
           ..strokeCap = StrokeCap.round,
       );
@@ -764,7 +792,7 @@ class RoutePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.8
       ..strokeCap = StrokeCap.round
-      ..color = Colors.white.withValues(alpha: 0.6);
+      ..color = Colors.white.withValues(alpha: 0.6 * opacity);
     const dashLen = 8.0, gapLen = 12.0;
     double dist = (animationValue * 30) % (dashLen + gapLen);
     while (dist < len) {
@@ -775,5 +803,7 @@ class RoutePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(RoutePainter old) =>
-      old.animationValue != animationValue || old.coords != coords;
+      old.animationValue != animationValue ||
+      old.coords != coords ||
+      old.opacity != opacity;
 }
