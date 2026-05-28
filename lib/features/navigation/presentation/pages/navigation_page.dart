@@ -17,7 +17,9 @@ import '../../../ar_navigation/presentation/bloc/ar_navigation_bloc.dart';
 import '../../../ar_navigation/presentation/bloc/ar_navigation_event.dart';
 import '../../../ar_navigation/presentation/bloc/ar_navigation_state.dart';
 import '../../../ar_navigation/presentation/widgets/ar_preview_floating_window.dart';
+import '../../../ar_navigation/domain/entities/ar_pose.dart';
 import '../../../ar_navigation/domain/entities/localized_pose.dart';
+import '../../../ar_navigation/domain/repositories/ar_pose_repository.dart';
 import '../bloc/navigation_bloc.dart';
 import '../bloc/navigation_event.dart';
 import '../bloc/navigation_state.dart';
@@ -31,6 +33,7 @@ import '../../../locate_me/presentation/widgets/destination_bottom_sheet.dart';
 class NavigationPage extends StatefulWidget {
   final DestinationEntity destination;
   final String? imagePath;
+  final ArPose? capturedArPose;
   final Map<String, dynamic>? userPickedCoordinates;
   final String? pickedFloor;
 
@@ -38,6 +41,7 @@ class NavigationPage extends StatefulWidget {
     super.key,
     required this.destination,
     this.imagePath,
+    this.capturedArPose,
     this.userPickedCoordinates,
     this.pickedFloor,
   });
@@ -51,13 +55,21 @@ class _NavigationPageState extends State<NavigationPage> {
   void initState() {
     super.initState();
     context.read<NavigationBloc>().add(
-      InitializeNavigationEvent(
-        widget.destination,
-        imagePath: widget.imagePath,
-        userPickedCoordinates: widget.userPickedCoordinates,
-        pickedFloor: widget.pickedFloor,
-      ),
-    );
+          InitializeNavigationEvent(
+            widget.destination,
+            imagePath: widget.imagePath,
+            userPickedCoordinates: widget.userPickedCoordinates,
+            pickedFloor: widget.pickedFloor,
+          ),
+        );
+  }
+
+  Future<void> _returnToCamera(DestinationEntity destination) async {
+    await getIt<ArPoseRepository>().stop();
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    if (mounted) {
+      context.pushReplacement('/camera', extra: destination);
+    }
   }
 
   void _showDestinationBottomSheet(
@@ -76,19 +88,19 @@ class _NavigationPageState extends State<NavigationPage> {
 
           if (currentLocation != null) {
             context.read<NavigationBloc>().add(
-              InitializeNavigationEvent(
-                destination,
-                userPickedCoordinates: {
-                  'x': currentLocation.x,
-                  'y': currentLocation.y,
-                  'floor': currentLocation.floor,
-                  'enabled': true,
-                },
-                pickedFloor: currentLocation.floor,
-              ),
-            );
+                  InitializeNavigationEvent(
+                    destination,
+                    userPickedCoordinates: {
+                      'x': currentLocation.x,
+                      'y': currentLocation.y,
+                      'floor': currentLocation.floor,
+                      'enabled': true,
+                    },
+                    pickedFloor: currentLocation.floor,
+                  ),
+                );
           } else {
-            if (mounted) context.pushReplacement('/camera', extra: destination);
+            _returnToCamera(destination);
           }
         },
       ),
@@ -102,26 +114,26 @@ class _NavigationPageState extends State<NavigationPage> {
     final floorScale = state.metersPerPixel ?? 1.0;
 
     // Check if the current location has an 'ang' (heading) from the backend
-    final double initialHeading =
-        state.currentLocation.ang ??
+    final double initialHeading = state.currentLocation.ang ??
         widget.userPickedCoordinates?['heading']?.toDouble() ??
         0.0;
 
     context.read<ArNavigationBloc>().add(
-      StartArNavigation(
-        referencePose: LocalizedPose(
-          floorKey: state.currentLocation.floor ?? 'unknown',
-          x: state.currentLocation.x,
-          y: state.currentLocation.y,
-          z: 0,
-          heading: initialHeading,
-          confidence: 1.0,
-          timestamp: DateTime.now(),
-        ),
-        metersPerPixel: floorScale,
-        route: state.route,
-      ),
-    );
+          StartArNavigation(
+            referencePose: LocalizedPose(
+              floorKey: state.currentLocation.floor ?? 'unknown',
+              x: state.currentLocation.x,
+              y: state.currentLocation.y,
+              z: 0,
+              heading: initialHeading,
+              confidence: 1.0,
+              timestamp: DateTime.now(),
+            ),
+            metersPerPixel: floorScale,
+            route: state.route,
+            originArPose: widget.capturedArPose,
+          ),
+        );
   }
 
   @override
@@ -160,13 +172,13 @@ class _NavigationPageState extends State<NavigationPage> {
             return CustomErrorView(
               message: state.message,
               onRetry: () => context.read<NavigationBloc>().add(
-                InitializeNavigationEvent(
-                  widget.destination,
-                  imagePath: widget.imagePath,
-                  userPickedCoordinates: widget.userPickedCoordinates,
-                  pickedFloor: widget.pickedFloor,
-                ),
-              ),
+                    InitializeNavigationEvent(
+                      widget.destination,
+                      imagePath: widget.imagePath,
+                      userPickedCoordinates: widget.userPickedCoordinates,
+                      pickedFloor: widget.pickedFloor,
+                    ),
+                  ),
               onExit: () => context.pop(),
             );
           }
@@ -221,7 +233,6 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   late AnimationController _floorAnimController;
   late Map<String, String> _floorPlansByFloor;
 
-
   @override
   void initState() {
     super.initState();
@@ -236,7 +247,6 @@ class _NavigationMapViewState extends State<_NavigationMapView>
       duration: const Duration(milliseconds: 250),
     );
     _floorAnimController.forward();
-
   }
 
   @override
@@ -251,6 +261,14 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   void dispose() {
     _floorAnimController.dispose();
     super.dispose();
+  }
+
+  Future<void> _returnToCamera() async {
+    await getIt<ArPoseRepository>().stop();
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    if (mounted) {
+      context.pushReplacement('/camera', extra: widget.destination);
+    }
   }
 
   String _floorLabel(String floor) {
@@ -351,23 +369,21 @@ class _NavigationMapViewState extends State<_NavigationMapView>
         final arRawHeading = (arState is ArNavigationTracking)
             ? arState.currentPose?.heading
             : null;
-        final arTravelDistance = (arState is ArNavigationTracking)
-            ? arState.arTravelDistance
-            : 0.0;
+        final arTravelDistance =
+            (arState is ArNavigationTracking) ? arState.arTravelDistance : 0.0;
         final arConfidence = (arState is ArNavigationTracking)
             ? arState.currentPose?.confidence
             : null;
         final apiInitialHeading =
             (widget.currentLocation as LocationEntity).ang ??
-            widget.userPickedCoordinates?['heading']?.toDouble();
+                widget.userPickedCoordinates?['heading']?.toDouble();
 
         return Column(
           children: [
             StepIndicator(
               currentStep: 3,
               title: 'Direct Guidance',
-              onBack: () =>
-                  context.pushReplacement('/camera', extra: widget.destination),
+              onBack: _returnToCamera,
             ),
             Expanded(
               child: Stack(
@@ -387,24 +403,21 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                     destinations: _destsForSelectedFloor,
                     onDestinationTap: widget.onDestinationTap,
                     currentFloor: displayLocation.floor,
-                    isCheckpoint:
-                        (_selectedFloor.replaceAll('_floor', '').trim() !=
+                    isCheckpoint: (_selectedFloor
+                            .replaceAll('_floor', '')
+                            .trim() !=
                         displayLocation.floor?.replaceAll('_floor', '').trim()),
                     onRetry: () => context.read<NavigationBloc>().add(
-                      InitializeNavigationEvent(
-                        widget.destination,
-                        imagePath: widget.imagePath,
-                        userPickedCoordinates: widget.userPickedCoordinates,
-                        pickedFloor: _selectedFloor,
-                      ),
-                    ),
-                    onRelocalize: () => context.pushReplacement(
-                      '/camera',
-                      extra: widget.destination,
-                    ),
+                          InitializeNavigationEvent(
+                            widget.destination,
+                            imagePath: widget.imagePath,
+                            userPickedCoordinates: widget.userPickedCoordinates,
+                            pickedFloor: _selectedFloor,
+                          ),
+                        ),
+                    onRelocalize: _returnToCamera,
                     mapControlsRightOffset: 0,
                   ),
-
                   if (_isMultiFloor)
                     Positioned(
                       right: 16,
@@ -427,7 +440,6 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                         ),
                       ),
                     ),
-
                   Positioned(
                     left: 16,
                     bottom: 80,
@@ -439,7 +451,6 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                       child: const Icon(Icons.height),
                     ),
                   ),
-
                   Positioned(
                     right: 16,
                     top: 10,
@@ -516,7 +527,6 @@ class _FloorSwitcherPanel extends StatelessWidget {
               ),
             ),
           ),
-
           ...floors.asMap().entries.map((entry) {
             final idx = entry.key;
             final floorEntity = entry.value;
@@ -612,9 +622,8 @@ class _FloorButtonState extends State<_FloorButton>
               duration: const Duration(milliseconds: 200),
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: widget.isSelected
-                    ? FontWeight.w800
-                    : FontWeight.w500,
+                fontWeight:
+                    widget.isSelected ? FontWeight.w800 : FontWeight.w500,
                 color: widget.isSelected
                     ? theme.colorScheme.onPrimary
                     : theme.colorScheme.onSurface,

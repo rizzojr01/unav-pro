@@ -14,22 +14,27 @@ class StartArNavigation extends ArNavigationEvent {
   final LocalizedPose referencePose;
   final double metersPerPixel;
   final RouteEntity route;
+  final ArPose? originArPose;
 
   const StartArNavigation({
     required this.referencePose,
     required this.metersPerPixel,
     required this.route,
+    this.originArPose,
   });
 
   @override
   List<Object?> get props => [
-    referencePose,
-    metersPerPixel,
-    route,
-  ];
+        referencePose,
+        metersPerPixel,
+        route,
+        originArPose,
+      ];
 }
 
-class StopArNavigation extends ArNavigationEvent {}
+class StopArNavigation extends ArNavigationEvent {
+  const StopArNavigation();
+}
 
 class UpdateArPose extends ArNavigationEvent {
   final ArPose pose;

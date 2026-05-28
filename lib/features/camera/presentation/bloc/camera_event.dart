@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:smart_sense/features/ar_navigation/domain/entities/ar_pose.dart';
 
 abstract class CameraEvent extends Equatable {
   const CameraEvent();
@@ -15,11 +16,17 @@ class CapturePhotoEvent extends CameraEvent {
   final String? filePath;
   final String? floor;
   final double? heading;
+  final ArPose? capturedArPose;
 
-  const CapturePhotoEvent({this.filePath, this.floor, this.heading});
+  const CapturePhotoEvent({
+    this.filePath,
+    this.floor,
+    this.heading,
+    this.capturedArPose,
+  });
 
   @override
-  List<Object?> get props => [filePath, floor, heading];
+  List<Object?> get props => [filePath, floor, heading, capturedArPose];
 }
 
 class UploadPhotoEvent extends CameraEvent {

@@ -1,4 +1,5 @@
 import '../../../../core/base/base_state.dart';
+import '../../../ar_navigation/domain/entities/ar_pose.dart';
 import '../../domain/entities/photo_entity.dart';
 
 abstract class CameraState extends BaseState {
@@ -21,11 +22,17 @@ class CameraPhotoCaptured extends CameraState {
   final PhotoEntity photo;
   final String? floor;
   final double? heading;
+  final ArPose? capturedArPose;
 
-  const CameraPhotoCaptured(this.photo, {this.floor, this.heading});
+  const CameraPhotoCaptured(
+    this.photo, {
+    this.floor,
+    this.heading,
+    this.capturedArPose,
+  });
 
   @override
-  List<Object?> get props => [photo, floor, heading];
+  List<Object?> get props => [photo, floor, heading, capturedArPose];
 }
 
 class CameraUploading extends CameraState {

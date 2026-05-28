@@ -14,6 +14,7 @@ private enum ArChannelContract {
   static let captureCurrentFrameMethod = "captureCurrentFrame"
   static let updateOverlayMethod = "updateOverlay"
   static let clearOverlayMethod = "clearOverlay"
+  static let previewModeKey = "mode"
   static let backendKey = "backend"
   static let isSupportedKey = "isSupported"
   static let xKey = "x"
@@ -36,6 +37,8 @@ private enum ArChannelContract {
   static let destinationKey = "destination"
   static let waypointPulsePeriodSecKey = "waypointPulsePeriodSec"
   static let waypointPulseActiveKey = "waypointPulseActive"
+  static let capturePreviewMode = "capture"
+  static let navigationPreviewMode = "navigation"
 }
 
 private enum SpatialAudioChannelContract {
@@ -88,12 +91,11 @@ private final class IOSArTrackingBridge: NSObject, FlutterStreamHandler, ARSessi
   private var isSessionRunning = false
   private var latestFrame: ARFrame?
   private let previewViews = NSHashTable<ARSCNView>.weakObjects()
-  private let overlayRootNode = SCNNode()
+  private let overlayRootNodeName = "unav_overlay_root"
 
   override init() {
     super.init()
     session.delegate = self
-    overlayRootNode.name = "unav_overlay_root"
   }
 
   func register(with registrar: FlutterPluginRegistrar) {
@@ -202,11 +204,13 @@ private final class IOSArTrackingBridge: NSObject, FlutterStreamHandler, ARSessi
     configuration.worldAlignment = .gravity
     session.run(configuration, options: isSessionRunning ? [] : [.resetTracking, .removeExistingAnchors])
     isSessionRunning = true
+    resumePreviewViews()
     result(nil)
   }
 
   private func stopSession() {
     guard isSessionRunning else { return }
+    clearOverlay()
     session.pause()
     isSessionRunning = false
   }
@@ -322,15 +326,66 @@ private final class IOSArTrackingBridge: NSObject, FlutterStreamHandler, ARSessi
     }
   }
 
-  func attachPreviewView(_ sceneView: ARSCNView) {
+  func attachPreviewView(_ sceneView: ARSCNView, mode: String) {
+    detachOtherPreviewViews(keeping: sceneView)
     previewViews.add(sceneView)
-    if overlayRootNode.parent == nil {
-      sceneView.scene.rootNode.addChildNode(overlayRootNode)
+    sceneView.session = session
+    sceneView.rendersContinuously = true
+    sceneView.isPlaying = true
+    _ = overlayRoot(in: sceneView)
+
+    if mode == ArChannelContract.capturePreviewMode {
+      clearOverlay(in: sceneView)
+    }
+  }
+
+  func detachPreviewView(_ sceneView: ARSCNView) {
+    clearOverlay(in: sceneView)
+    sceneView.isPlaying = false
+    sceneView.session = ARSession()
+    previewViews.remove(sceneView)
+  }
+
+  private func detachOtherPreviewViews(keeping activeSceneView: ARSCNView) {
+    previewViews.allObjects
+      .filter { $0 !== activeSceneView }
+      .forEach { detachPreviewView($0) }
+  }
+
+  private func resumePreviewViews() {
+    previewViews.allObjects.forEach { sceneView in
+      sceneView.session = session
+      sceneView.rendersContinuously = true
+      sceneView.isPlaying = true
     }
   }
 
   private func clearOverlay() {
-    overlayRootNode.childNodes.forEach { $0.removeFromParentNode() }
+    previewViews.allObjects.forEach { clearOverlay(in: $0) }
+  }
+
+  private func clearOverlay(in sceneView: ARSCNView) {
+    let overlayRoots = sceneView.scene.rootNode.childNodes.filter { $0.name == overlayRootNodeName }
+    for (index, overlayRoot) in overlayRoots.enumerated() {
+      if index == 0 {
+        overlayRoot.childNodes.forEach { $0.removeFromParentNode() }
+      } else {
+        overlayRoot.removeFromParentNode()
+      }
+    }
+  }
+
+  private func overlayRoot(in sceneView: ARSCNView) -> SCNNode {
+    let overlayRoots = sceneView.scene.rootNode.childNodes.filter { $0.name == overlayRootNodeName }
+    let overlayRoot = overlayRoots.first ?? SCNNode()
+    overlayRoot.name = overlayRootNodeName
+
+    if overlayRoot.parent == nil {
+      sceneView.scene.rootNode.addChildNode(overlayRoot)
+    }
+
+    overlayRoots.dropFirst().forEach { $0.removeFromParentNode() }
+    return overlayRoot
   }
 
   private func updateOverlay(arguments: Any?) {
@@ -341,88 +396,87 @@ private final class IOSArTrackingBridge: NSObject, FlutterStreamHandler, ARSessi
       return
     }
 
-    previewViews.allObjects.forEach { sceneView in
-      if overlayRootNode.parent !== sceneView.scene.rootNode {
-        overlayRootNode.removeFromParentNode()
-        sceneView.scene.rootNode.addChildNode(overlayRootNode)
-      }
-    }
-
-    clearOverlay()
-
     let activePathPoints =
       (args[ArChannelContract.activePathPointsKey] as? [[Double]] ?? [])
       .compactMap { point(from: $0) }
     let futurePathPoints =
       (args[ArChannelContract.futurePathPointsKey] as? [[Double]] ?? [])
       .compactMap { point(from: $0) }
-
-    if activePathPoints.count >= 2 {
-      for index in 0..<(activePathPoints.count - 1) {
-        let segment = buildPathSegmentNode(
-          from: activePathPoints[index],
-          to: activePathPoints[index + 1],
-          radius: 0.032,
-          color: UIColor.systemTeal,
-          opacity: 0.96
-        )
-        overlayRootNode.addChildNode(segment)
-      }
-      overlayRootNode.addChildNode(
-        buildFlowBeamNode(
-          from: activePathPoints[0],
-          to: activePathPoints[1],
-          color: UIColor.systemTeal
-        )
-      )
-    }
-
-    if futurePathPoints.count >= 2 {
-      for index in 0..<(futurePathPoints.count - 1) {
-        let segment = buildPathSegmentNode(
-          from: futurePathPoints[index],
-          to: futurePathPoints[index + 1],
-          radius: 0.018,
-          color: UIColor.systemBlue,
-          opacity: 0.42
-        )
-        overlayRootNode.addChildNode(segment)
-      }
-    }
-
     let pulsePeriod =
       (args[ArChannelContract.waypointPulsePeriodSecKey] as? NSNumber)?.doubleValue ?? 1.0
     let pulseActive = args[ArChannelContract.waypointPulseActiveKey] as? Bool ?? false
-
-    if let nextWaypointArgs = args[ArChannelContract.nextWaypointKey] as? [Double],
-       let nextPoint = point(from: nextWaypointArgs) {
-      overlayRootNode.addChildNode(
-        buildMarkerNode(
-          at: nextPoint,
-          radius: 0.08,
-          color: UIColor.systemTeal,
-          pulsePeriod: pulsePeriod,
-          pulseActive: pulseActive
-        )
-      )
+    let nextWaypointPoint = (args[ArChannelContract.nextWaypointKey] as? [Double]).flatMap {
+      point(from: $0)
+    }
+    let destinationPoint = (args[ArChannelContract.destinationKey] as? [Double]).flatMap {
+      point(from: $0)
     }
 
-    if let destinationArgs = args[ArChannelContract.destinationKey] as? [Double],
-       let destinationPoint = point(from: destinationArgs) {
-      overlayRootNode.addChildNode(
-        buildWaypointRingNode(
-          at: destinationPoint,
-          radius: 0.28,
-          color: UIColor.systemOrange
+    previewViews.allObjects.forEach { sceneView in
+      let overlayRootNode = overlayRoot(in: sceneView)
+      overlayRootNode.childNodes.forEach { $0.removeFromParentNode() }
+
+      if futurePathPoints.count >= 2 {
+        for index in 0..<(futurePathPoints.count - 1) {
+          let segment = buildPathSegmentNode(
+            from: futurePathPoints[index],
+            to: futurePathPoints[index + 1],
+            radius: 0.026,
+            color: UIColor(red: 0.0, green: 0.88, blue: 1.0, alpha: 1.0),
+            opacity: 0.74
+          )
+          overlayRootNode.addChildNode(segment)
+        }
+      }
+
+      if activePathPoints.count >= 2 {
+        for index in 0..<(activePathPoints.count - 1) {
+          let segment = buildPathSegmentNode(
+            from: activePathPoints[index],
+            to: activePathPoints[index + 1],
+            radius: 0.04,
+            color: UIColor.systemTeal,
+            opacity: 1.0
+          )
+          overlayRootNode.addChildNode(segment)
+        }
+        overlayRootNode.addChildNode(
+          buildFlowBeamNode(
+            from: activePathPoints[0],
+            to: activePathPoints[1],
+            color: UIColor.systemTeal
+          )
         )
-      )
-      overlayRootNode.addChildNode(
-        buildMarkerNode(
-          at: destinationPoint,
-          radius: 0.11,
-          color: UIColor.systemOrange
+      }
+
+      if let nextWaypointPoint {
+        overlayRootNode.addChildNode(
+          buildMarkerNode(
+            at: nextWaypointPoint,
+            radius: 0.08,
+            color: UIColor.systemTeal,
+            pulsePeriod: pulsePeriod,
+            pulseActive: pulseActive
+          )
         )
-      )
+      }
+
+      if let destinationPoint {
+        overlayRootNode.addChildNode(
+          buildWaypointRingNode(
+            at: destinationPoint,
+            radius: 0.28,
+            color: UIColor.systemOrange
+          )
+        )
+        overlayRootNode.addChildNode(
+          buildMarkerNode(
+            at: destinationPoint,
+            radius: 0.11,
+            color: UIColor.systemOrange
+          )
+        )
+      }
     }
   }
 
@@ -581,8 +635,10 @@ private final class IOSArTrackingBridge: NSObject, FlutterStreamHandler, ARSessi
     let dz = liftedEnd.z - liftedStart.z
     let length = sqrt((dx * dx) + (dy * dy) + (dz * dz))
     let cylinder = SCNCylinder(radius: radius, height: CGFloat(length))
+    cylinder.firstMaterial?.lightingModel = .constant
+    cylinder.firstMaterial?.isDoubleSided = true
     cylinder.firstMaterial?.diffuse.contents = color.withAlphaComponent(opacity)
-    cylinder.firstMaterial?.emission.contents = color.withAlphaComponent(opacity * 0.25)
+    cylinder.firstMaterial?.emission.contents = color.withAlphaComponent(min(1.0, opacity * 0.55))
 
     let node = SCNNode(geometry: cylinder)
     node.position = SCNVector3(
@@ -618,14 +674,19 @@ private final class IOSArPreviewFactory: NSObject, FlutterPlatformViewFactory {
     viewIdentifier viewId: Int64,
     arguments args: Any?
   ) -> FlutterPlatformView {
-    IOSArPreviewPlatformView(frame: frame, bridge: bridge)
+    let params = args as? [String: Any]
+    let mode = params?[ArChannelContract.previewModeKey] as? String
+      ?? ArChannelContract.navigationPreviewMode
+    return IOSArPreviewPlatformView(frame: frame, bridge: bridge, mode: mode)
   }
 }
 
 private final class IOSArPreviewPlatformView: NSObject, FlutterPlatformView {
   private let sceneView: ARSCNView
+  private weak var bridge: IOSArTrackingBridge?
 
-  init(frame: CGRect, bridge: IOSArTrackingBridge) {
+  init(frame: CGRect, bridge: IOSArTrackingBridge, mode: String) {
+    self.bridge = bridge
     sceneView = ARSCNView(frame: frame)
     super.init()
 
@@ -634,7 +695,11 @@ private final class IOSArPreviewPlatformView: NSObject, FlutterPlatformView {
     sceneView.backgroundColor = .black
     sceneView.scene = SCNScene()
     sceneView.session = bridge.session
-    bridge.attachPreviewView(sceneView)
+    bridge.attachPreviewView(sceneView, mode: mode)
+  }
+
+  deinit {
+    bridge?.detachPreviewView(sceneView)
   }
 
   func view() -> UIView {

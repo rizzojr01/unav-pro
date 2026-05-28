@@ -65,24 +65,22 @@ void _syncMapsInBackground() {
 
   downloadService
       .syncMapsForBuilding(
-        place: config.place,
-        building: config.building,
-        baseUrl: ApiRoutes.baseUrl,
-        force:
-            false, // Don't clear cache on startup; just download missing maps
-      )
+    place: config.place,
+    building: config.building,
+    baseUrl: ApiRoutes.baseUrl,
+    force: false, // Don't clear cache on startup; just download missing maps
+  )
       .then((result) {
-        if (result.success) {
-          print(
-            '[MapSync] Downloaded ${result.downloadedFloors.length} floors '
-            'for ${config.building}',
-          );
-        } else {
-          print('[MapSync] Failed: ${result.errorMessage}');
-        }
-      })
-      .catchError((e) {
-        print('[MapSync] Error: $e');
-        return null;
-      });
+    if (result.success) {
+      print(
+        '[MapSync] Downloaded ${result.downloadedFloors.length} floors '
+        'for ${config.building}',
+      );
+    } else {
+      print('[MapSync] Failed: ${result.errorMessage}');
+    }
+  }).catchError((e) {
+    print('[MapSync] Error: $e');
+    return null;
+  });
 }

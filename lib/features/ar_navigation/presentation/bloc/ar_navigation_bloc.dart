@@ -90,9 +90,9 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       mpp = 0.05; // Use fallback for unscaled/invalid backend values
     }
     _metersPerPixel = mpp;
-    _originArPose = null;
+    _originArPose = event.originArPose;
     _arTravelDistance = 0.0;
-    _lastPoseForDistance = null;
+    _lastPoseForDistance = event.originArPose;
     _lastState = ArTrackingState.idle;
     _lastWaypointIndex = 0;
     _wasApproachingWaypoint = false;
@@ -100,7 +100,14 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     _lastFrameHeading = null;
     _lastFrameConfidence = null;
     _ignoredOriginFrameCount = 0;
-    _resetOriginStabilization();
+    if (event.originArPose == null) {
+      _resetOriginStabilization();
+    } else {
+      _originPoseCandidates
+        ..clear()
+        ..add(event.originArPose!);
+      _originStabilizationStartedAt = event.originArPose!.timestamp;
+    }
 
     _logger.info('🚀 ArNavigationBloc: Starting AR Navigation\n'
         '  - Place: ${_locationConfig.place}\n'
@@ -108,7 +115,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
         '  - Floor: ${event.referencePose.floorKey}\n'
         '  - API Reference Heading (API Ang): ${event.referencePose.heading.toStringAsFixed(1)}°\n'
         '  - Raw MetersPerPixel: ${event.metersPerPixel}\n'
-        '  - Effective MetersPerPixel (unit: ${_locationConfig.unit}): $mpp');
+        '  - Effective MetersPerPixel (unit: ${_locationConfig.unit}): $mpp\n'
+        '  - Capture AR Origin: ${event.originArPose == null ? "pending first stable frame" : "provided"}');
 
     await _soundService.init();
 
@@ -118,6 +126,14 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     });
 
     await _poseRepository.start();
+    if (event.originArPose != null) {
+      _logger.info('🏁 AR NAVIGATION POINT ZERO RESTORED FROM CAPTURE!\n'
+          '  - Origin AR Heading (Yaw): ${event.originArPose!.heading.toStringAsFixed(1)}°\n'
+          '  - Origin Position: (x: ${event.originArPose!.x.toStringAsFixed(2)}, y: ${event.originArPose!.y.toStringAsFixed(2)}, z: ${event.originArPose!.z.toStringAsFixed(2)})\n'
+          '  - Origin Confidence: ${event.originArPose!.confidence.toStringAsFixed(2)}\n'
+          '  - API Reference Heading: ${_referencePose!.heading.toStringAsFixed(1)}°\n'
+          '  - Initial Calculated sumHeadingDeg: ${((_referencePose!.heading + event.originArPose!.heading) % 360.0).toStringAsFixed(1)}°');
+    }
     emit(
       const ArNavigationTracking(
         state: ArTrackingState.localizing,
@@ -658,7 +674,6 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   Future<void> close() {
     _locationConfig.unitNotifier.removeListener(_onUnitChanged);
     _poseSubscription?.cancel();
-    _poseRepository.stop();
     _soundService.updateDirectionalGuidance(
       isActive: false,
       severity: 0,

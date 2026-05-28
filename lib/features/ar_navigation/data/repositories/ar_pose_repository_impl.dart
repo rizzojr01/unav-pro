@@ -14,12 +14,11 @@ class ArPoseRepositoryImpl implements ArPoseRepository {
     EventChannel? eventChannel,
     String backend =
         'arkit', // Default to arkit, can be changed based on platform
-  }) : _methodChannel =
-           methodChannel ??
-           const MethodChannel(ArChannelContract.methodChannel),
-       _eventChannel =
-           eventChannel ?? const EventChannel(ArChannelContract.eventChannel),
-       _backend = backend;
+  })  : _methodChannel = methodChannel ??
+            const MethodChannel(ArChannelContract.methodChannel),
+        _eventChannel =
+            eventChannel ?? const EventChannel(ArChannelContract.eventChannel),
+        _backend = backend;
 
   @override
   Future<void> start() async {
@@ -38,10 +37,24 @@ class ArPoseRepositoryImpl implements ArPoseRepository {
   }
 
   @override
+  Future<Uint8List> captureCurrentFrame() async {
+    final data = await _methodChannel.invokeMethod<Uint8List>(
+      ArChannelContract.captureCurrentFrameMethod,
+      {ArChannelContract.backendKey: _backend},
+    );
+    if (data == null || data.isEmpty) {
+      throw PlatformException(
+        code: 'frame_unavailable',
+        message: 'No AR frame data was returned.',
+      );
+    }
+    return data;
+  }
+
+  @override
   Future<double?> getCurrentHeading() async {
     try {
-      final event = await FlutterCompass.events
-          ?.first
+      final event = await FlutterCompass.events?.first
           .timeout(const Duration(milliseconds: 600));
       final heading = event?.heading;
       if (heading != null && !heading.isNaN && !heading.isInfinite) {
@@ -49,6 +62,14 @@ class ArPoseRepositoryImpl implements ArPoseRepository {
       }
     } catch (_) {}
     return null;
+  }
+
+  @override
+  Future<void> clearOverlay() async {
+    await _methodChannel.invokeMethod<void>(
+      ArChannelContract.clearOverlayMethod,
+      {ArChannelContract.backendKey: _backend},
+    );
   }
 
   @override
@@ -62,39 +83,36 @@ class ArPoseRepositoryImpl implements ArPoseRepository {
   }) async {
     await _methodChannel
         .invokeMethod<void>(ArChannelContract.updateOverlayMethod, {
-          ArChannelContract.backendKey: _backend,
-          ArChannelContract.pathPointsKey: pathPoints,
-          ArChannelContract.activePathPointsKey: activePathPoints,
-          ArChannelContract.futurePathPointsKey: futurePathPoints,
-          ArChannelContract.nextWaypointKey: nextWaypoint,
-          ArChannelContract.destinationKey: destination,
-          ArChannelContract.waypointPulseActiveKey: waypointPulseActive,
-        });
+      ArChannelContract.backendKey: _backend,
+      ArChannelContract.pathPointsKey: pathPoints,
+      ArChannelContract.activePathPointsKey: activePathPoints,
+      ArChannelContract.futurePathPointsKey: futurePathPoints,
+      ArChannelContract.nextWaypointKey: nextWaypoint,
+      ArChannelContract.destinationKey: destination,
+      ArChannelContract.waypointPulseActiveKey: waypointPulseActive,
+    });
   }
 
   @override
   Stream<ArPose> watchPose() {
-    return _eventChannel
-        .receiveBroadcastStream({ArChannelContract.backendKey: _backend})
-        .map((event) {
-          final data = Map<String, dynamic>.from(event as Map);
-          return ArPose(
-            x: (data[ArChannelContract.xKey] as num?)?.toDouble() ?? 0,
-            y: (data[ArChannelContract.yKey] as num?)?.toDouble() ?? 0,
-            z: (data[ArChannelContract.zKey] as num?)?.toDouble() ?? 0,
-            heading:
-                (data[ArChannelContract.headingKey] as num?)?.toDouble() ?? 0,
-            confidence:
-                (data[ArChannelContract.confidenceKey] as num?)?.toDouble() ??
-                1,
-            timestamp: DateTime.fromMillisecondsSinceEpoch(
-              (data[ArChannelContract.timestampKey] as num?)?.toInt() ??
-                  DateTime.now().millisecondsSinceEpoch,
-            ),
-            worldX: (data[ArChannelContract.worldXKey] as num?)?.toDouble(),
-            worldY: (data[ArChannelContract.worldYKey] as num?)?.toDouble(),
-            worldZ: (data[ArChannelContract.worldZKey] as num?)?.toDouble(),
-          );
-        });
+    return _eventChannel.receiveBroadcastStream(
+        {ArChannelContract.backendKey: _backend}).map((event) {
+      final data = Map<String, dynamic>.from(event as Map);
+      return ArPose(
+        x: (data[ArChannelContract.xKey] as num?)?.toDouble() ?? 0,
+        y: (data[ArChannelContract.yKey] as num?)?.toDouble() ?? 0,
+        z: (data[ArChannelContract.zKey] as num?)?.toDouble() ?? 0,
+        heading: (data[ArChannelContract.headingKey] as num?)?.toDouble() ?? 0,
+        confidence:
+            (data[ArChannelContract.confidenceKey] as num?)?.toDouble() ?? 1,
+        timestamp: DateTime.fromMillisecondsSinceEpoch(
+          (data[ArChannelContract.timestampKey] as num?)?.toInt() ??
+              DateTime.now().millisecondsSinceEpoch,
+        ),
+        worldX: (data[ArChannelContract.worldXKey] as num?)?.toDouble(),
+        worldY: (data[ArChannelContract.worldYKey] as num?)?.toDouble(),
+        worldZ: (data[ArChannelContract.worldZKey] as num?)?.toDouble(),
+      );
+    });
   }
 }

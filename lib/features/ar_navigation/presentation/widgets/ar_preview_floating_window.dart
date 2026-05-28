@@ -34,7 +34,7 @@ class ArPreviewFloatingWindow extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Stack(
           children: [
-            const _ArPreviewNativeView(),
+            const ArPreviewNativeView(),
             Positioned(
               top: 8,
               left: 8,
@@ -60,14 +60,23 @@ class ArPreviewFloatingWindow extends StatelessWidget {
   }
 }
 
-class _ArPreviewNativeView extends StatefulWidget {
-  const _ArPreviewNativeView();
+class ArPreviewNativeView extends StatefulWidget {
+  final int generation;
+  final String previewMode;
+  final VoidCallback? onCreated;
+
+  const ArPreviewNativeView({
+    super.key,
+    this.generation = 0,
+    this.previewMode = 'navigation',
+    this.onCreated,
+  });
 
   @override
-  State<_ArPreviewNativeView> createState() => _ArPreviewNativeViewState();
+  State<ArPreviewNativeView> createState() => _ArPreviewNativeViewState();
 }
 
-class _ArPreviewNativeViewState extends State<_ArPreviewNativeView> {
+class _ArPreviewNativeViewState extends State<ArPreviewNativeView> {
   // Use a unique Key to force view recreation if needed, or maintain identity.
   // The error "trying to create an already created view" usually happens
   // when Flutter tries to rebuild the platform view with the same ID.
@@ -84,11 +93,12 @@ class _ArPreviewNativeViewState extends State<_ArPreviewNativeView> {
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       // On iOS, using a UniqueKey can sometimes resolve re-creation conflicts
       // during hot reloads or rapid widget tree changes.
-      return const UiKitView(
-        key: ValueKey('ar_preview_view'),
+      return UiKitView(
+        key: ValueKey('ar_preview_view_${widget.generation}'),
         viewType: _viewType,
-        creationParams: {},
-        creationParamsCodec: StandardMessageCodec(),
+        creationParams: {'mode': widget.previewMode},
+        creationParamsCodec: const StandardMessageCodec(),
+        onPlatformViewCreated: (_) => widget.onCreated?.call(),
       );
     } else {
       return const Center(

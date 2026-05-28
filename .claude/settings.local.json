@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(grep -v \"^Analyzing\\\\|^$\\\\|info \")",
+      "Bash(xargs cat:*)",
+      "Bash(mkdir -p /Users/bibektimilsina/work/taggedweb/smartsense-app/assets/sounds)",
+      "Bash(cp /Users/bibektimilsina/work/taggedweb/smartsense-app/ar_temp/assets/sounds/*.wav /Users/bibektimilsina/work/taggedweb/smartsense-app/assets/sounds/)",
+      "Bash(flutter pub:*)",
+      "Bash(cat /Users/bibektimilsina/work/taggedweb/smartsense-app/assets/mock_data/*.json)",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\('meters_per_pixel:', data.get\\('meters_per_pixel','NOT FOUND'\\)\\)\")",
+      "Bash(git checkout *)",
+      "Bash(git cherry-pick *)",
+      "Bash(grep \"\\\\.dart$\")",
+      "Bash(dart analyze *)",
+      "Bash(git push *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(sed -i '' \"s|context.pushReplacement\\(\\\\n\\\\s*'/navigation'|context.pushReplacement\\(\\\\n  '/route-overview'|g\" /Users/bibektimilsina/work/taggedweb/smartsense-app/lib/features/camera/presentation/pages/camera_page.dart)",
+      "Bash(echo \"exit: $?\")"
+    ]
+  }
+}

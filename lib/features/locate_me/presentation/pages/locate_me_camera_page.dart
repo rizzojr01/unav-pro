@@ -59,12 +59,12 @@ class _LocateMeCameraPageState extends State<LocateMeCameraPage>
             // Automatically proceed to localization
             WidgetsBinding.instance.addPostFrameCallback((_) {
               context.read<LocateMeBloc>().add(
-                StartLocalizationEvent(
-                  capturedImagePath: state.imagePath,
-                  floor: state.floor,
-                  heading: state.heading,
-                ),
-              );
+                    StartLocalizationEvent(
+                      capturedImagePath: state.imagePath,
+                      floor: state.floor,
+                      heading: state.heading,
+                    ),
+                  );
             });
             return const CustomLoadingView(
               message: 'Processing clear image...',
@@ -106,23 +106,23 @@ class _LocateMeCameraPageState extends State<LocateMeCameraPage>
                 ? CustomLoadingView(message: state.message)
                 : LocationInputView(
                     tabController: _tabController,
-                    onImageCaptured: (path, floor, heading) {
+                    onImageCaptured: (path, floor, heading, _) {
                       context.read<LocateMeBloc>().add(
-                        LocateMeCapturePhotoEvent(
-                          capturedImagePath: path,
-                          floor: floor,
-                          heading: heading,
-                        ),
-                      );
+                            LocateMeCapturePhotoEvent(
+                              capturedImagePath: path,
+                              floor: floor,
+                              heading: heading,
+                            ),
+                          );
                     },
                     onLocationSelected: (x, y, floor) {
                       context.read<LocateMeBloc>().add(
-                        StartLocalizationWithCoordinatesEvent(
-                          x: x,
-                          y: y,
-                          floor: floor,
-                        ),
-                      );
+                            StartLocalizationWithCoordinatesEvent(
+                              x: x,
+                              y: y,
+                              floor: floor,
+                            ),
+                          );
                     },
                   ),
           );

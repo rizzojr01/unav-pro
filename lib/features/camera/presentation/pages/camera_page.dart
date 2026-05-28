@@ -89,6 +89,7 @@ class _CameraPageState extends State<CameraPage>
           extra: {
             'destination': widget.destination,
             'imagePath': state.photo.filePath,
+            'capturedArPose': state.capturedArPose,
             'manualCoordinates': widget.manualCoordinates != null
                 ? {...widget.manualCoordinates!, 'heading': state.heading}
                 : {'heading': state.heading},
@@ -169,14 +170,16 @@ class _CameraReadyView extends StatelessWidget {
             tabController: tabController,
             floorPlanConfirmText: 'Start Navigation',
             initialFloor: pickedFloor,
-            onImageCaptured: (path, floor, heading) {
+            preserveArSessionOnCapture: true,
+            onImageCaptured: (path, floor, heading, capturedArPose) {
               context.read<CameraBloc>().add(
-                CapturePhotoEvent(
-                  filePath: path,
-                  floor: floor,
-                  heading: heading,
-                ),
-              );
+                    CapturePhotoEvent(
+                      filePath: path,
+                      floor: floor,
+                      heading: heading,
+                      capturedArPose: capturedArPose,
+                    ),
+                  );
             },
             onLocationSelected: (x, y, floor) {
               context.pushReplacement(

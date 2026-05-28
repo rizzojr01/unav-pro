@@ -8,8 +8,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/utils/logger.dart';
+import '../../features/ar_navigation/domain/entities/ar_pose.dart';
+import '../../features/ar_navigation/domain/repositories/ar_pose_repository.dart';
+import '../../features/ar_navigation/presentation/widgets/ar_preview_floating_window.dart';
 
 import '../../features/destination/presentation/bloc/floor_map_bloc.dart';
 import '../../features/destination/presentation/bloc/floor_map_event.dart';
@@ -22,10 +26,16 @@ import 'floor_plan_selector_widget.dart';
 
 class LocationInputView extends StatefulWidget {
   final TabController tabController;
-  final Function(String path, String floor, double? heading) onImageCaptured;
+  final void Function(
+    String path,
+    String floor,
+    double? heading,
+    ArPose? capturedArPose,
+  ) onImageCaptured;
   final Function(double x, double y, String floor) onLocationSelected;
   final String floorPlanConfirmText;
   final String? initialFloor;
+  final bool preserveArSessionOnCapture;
 
   const LocationInputView({
     super.key,
@@ -34,6 +44,7 @@ class LocationInputView extends StatefulWidget {
     required this.onLocationSelected,
     this.floorPlanConfirmText = 'Set My Location',
     this.initialFloor,
+    this.preserveArSessionOnCapture = false,
   });
 
   @override
@@ -48,6 +59,13 @@ class _LocationInputViewState extends State<LocationInputView> {
   String? _errorMessage;
   double? _currentHeading;
   StreamSubscription? _compassSubscription;
+  StreamSubscription<ArPose>? _arPoseSubscription;
+  ArPose? _latestArPose;
+  bool _isArInitializing = false;
+  bool _handoffArSession = false;
+  ArPoseRepository? _arPoseRepository;
+  int _selectedTabIndex = 0;
+  int _arPreviewGeneration = 0;
 
   final _logger = getIt<AppLogger>();
 
@@ -57,14 +75,36 @@ class _LocationInputViewState extends State<LocationInputView> {
   @override
   void initState() {
     super.initState();
-    _initializeCamera();
+    _selectedTabIndex = widget.tabController.index;
+    widget.tabController.addListener(_handleTabChanged);
+    if (Platform.isIOS) {
+      _initializeArCapture();
+    } else {
+      _initializeCamera();
+    }
     _initializeCompass();
     _floorMapBloc = FloorMapBloc()
       ..add(FloorMapInitialized(initialFloor: widget.initialFloor));
   }
 
+  void _handleTabChanged() {
+    final nextIndex = widget.tabController.index;
+    if (nextIndex == _selectedTabIndex) return;
+
+    setState(() {
+      _selectedTabIndex = nextIndex;
+      if (Platform.isIOS && nextIndex == 0) {
+        _arPreviewGeneration++;
+      }
+    });
+
+    if (Platform.isIOS && nextIndex == 0) {
+      unawaited(_resumeArCapture());
+    }
+  }
+
   void _initializeCompass() {
-    if (Platform.isMacOS) return;
+    if (Platform.isMacOS || Platform.isIOS) return;
     _compassSubscription = FlutterCompass.events?.listen((event) {
       if (mounted) {
         setState(() {
@@ -89,11 +129,66 @@ class _LocationInputViewState extends State<LocationInputView> {
 
   @override
   void dispose() {
+    widget.tabController.removeListener(_handleTabChanged);
     _controller?.dispose();
     _floorController?.dispose();
     _compassSubscription?.cancel();
+    _arPoseSubscription?.cancel();
+    if (Platform.isIOS && !_handoffArSession) {
+      unawaited(_arPoseRepository?.stop());
+    }
     _floorMapBloc.close();
     super.dispose();
+  }
+
+  Future<void> _initializeArCapture() async {
+    setState(() {
+      _isInitializing = true;
+      _isArInitializing = true;
+      _errorMessage = null;
+    });
+
+    try {
+      _arPoseRepository = getIt<ArPoseRepository>();
+      await _arPoseRepository!.clearOverlay();
+      await _arPoseSubscription?.cancel();
+      _arPoseSubscription = _arPoseRepository!.watchPose().listen((pose) {
+        _latestArPose = pose;
+        if (mounted && _isArInitializing) {
+          setState(() => _isArInitializing = false);
+        }
+      });
+      await _arPoseRepository!.start();
+      await _arPoseRepository!.clearOverlay();
+
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+          _isArInitializing = false;
+          _errorMessage = 'Error initializing AR camera: $e';
+        });
+      }
+    }
+  }
+
+  Future<void> _resumeArCapture() async {
+    try {
+      _arPoseRepository ??= getIt<ArPoseRepository>();
+      await _arPoseRepository!.start();
+      await _arPoseRepository!.clearOverlay();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Error resuming AR camera: $e';
+        });
+      }
+    }
   }
 
   Future<void> _initializeCamera() async {
@@ -149,6 +244,11 @@ class _LocationInputViewState extends State<LocationInputView> {
   }
 
   Future<void> _captureImage() async {
+    if (Platform.isIOS) {
+      await _captureArImage();
+      return;
+    }
+
     // Mobile Capture Logic
     if (_controller == null ||
         !_controller!.value.isInitialized ||
@@ -186,7 +286,8 @@ class _LocationInputViewState extends State<LocationInputView> {
           selectedFloor = (_floorMapBloc.state as FloorMapReady).selectedFloor;
         }
         _logger.info('✅ Image Captured (Heading: $capturedHeading)');
-        widget.onImageCaptured(image.path, selectedFloor, capturedHeading);
+        widget.onImageCaptured(
+            image.path, selectedFloor, capturedHeading, null);
       }
     } catch (e) {
       if (mounted) {
@@ -203,15 +304,75 @@ class _LocationInputViewState extends State<LocationInputView> {
     }
   }
 
+  Future<void> _captureArImage() async {
+    if (_isCapturing || _arPoseRepository == null) return;
+
+    setState(() => _isCapturing = true);
+
+    try {
+      ArPose? capturedArPose = _latestArPose;
+      if (capturedArPose == null || capturedArPose.confidence < 1.0) {
+        final deadline = DateTime.now().add(const Duration(milliseconds: 900));
+        while (DateTime.now().isBefore(deadline)) {
+          await Future.delayed(const Duration(milliseconds: 60));
+          capturedArPose = _latestArPose;
+          if (capturedArPose != null && capturedArPose.confidence >= 1.0) {
+            break;
+          }
+        }
+      }
+
+      if (capturedArPose == null) {
+        throw StateError(
+            'AR tracking is not ready yet. Hold steady and retry.');
+      }
+
+      final frameBytes = await _arPoseRepository!.captureCurrentFrame();
+      final directory = await getTemporaryDirectory();
+      final path =
+          '${directory.path}/ar_capture_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final imageFile = File(path);
+      await imageFile.writeAsBytes(frameBytes, flush: true);
+
+      String selectedFloor = getIt<LocationConfigService>().floor;
+      if (_floorMapBloc.state is FloorMapReady) {
+        selectedFloor = (_floorMapBloc.state as FloorMapReady).selectedFloor;
+      }
+
+      _handoffArSession = widget.preserveArSessionOnCapture;
+      _logger.info(
+        '📸 Captured AR Image: $path '
+        '(Heading: ${capturedArPose.heading.toStringAsFixed(1)}, '
+        'Confidence: ${capturedArPose.confidence.toStringAsFixed(2)})',
+      );
+      widget.onImageCaptured(
+        path,
+        selectedFloor,
+        capturedArPose.heading,
+        capturedArPose,
+      );
+    } catch (e) {
+      if (mounted) {
+        snackbar.CustomSnackBar.show(
+          context,
+          message: 'Failed to capture AR image: ${e.toString()}',
+          type: snackbar.SnackBarType.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isCapturing = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return TabBarView(
-      controller: widget.tabController,
-      physics: const NeverScrollableScrollPhysics(),
-      children: [_buildCameraTab(theme), _buildFloorPlanTab(theme)],
-    );
+    return _selectedTabIndex == 0
+        ? _buildCameraTab(theme)
+        : _buildFloorPlanTab(theme);
   }
 
   Widget _buildCameraTab(ThemeData theme) {
@@ -240,6 +401,50 @@ class _LocationInputViewState extends State<LocationInputView> {
             ),
             _buildCaptureButton(theme),
           ],
+        ],
+      );
+    }
+
+    if (Platform.isIOS) {
+      if (_errorMessage != null) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(_errorMessage!, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _initializeArCapture,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          ArPreviewNativeView(
+            key: ValueKey(_arPreviewGeneration),
+            generation: _arPreviewGeneration,
+            previewMode: 'capture',
+            onCreated: () => unawaited(_resumeArCapture()),
+          ),
+          _CameraGuidance(
+            showGuidance: _showGuidance,
+            onToggle: () => setState(() => _showGuidance = !_showGuidance),
+          ),
+          if (_isInitializing || _isArInitializing)
+            const Positioned(
+              top: 72,
+              left: 0,
+              right: 0,
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          _buildCaptureButton(theme),
         ],
       );
     }
@@ -429,8 +634,7 @@ class _LocationInputViewState extends State<LocationInputView> {
                                                   fontSize: 14,
                                                   fontWeight: FontWeight.w800,
                                                   color: theme
-                                                      .colorScheme
-                                                      .onSurface,
+                                                      .colorScheme.onSurface,
                                                 ),
                                               ),
                                             ),
@@ -611,8 +815,8 @@ class _GuidanceSection extends StatelessWidget {
               alignment: alignment == Alignment.topCenter
                   ? Alignment.topCenter
                   : (alignment == Alignment.bottomCenter
-                        ? Alignment.bottomCenter
-                        : Alignment.center),
+                      ? Alignment.bottomCenter
+                      : Alignment.center),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
