@@ -25,17 +25,34 @@ void showOffsetSettingsModal(BuildContext context) {
         ),
         child: SafeArea(
           top: false,
-          child: _ArHeadingOffsetCompact(locationConfig: locationConfig),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 32,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurfaceVariant
+                      .withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 6),
+              _RotationRow(locationConfig: locationConfig),
+              const SizedBox(height: 6),
+              _PositionOffsetRow(locationConfig: locationConfig),
+            ],
+          ),
         ),
       ),
     ),
   );
 }
 
-class _ArHeadingOffsetCompact extends StatelessWidget {
+class _RotationRow extends StatelessWidget {
   final LocationConfigService locationConfig;
 
-  const _ArHeadingOffsetCompact({required this.locationConfig});
+  const _RotationRow({required this.locationConfig});
 
   @override
   Widget build(BuildContext context) {
@@ -43,66 +60,141 @@ class _ArHeadingOffsetCompact extends StatelessWidget {
     return ValueListenableBuilder<double>(
       valueListenable: locationConfig.arHeadingOffsetDegNotifier,
       builder: (context, currentValue, _) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
+        final clamped = currentValue.clamp(-10.0, 10.0);
+        return Row(
           children: [
-            Container(
-              width: 32,
-              height: 3,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.onSurfaceVariant
-                    .withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(2),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              tooltip: 'Reset rotation',
+              icon: const Icon(Icons.refresh, size: 18),
+              onPressed: () => locationConfig.setArHeadingOffsetDeg(0),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.rotate_right, size: 16),
+            Expanded(
+              child: SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 3,
+                  thumbShape:
+                      const RoundSliderThumbShape(enabledThumbRadius: 8),
+                  overlayShape:
+                      const RoundSliderOverlayShape(overlayRadius: 14),
+                ),
+                child: Slider(
+                  value: clamped,
+                  min: -10,
+                  max: 10,
+                  divisions: 40, // 0.5° step
+                  onChanged: (v) {
+                    final snapped = (v * 2).round() / 2.0;
+                    locationConfig.setArHeadingOffsetDeg(snapped);
+                  },
+                ),
               ),
             ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                      minWidth: 32, minHeight: 32),
-                  tooltip: 'Reset',
-                  icon: const Icon(Icons.refresh, size: 18),
-                  onPressed: () =>
-                      locationConfig.setArHeadingOffsetDeg(0),
+            SizedBox(
+              width: 56,
+              child: Text(
+                '${clamped.toStringAsFixed(1)}°',
+                textAlign: TextAlign.right,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.primary,
                 ),
-                Expanded(
-                  child: SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 3,
-                      thumbShape: const RoundSliderThumbShape(
-                          enabledThumbRadius: 8),
-                      overlayShape: const RoundSliderOverlayShape(
-                          overlayRadius: 14),
-                    ),
-                    child: Slider(
-                      value: currentValue.clamp(-180.0, 180.0),
-                      min: -180,
-                      max: 180,
-                      divisions: 720,
-                      onChanged: (v) =>
-                          locationConfig.setArHeadingOffsetDeg(v),
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 56,
-                  child: Text(
-                    '${currentValue.toStringAsFixed(1)}°',
-                    textAlign: TextAlign.right,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         );
       },
+    );
+  }
+}
+
+class _PositionOffsetRow extends StatelessWidget {
+  final LocationConfigService locationConfig;
+
+  const _PositionOffsetRow({required this.locationConfig});
+
+  static const double _step = 0.5;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ValueListenableBuilder<double>(
+      valueListenable: locationConfig.offsetInMetersNotifier,
+      builder: (context, currentValue, _) {
+        return Row(
+          children: [
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              tooltip: 'Reset offset',
+              icon: const Icon(Icons.refresh, size: 18),
+              onPressed: () => locationConfig.setOffsetInMeters(0),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.height, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Position Offset',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            _StepButton(
+              icon: Icons.remove,
+              onTap: () =>
+                  locationConfig.setOffsetInMeters(currentValue - _step),
+            ),
+            SizedBox(
+              width: 64,
+              child: Text(
+                '${currentValue.toStringAsFixed(1)} m',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ),
+            _StepButton(
+              icon: Icons.add,
+              onTap: () =>
+                  locationConfig.setOffsetInMeters(currentValue + _step),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _StepButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _StepButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, size: 18, color: theme.colorScheme.primary),
+      ),
     );
   }
 }

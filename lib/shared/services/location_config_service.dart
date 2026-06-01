@@ -103,9 +103,13 @@ class LocationConfigService {
   }
 
   /// Offset in meters for navigation and localization
-  double get offsetInMeters => _prefs.getDouble(_keyOffsetInMeters) ?? 0.0;
+  late final ValueNotifier<double> offsetInMetersNotifier =
+      ValueNotifier(_prefs.getDouble(_keyOffsetInMeters) ?? 0.0);
+
+  double get offsetInMeters => offsetInMetersNotifier.value;
 
   Future<void> setOffsetInMeters(double value) async {
+    offsetInMetersNotifier.value = value;
     await _prefs.setDouble(_keyOffsetInMeters, value);
   }
 
