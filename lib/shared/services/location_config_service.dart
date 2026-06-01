@@ -28,6 +28,7 @@ class LocationConfigService {
   static const String _keyOffsetInMeters = 'navigation_offset_in_meters';
   static const String _keyUnit = 'navigation_unit';
   static const String _keyShowDebugBanner = 'debug_show_banner';
+  static const String _keyArHeadingOffsetDeg = 'ar_heading_offset_deg';
 
   LocationConfigService(this._prefs);
 
@@ -36,6 +37,12 @@ class LocationConfigService {
 
   late final ValueNotifier<String> unitNotifier =
       ValueNotifier(_prefs.getString(_keyUnit) ?? 'meter');
+
+  /// Live-tunable rotation offset (degrees) applied to ARKit world frame
+  /// when mapping to floorplan space and projecting paths back to AR.
+  /// Used to compensate for compass drift or floorplan-AR misalignment.
+  late final ValueNotifier<double> arHeadingOffsetDegNotifier =
+      ValueNotifier(_prefs.getDouble(_keyArHeadingOffsetDeg) ?? 0.0);
 
   /// Get whether to use sample image for localization
   bool get useSampleImage => _prefs.getBool(_keyUseSampleImage) ?? false;
@@ -115,6 +122,13 @@ class LocationConfigService {
   Future<void> setShowDebugBanner(bool value) async {
     debugBannerNotifier.value = value;
     await _prefs.setBool(_keyShowDebugBanner, value);
+  }
+
+  double get arHeadingOffsetDeg => arHeadingOffsetDegNotifier.value;
+
+  Future<void> setArHeadingOffsetDeg(double value) async {
+    arHeadingOffsetDegNotifier.value = value;
+    await _prefs.setDouble(_keyArHeadingOffsetDeg, value);
   }
 
   /// Get the selected place

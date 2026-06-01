@@ -402,36 +402,15 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
 
                                     return AnimatedBuilder(
                                       animation: _routeAnimationController,
-                                      builder: (context, _) => Stack(
-                                        children: [
-                                          if (arState is ArNavigationTracking &&
-                                              arState.trackedPath.isNotEmpty)
-                                            CustomPaint(
-                                              size: Size(
-                                                  displayWidth, displayHeight),
-                                              painter: RoutePainter(
-                                                coords: fullRouteCoords,
-                                                scaleX: scaleX,
-                                                scaleY: scaleY,
-                                                animationValue:
-                                                    _routeAnimationController
-                                                        .value,
-                                                opacity: 0.28,
-                                              ),
-                                            ),
-                                          CustomPaint(
-                                            size: Size(
-                                                displayWidth, displayHeight),
-                                            painter: RoutePainter(
-                                              coords: activePathCoords,
-                                              scaleX: scaleX,
-                                              scaleY: scaleY,
-                                              animationValue:
-                                                  _routeAnimationController
-                                                      .value,
-                                            ),
-                                          ),
-                                        ],
+                                      builder: (context, _) => CustomPaint(
+                                        size: Size(displayWidth, displayHeight),
+                                        painter: RoutePainter(
+                                          coords: activePathCoords,
+                                          scaleX: scaleX,
+                                          scaleY: scaleY,
+                                          animationValue:
+                                              _routeAnimationController.value,
+                                        ),
                                       ),
                                     );
                                   },

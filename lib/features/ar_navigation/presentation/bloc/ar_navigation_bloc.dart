@@ -263,6 +263,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       originArPose: _originArPose!,
       referenceFloorplanPose: _referencePose!,
       metersPerPixel: effectiveMpp,
+      headingOffsetDeg: _locationConfig.arHeadingOffsetDeg,
     );
 
     // Trace starting coordinate alignment mapping on Frame 1
@@ -594,10 +595,11 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     // Matches ar_temp _floorplanPointToArWorld:
     //   sumHeadingDeg = reference.heading + captureHeading (AR yaw at session start).
     // Must use identical angle as ArPoseTransformer (forward direction) so path and
-    // tracked position share the same rotation frame.
+    // tracked position share the same rotation frame. Includes the live-tunable
+    // heading offset so adjustments rotate the AR path overlay in real time.
     final captureHeading = _normalizeDegrees(origin.heading);
     final sumHeadingDeg = _normalizeDegrees(
-      reference.heading + captureHeading,
+      reference.heading + captureHeading + _locationConfig.arHeadingOffsetDeg,
     );
     final sumHeadingRad = sumHeadingDeg * math.pi / 180.0;
 
@@ -661,10 +663,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     _poseRepository.updateOverlay(
       pathPoints: allPathAr,
       activePathPoints: activePathAr,
-      // Native renderers draw futurePathPoints as the persistent, lower-emphasis
-      // path layer. Keep the full route there so completed/behind segments do
-      // not disappear when waypoint advancement trims activePathPoints.
-      futurePathPoints: allPathAr,
+      futurePathPoints: const [],
       nextWaypoint: floorplanToArWorld(nextWaypoint.dx, nextWaypoint.dy),
       destination: floorplanToArWorld(routePoints.last.dx, routePoints.last.dy),
     );

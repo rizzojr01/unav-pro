@@ -36,6 +36,7 @@ class ArPoseTransformer {
     required ArPose originArPose,
     required LocalizedPose referenceFloorplanPose,
     required double metersPerPixel,
+    double headingOffsetDeg = 0.0,
   }) {
     // Extract planar (East, North) coordinates from each pose.
     final originArPoint = _extractArPlanarPoint(originArPose);
@@ -48,10 +49,12 @@ class ArPoseTransformer {
     // floorplan math-plane. It combines:
     //   - reference.heading: camera bearing recorded in the floorplan frame
     //   - captureHeading: AR yaw at session start (0=East, CCW in AR world)
+    //   - headingOffsetDeg: user-tunable calibration offset
     final captureHeading = _normalizeDegrees(originArPose.heading);
     final currentHeading = _normalizeDegrees(currentArPose.heading);
-    final sumHeadingDeg =
-        _normalizeDegrees(referenceFloorplanPose.heading + captureHeading);
+    final sumHeadingDeg = _normalizeDegrees(
+      referenceFloorplanPose.heading + captureHeading + headingOffsetDeg,
+    );
     final sumHeadingRad = sumHeadingDeg * math.pi / 180.0;
 
     // Rotate AR world deltas into the floorplan math-plane frame (CW rotation).

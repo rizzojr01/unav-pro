@@ -65,8 +65,17 @@ class _NavigationPageState extends State<NavigationPage> {
   }
 
   Future<void> _returnToCamera(DestinationEntity destination) async {
-    await getIt<ArPoseRepository>().stop();
-    await Future<void>.delayed(const Duration(milliseconds: 80));
+    final arBloc = context.read<ArNavigationBloc>();
+    if (arBloc.state is! ArNavigationInitial) {
+      arBloc.add(const StopArNavigation());
+      await arBloc.stream.firstWhere((s) => s is ArNavigationInitial);
+    } else {
+      await getIt<ArPoseRepository>().stop();
+    }
+    // Allow ArPreviewFloatingWindow's UiKitView to fully dispose before the
+    // new camera-screen UiKitView is created, avoiding iOS platform view
+    // "recreating_view" id collisions during pushReplacement.
+    await Future<void>.delayed(const Duration(milliseconds: 250));
     if (mounted) {
       context.pushReplacement('/camera', extra: destination);
     }
@@ -264,8 +273,17 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   }
 
   Future<void> _returnToCamera() async {
-    await getIt<ArPoseRepository>().stop();
-    await Future<void>.delayed(const Duration(milliseconds: 80));
+    final arBloc = context.read<ArNavigationBloc>();
+    if (arBloc.state is! ArNavigationInitial) {
+      arBloc.add(const StopArNavigation());
+      await arBloc.stream.firstWhere((s) => s is ArNavigationInitial);
+    } else {
+      await getIt<ArPoseRepository>().stop();
+    }
+    // Allow ArPreviewFloatingWindow's UiKitView to fully dispose before the
+    // new camera-screen UiKitView is created, avoiding iOS platform view
+    // "recreating_view" id collisions during pushReplacement.
+    await Future<void>.delayed(const Duration(milliseconds: 250));
     if (mounted) {
       context.pushReplacement('/camera', extra: widget.destination);
     }
@@ -451,15 +469,14 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                       child: const Icon(Icons.height),
                     ),
                   ),
-                  Positioned(
-                    right: 16,
-                    top: 10,
-                    child: ArPreviewFloatingWindow(
-                      onTap: () {
-                        // Handle toggle or full screen
-                      },
+                  if (arState is ArNavigationTracking)
+                    Positioned(
+                      right: 16,
+                      top: 10,
+                      child: ArPreviewFloatingWindow(
+                        onTap: () {},
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
