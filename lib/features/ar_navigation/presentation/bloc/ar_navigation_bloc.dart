@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -134,6 +135,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
           '  - API Reference Heading: ${_referencePose!.heading.toStringAsFixed(1)}°\n'
           '  - Initial Calculated sumHeadingDeg: ${((_referencePose!.heading + event.originArPose!.heading) % 360.0).toStringAsFixed(1)}°');
     }
+    _emitArLogSessionHeader(mpp);
     emit(
       const ArNavigationTracking(
         state: ArTrackingState.localizing,
@@ -143,6 +145,88 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
         distanceToNextWaypointPx: 0,
       ),
     );
+  }
+
+  void _emitArLogSessionHeader(double mpp) {
+    if (_referencePose == null || _route == null) return;
+    final routePts = <List<double>>[];
+    for (final step in _route!.steps) {
+      routePts.add([step.from.x, step.from.y]);
+    }
+    if (_route!.steps.isNotEmpty) {
+      routePts.add([_route!.steps.last.to.x, _route!.steps.last.to.y]);
+    }
+    final payload = <String, dynamic>{
+      't': 'session',
+      'ts': DateTime.now().millisecondsSinceEpoch,
+      'place': _locationConfig.place,
+      'building': _locationConfig.building,
+      'floor': _referencePose!.floorKey,
+      'mpp': mpp,
+      'arHeadingOffsetDeg': _locationConfig.arHeadingOffsetDeg,
+      'reference': {
+        'x': _referencePose!.x,
+        'y': _referencePose!.y,
+        'heading': _referencePose!.heading,
+      },
+      'origin': _originArPose == null
+          ? null
+          : {
+              'x': _originArPose!.x,
+              'y': _originArPose!.y,
+              'z': _originArPose!.z,
+              'worldX': _originArPose!.worldX,
+              'worldY': _originArPose!.worldY,
+              'worldZ': _originArPose!.worldZ,
+              'heading': _originArPose!.heading,
+              'confidence': _originArPose!.confidence,
+              'ts': _originArPose!.timestamp.millisecondsSinceEpoch,
+            },
+      'routeFp': routePts,
+    };
+    _logger.info('AR_LOG ${jsonEncode(payload)}');
+  }
+
+  void _emitArLogFrame({
+    required ArPose rawAr,
+    required LocalizedPose localized,
+    required ArTrackingUpdate update,
+  }) {
+    if (_referencePose == null || _originArPose == null) return;
+    final captureHeading = _normalizeDegrees(_originArPose!.heading);
+    final sumHeadingDeg = _normalizeDegrees(
+      _referencePose!.heading +
+          captureHeading +
+          _locationConfig.arHeadingOffsetDeg,
+    );
+    final payload = <String, dynamic>{
+      't': 'frame',
+      'ts': DateTime.now().millisecondsSinceEpoch,
+      'offset': _locationConfig.arHeadingOffsetDeg,
+      'sumDeg': sumHeadingDeg,
+      'ar': {
+        'x': rawAr.x,
+        'y': rawAr.y,
+        'z': rawAr.z,
+        'wX': rawAr.worldX,
+        'wY': rawAr.worldY,
+        'wZ': rawAr.worldZ,
+        'heading': rawAr.heading,
+        'conf': rawAr.confidence,
+      },
+      'fp': {
+        'x': localized.x,
+        'y': localized.y,
+        'z': localized.z,
+        'heading': localized.heading,
+      },
+      'state': update.state.toString().split('.').last,
+      'nextWp': update.nextWaypointIndex,
+      'remPx': update.remainingDistancePx,
+      'distNextPx': update.distanceToNextWaypointPx,
+      'travelM': _arTravelDistance,
+    };
+    _logger.info('AR_LOG ${jsonEncode(payload)}');
   }
 
   Future<void> _onStopNavigation(
@@ -289,6 +373,12 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     _handleAudioGuidance(update, localizedPose);
 
     final guidanceMessage = _buildGuidanceMessage(update, localizedPose);
+
+    _emitArLogFrame(
+      rawAr: event.pose,
+      localized: localizedPose,
+      update: update,
+    );
 
     emit(
       ArNavigationTracking(

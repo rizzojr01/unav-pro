@@ -12,6 +12,7 @@ private enum ArChannelContract {
   static let stopSessionMethod = "stopSession"
   static let getCapabilitiesMethod = "getCapabilities"
   static let captureCurrentFrameMethod = "captureCurrentFrame"
+  static let captureCurrentFrameWithPoseMethod = "captureCurrentFrameWithPose"
   static let updateOverlayMethod = "updateOverlay"
   static let clearOverlayMethod = "clearOverlay"
   static let previewModeKey = "mode"
@@ -37,6 +38,7 @@ private enum ArChannelContract {
   static let destinationKey = "destination"
   static let waypointPulsePeriodSecKey = "waypointPulsePeriodSec"
   static let waypointPulseActiveKey = "waypointPulseActive"
+  static let jpegBytesKey = "jpegBytes"
   static let capturePreviewMode = "capture"
   static let navigationPreviewMode = "navigation"
 }
@@ -128,6 +130,8 @@ private final class IOSArTrackingBridge: NSObject, FlutterStreamHandler, ARSessi
         result(nil)
       case ArChannelContract.captureCurrentFrameMethod:
         self.captureCurrentFrame(result: result)
+      case ArChannelContract.captureCurrentFrameWithPoseMethod:
+        self.captureCurrentFrameWithPose(result: result)
       case ArChannelContract.updateOverlayMethod:
         self.updateOverlay(arguments: call.arguments)
         result(nil)
@@ -253,6 +257,68 @@ private final class IOSArTrackingBridge: NSObject, FlutterStreamHandler, ARSessi
     }
 
     result(FlutterStandardTypedData(bytes: jpegData))
+  }
+
+  private func captureCurrentFrameWithPose(result: FlutterResult) {
+    // Extract JPEG bytes AND the pose from the same ARFrame so the
+    // capture moment's pose is guaranteed contemporaneous with the image.
+    guard let frame = latestFrame else {
+      result(
+        FlutterError(
+          code: "frame_unavailable",
+          message: "No AR frame available.",
+          details: nil
+        )
+      )
+      return
+    }
+
+    let image = CIImage(cvPixelBuffer: frame.capturedImage)
+    guard let cgImage = ciContext.createCGImage(image, from: image.extent) else {
+      result(
+        FlutterError(
+          code: "frame_conversion_failed",
+          message: "Unable to convert AR frame to image.",
+          details: nil
+        )
+      )
+      return
+    }
+
+    let orientation = uiImageOrientation(for: currentInterfaceOrientation())
+    let uiImage = UIImage(cgImage: cgImage, scale: 1.0, orientation: orientation)
+    guard let jpegData = uiImage.jpegData(compressionQuality: 0.95) else {
+      result(
+        FlutterError(
+          code: "frame_encoding_failed",
+          message: "Unable to encode AR frame as JPEG.",
+          details: nil
+        )
+      )
+      return
+    }
+
+    let transform = frame.camera.transform
+    let translation = transform.columns.3
+    let x = Double(translation.x)
+    let y = Double(-translation.z)
+    let z = Double(translation.y)
+    let heading = yawDegrees(from: transform)
+    let confidence = confidenceValue(for: frame.camera.trackingState)
+
+    let response: [String: Any] = [
+      ArChannelContract.jpegBytesKey: FlutterStandardTypedData(bytes: jpegData),
+      ArChannelContract.xKey: x,
+      ArChannelContract.yKey: y,
+      ArChannelContract.zKey: z,
+      ArChannelContract.headingKey: heading,
+      ArChannelContract.confidenceKey: confidence,
+      ArChannelContract.timestampKey: Int(Date().timeIntervalSince1970 * 1000.0),
+      ArChannelContract.worldXKey: Double(translation.x),
+      ArChannelContract.worldYKey: Double(translation.y),
+      ArChannelContract.worldZKey: Double(translation.z),
+    ]
+    result(response)
   }
 
   private func yawDegrees(from transform: simd_float4x4) -> Double {

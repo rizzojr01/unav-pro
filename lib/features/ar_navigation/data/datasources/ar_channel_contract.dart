@@ -6,6 +6,8 @@ class ArChannelContract {
   static const String stopSessionMethod = 'stopSession';
   static const String getCapabilitiesMethod = 'getCapabilities';
   static const String captureCurrentFrameMethod = 'captureCurrentFrame';
+  static const String captureCurrentFrameWithPoseMethod =
+      'captureCurrentFrameWithPose';
   static const String updateOverlayMethod = 'updateOverlay';
   static const String clearOverlayMethod = 'clearOverlay';
   static const String previewViewType = 'unav/tracking/ar_preview_view';
@@ -32,4 +34,5 @@ class ArChannelContract {
   static const String destinationKey = 'destination';
   static const String waypointPulsePeriodSecKey = 'waypointPulsePeriodSec';
   static const String waypointPulseActiveKey = 'waypointPulseActive';
+  static const String jpegBytesKey = 'jpegBytes';
 }

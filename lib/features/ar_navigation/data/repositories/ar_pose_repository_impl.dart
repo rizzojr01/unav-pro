@@ -52,6 +52,44 @@ class ArPoseRepositoryImpl implements ArPoseRepository {
   }
 
   @override
+  Future<ArCaptureWithPose> captureCurrentFrameWithPose() async {
+    final raw = await _methodChannel.invokeMethod<Map<dynamic, dynamic>>(
+      ArChannelContract.captureCurrentFrameWithPoseMethod,
+      {ArChannelContract.backendKey: _backend},
+    );
+    if (raw == null) {
+      throw PlatformException(
+        code: 'frame_unavailable',
+        message: 'No AR frame data was returned.',
+      );
+    }
+    final data = Map<String, dynamic>.from(raw);
+    final bytes = data[ArChannelContract.jpegBytesKey];
+    if (bytes is! Uint8List || bytes.isEmpty) {
+      throw PlatformException(
+        code: 'frame_unavailable',
+        message: 'No JPEG bytes in atomic capture response.',
+      );
+    }
+    final pose = ArPose(
+      x: (data[ArChannelContract.xKey] as num?)?.toDouble() ?? 0,
+      y: (data[ArChannelContract.yKey] as num?)?.toDouble() ?? 0,
+      z: (data[ArChannelContract.zKey] as num?)?.toDouble() ?? 0,
+      heading: (data[ArChannelContract.headingKey] as num?)?.toDouble() ?? 0,
+      confidence:
+          (data[ArChannelContract.confidenceKey] as num?)?.toDouble() ?? 1,
+      timestamp: DateTime.fromMillisecondsSinceEpoch(
+        (data[ArChannelContract.timestampKey] as num?)?.toInt() ??
+            DateTime.now().millisecondsSinceEpoch,
+      ),
+      worldX: (data[ArChannelContract.worldXKey] as num?)?.toDouble(),
+      worldY: (data[ArChannelContract.worldYKey] as num?)?.toDouble(),
+      worldZ: (data[ArChannelContract.worldZKey] as num?)?.toDouble(),
+    );
+    return ArCaptureWithPose(jpegBytes: bytes, pose: pose);
+  }
+
+  @override
   Future<double?> getCurrentHeading() async {
     try {
       final event = await FlutterCompass.events?.first

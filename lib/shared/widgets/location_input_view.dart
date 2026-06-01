@@ -60,8 +60,8 @@ class _LocationInputViewState extends State<LocationInputView> {
   double? _currentHeading;
   StreamSubscription? _compassSubscription;
   StreamSubscription<ArPose>? _arPoseSubscription;
-  ArPose? _latestArPose;
   bool _isArInitializing = false;
+  bool _arTrackingReady = false;
   bool _handoffArSession = false;
   ArPoseRepository? _arPoseRepository;
   int _selectedTabIndex = 0;
@@ -145,6 +145,7 @@ class _LocationInputViewState extends State<LocationInputView> {
     setState(() {
       _isInitializing = true;
       _isArInitializing = true;
+      _arTrackingReady = false;
       _errorMessage = null;
     });
 
@@ -153,17 +154,28 @@ class _LocationInputViewState extends State<LocationInputView> {
       await _arPoseRepository!.clearOverlay();
       await _arPoseSubscription?.cancel();
       _arPoseSubscription = _arPoseRepository!.watchPose().listen((pose) {
-        _latestArPose = pose;
-        if (mounted && _isArInitializing) {
-          setState(() => _isArInitializing = false);
+        final ready = pose.confidence >= 1.0;
+        if (!mounted) return;
+        if (_isInitializing ||
+            _isArInitializing ||
+            ready != _arTrackingReady) {
+          setState(() {
+            _isInitializing = false;
+            _isArInitializing = false;
+            _arTrackingReady = ready;
+          });
         }
       });
       await _arPoseRepository!.start();
       await _arPoseRepository!.clearOverlay();
 
+      // Hide the loading spinner once the native session has been (re)started.
+      // Subsequent tracking-quality state is communicated through the
+      // calibration banner driven by _arTrackingReady, not the spinner.
       if (mounted) {
         setState(() {
           _isInitializing = false;
+          _isArInitializing = false;
         });
       }
     } catch (e) {
@@ -307,32 +319,40 @@ class _LocationInputViewState extends State<LocationInputView> {
   Future<void> _captureArImage() async {
     if (_isCapturing || _arPoseRepository == null) return;
 
+    // Hard gate: refuse to capture until ARKit reports normal tracking
+    // (confidence == 1.0). Stationary devices without parallax stay in
+    // limited tracking forever and produce biased yaw — the dominant
+    // cause of AR path rotation errors. User must move the device gently
+    // before this gate clears.
+    if (!_arTrackingReady) {
+      snackbar.CustomSnackBar.show(
+        context,
+        message:
+            'AR tracking not ready — move the device gently for a moment and retry.',
+        type: snackbar.SnackBarType.warning,
+      );
+      return;
+    }
+
     setState(() => _isCapturing = true);
 
     try {
-      ArPose? capturedArPose = _latestArPose;
-      if (capturedArPose == null || capturedArPose.confidence < 1.0) {
-        final deadline = DateTime.now().add(const Duration(milliseconds: 900));
-        while (DateTime.now().isBefore(deadline)) {
-          await Future.delayed(const Duration(milliseconds: 60));
-          capturedArPose = _latestArPose;
-          if (capturedArPose != null && capturedArPose.confidence >= 1.0) {
-            break;
-          }
-        }
-      }
+      // Atomic capture: JPEG bytes and pose extracted from the same ARFrame
+      // on the native side. Eliminates frame-skew drift between the cached
+      // event-stream pose and the image bytes.
+      final capture = await _arPoseRepository!.captureCurrentFrameWithPose();
+      final capturedArPose = capture.pose;
 
-      if (capturedArPose == null) {
+      if (capturedArPose.confidence < 1.0) {
         throw StateError(
-            'AR tracking is not ready yet. Hold steady and retry.');
+            'AR tracking dropped to limited just before capture — retry.');
       }
 
-      final frameBytes = await _arPoseRepository!.captureCurrentFrame();
       final directory = await getTemporaryDirectory();
       final path =
           '${directory.path}/ar_capture_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final imageFile = File(path);
-      await imageFile.writeAsBytes(frameBytes, flush: true);
+      await imageFile.writeAsBytes(capture.jpegBytes, flush: true);
 
       String selectedFloor = getIt<LocationConfigService>().floor;
       if (_floorMapBloc.state is FloorMapReady) {
@@ -341,7 +361,7 @@ class _LocationInputViewState extends State<LocationInputView> {
 
       _handoffArSession = widget.preserveArSessionOnCapture;
       _logger.info(
-        '📸 Captured AR Image: $path '
+        '📸 Captured AR Image (atomic): $path '
         '(Heading: ${capturedArPose.heading.toStringAsFixed(1)}, '
         'Confidence: ${capturedArPose.confidence.toStringAsFixed(2)})',
       );
@@ -444,6 +464,10 @@ class _LocationInputViewState extends State<LocationInputView> {
               right: 0,
               child: Center(child: CircularProgressIndicator()),
             ),
+          if (!_isInitializing &&
+              !_isArInitializing &&
+              !_arTrackingReady)
+            const _ArCalibrationBanner(),
           _buildCaptureButton(theme),
         ],
       );
@@ -486,6 +510,10 @@ class _LocationInputViewState extends State<LocationInputView> {
   }
 
   Widget _buildCaptureButton(ThemeData theme) {
+    final bool disabled = Platform.isIOS && !_arTrackingReady;
+    final Color bg = disabled
+        ? theme.colorScheme.onSurfaceVariant
+        : theme.colorScheme.primary;
     return Positioned(
       bottom: 40,
       left: 0,
@@ -498,10 +526,10 @@ class _LocationInputViewState extends State<LocationInputView> {
             height: 80,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: theme.colorScheme.primary,
+              color: bg,
               boxShadow: [
                 BoxShadow(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                  color: bg.withValues(alpha: 0.4),
                   blurRadius: 20,
                   spreadRadius: 2,
                 ),
@@ -512,7 +540,7 @@ class _LocationInputViewState extends State<LocationInputView> {
                     child: CircularProgressIndicator(color: Colors.white),
                   )
                 : Icon(
-                    Icons.camera_rounded,
+                    disabled ? Icons.do_not_touch_rounded : Icons.camera_rounded,
                     color: theme.colorScheme.onPrimary,
                     size: 40,
                   ),
@@ -876,6 +904,42 @@ class _GuidanceSection extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _ArCalibrationBanner extends StatelessWidget {
+  const _ArCalibrationBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 72,
+      left: 16,
+      right: 16,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.orange.shade700.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.threed_rotation, color: Colors.white, size: 22),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Move device gently to calibrate AR…',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -589,6 +589,18 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          ValueListenableBuilder<double>(
+                            valueListenable: GetIt.I<LocationConfigService>()
+                                .arHeadingOffsetDegNotifier,
+                            builder: (context, offset, _) => Text(
+                              'AR Heading Offset: ${offset.toStringAsFixed(1)}°',
+                              style: const TextStyle(
+                                color: Colors.lightGreenAccent,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -668,19 +680,25 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       return Positioned(
         left: pos.dx - size / 2,
         top: pos.dy - size / 2,
-        child: DestinationFlagMarker(size: size),
+        child: Transform.rotate(
+          angle: -_mapRotationRad,
+          child: DestinationFlagMarker(size: size),
+        ),
       );
     }
     final size = (8.0 * zoom).clamp(1.5, 32.0);
     return Positioned(
       left: pos.dx - size / 2,
       top: pos.dy - size / 2,
-      child: DestinationMarker(
-        size: size,
-        icon: DestinationMarker.getIconForDestination(name ?? ''),
-        onTap: destination != null
-            ? () => widget.onDestinationTap?.call(destination)
-            : null,
+      child: Transform.rotate(
+        angle: -_mapRotationRad,
+        child: DestinationMarker(
+          size: size,
+          icon: DestinationMarker.getIconForDestination(name ?? ''),
+          onTap: destination != null
+              ? () => widget.onDestinationTap?.call(destination)
+              : null,
+        ),
       ),
     );
   }

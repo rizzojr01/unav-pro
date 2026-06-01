@@ -51,4 +51,5 @@ app.*.map.json
 # Environment variables
 .env
 
+/temp
 /ar_temp
