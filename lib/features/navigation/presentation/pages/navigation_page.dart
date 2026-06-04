@@ -320,6 +320,8 @@ class _NavigationMapViewState extends State<_NavigationMapView>
     return RouteEntity(
       entityId: widget.route.entityId,
       multiFloorSteps: floorSteps,
+      metersPerPixel: widget.route.metersPerPixel,
+      routeNetworkSegments: widget.route.routeNetworkSegments,
     );
   }
 

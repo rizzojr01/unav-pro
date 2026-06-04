@@ -41,6 +41,8 @@ void showOffsetSettingsModal(BuildContext context) {
               _RotationRow(locationConfig: locationConfig),
               const SizedBox(height: 6),
               _PositionOffsetRow(locationConfig: locationConfig),
+              const SizedBox(height: 6),
+              _SnapToRouteRow(locationConfig: locationConfig),
             ],
           ),
         ),
@@ -166,6 +168,42 @@ class _PositionOffsetRow extends StatelessWidget {
               icon: Icons.add,
               onTap: () =>
                   locationConfig.setOffsetInMeters(currentValue + _step),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SnapToRouteRow extends StatelessWidget {
+  final LocationConfigService locationConfig;
+
+  const _SnapToRouteRow({required this.locationConfig});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ValueListenableBuilder<bool>(
+      valueListenable: locationConfig.snapToRouteNotifier,
+      builder: (context, value, _) {
+        return Row(
+          children: [
+            const SizedBox(width: 36),
+            const Icon(Icons.route, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Snap to route',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Switch(
+              value: value,
+              onChanged: (v) => locationConfig.setSnapToRoute(v),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ],
         );

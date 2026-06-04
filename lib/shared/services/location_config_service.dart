@@ -29,6 +29,7 @@ class LocationConfigService {
   static const String _keyUnit = 'navigation_unit';
   static const String _keyShowDebugBanner = 'debug_show_banner';
   static const String _keyArHeadingOffsetDeg = 'ar_heading_offset_deg';
+  static const String _keySnapToRoute = 'snap_to_route';
 
   LocationConfigService(this._prefs);
 
@@ -133,6 +134,18 @@ class LocationConfigService {
   Future<void> setArHeadingOffsetDeg(double value) async {
     arHeadingOffsetDegNotifier.value = value;
     await _prefs.setDouble(_keyArHeadingOffsetDeg, value);
+  }
+
+  /// Project the user's pose onto the nearest navigable route edge before
+  /// display/tracking. Hides server noise and ARKit drift; user toggleable.
+  late final ValueNotifier<bool> snapToRouteNotifier =
+      ValueNotifier(_prefs.getBool(_keySnapToRoute) ?? true);
+
+  bool get snapToRoute => snapToRouteNotifier.value;
+
+  Future<void> setSnapToRoute(bool value) async {
+    snapToRouteNotifier.value = value;
+    await _prefs.setBool(_keySnapToRoute, value);
   }
 
   /// Get the selected place

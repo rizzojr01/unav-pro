@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import '../../../../core/base/base_entity.dart';
 import 'navigation_step_entity.dart';
 import 'multi_floor_navigation_step_entity.dart';
@@ -8,10 +10,16 @@ class RouteEntity extends BaseEntity {
   final List<MultiFloorNavigationStepEntity> multiFloorSteps;
   final double? metersPerPixel;
 
+  /// Full corridor graph in floorplan pixel coordinates. Each entry is a
+  /// `(from, to)` pair representing one navigable edge. Used for snap-to-route.
+  /// Empty list when the backend omits `route_segments`.
+  final List<(Offset, Offset)> routeNetworkSegments;
+
   const RouteEntity({
     required this.entityId,
     required this.multiFloorSteps,
     this.metersPerPixel,
+    this.routeNetworkSegments = const [],
   });
 
   /// Flat list of all steps across all floors
@@ -30,5 +38,6 @@ class RouteEntity extends BaseEntity {
   String? get id => entityId;
 
   @override
-  List<Object?> get props => [entityId, multiFloorSteps, metersPerPixel];
+  List<Object?> get props =>
+      [entityId, multiFloorSteps, metersPerPixel, routeNetworkSegments];
 }

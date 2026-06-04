@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui';
 
 import '../../domain/entities/route_entity.dart';
 import 'multi_floor_navigation_step_model.dart';
@@ -38,11 +39,37 @@ double? _deriveMetersPerPixelFromSteps(
   return (samples[middle - 1] + samples[middle]) / 2.0;
 }
 
+List<(Offset, Offset)> _parseRouteNetworkSegments(dynamic raw) {
+  if (raw is! List) return const [];
+  final result = <(Offset, Offset)>[];
+  for (final seg in raw) {
+    if (seg is! Map) continue;
+    final from = seg['from'];
+    final to = seg['to'];
+    final fromOffset = _readOffset(from);
+    final toOffset = _readOffset(to);
+    if (fromOffset == null || toOffset == null) continue;
+    result.add((fromOffset, toOffset));
+  }
+  return result;
+}
+
+Offset? _readOffset(dynamic raw) {
+  if (raw is List && raw.length >= 2 && raw[0] is num && raw[1] is num) {
+    return Offset((raw[0] as num).toDouble(), (raw[1] as num).toDouble());
+  }
+  if (raw is Map && raw['x'] is num && raw['y'] is num) {
+    return Offset((raw['x'] as num).toDouble(), (raw['y'] as num).toDouble());
+  }
+  return null;
+}
+
 class RouteModel extends RouteEntity {
   const RouteModel({
     required super.entityId,
     required super.multiFloorSteps,
     super.metersPerPixel,
+    super.routeNetworkSegments,
   });
 
   factory RouteModel.fromJson(Map<String, dynamic> json) {
@@ -61,6 +88,7 @@ class RouteModel extends RouteEntity {
       multiFloorSteps: multiSteps,
       metersPerPixel: _deriveMetersPerPixelFromSteps(multiSteps) ??
           _normalizeToMetersPerPixel(json['meters_per_pixel']?.toDouble()),
+      routeNetworkSegments: _parseRouteNetworkSegments(json['route_segments']),
     );
   }
 
@@ -79,6 +107,7 @@ class RouteModel extends RouteEntity {
       entityId: entity.entityId,
       multiFloorSteps: entity.multiFloorSteps,
       metersPerPixel: entity.metersPerPixel,
+      routeNetworkSegments: entity.routeNetworkSegments,
     );
   }
 }

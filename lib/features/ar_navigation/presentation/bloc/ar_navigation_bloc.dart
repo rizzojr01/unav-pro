@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:smart_sense/features/navigation/domain/entities/route_entity.dart';
 import 'package:smart_sense/shared/services/location_config_service.dart';
 import 'package:smart_sense/core/utils/logger.dart';
+import 'package:smart_sense/core/utils/route_snap.dart';
 import 'package:smart_sense/injection.dart';
 import '../../domain/entities/ar_pose.dart';
 import '../../domain/entities/localized_pose.dart';
@@ -342,13 +343,28 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     // heading directly from ARKit's gravityAndHeading world frame.
     // No additional delta correction is needed — the session's compass
     // alignment handles it at the native layer.
-    final localizedPose = _poseTransformer.transform(
+    var localizedPose = _poseTransformer.transform(
       currentArPose: event.pose,
       originArPose: _originArPose!,
       referenceFloorplanPose: _referencePose!,
       metersPerPixel: effectiveMpp,
       headingOffsetDeg: _locationConfig.arHeadingOffsetDeg,
     );
+
+    // Snap (x,y) onto nearest navigable corridor edge. Heading/confidence/
+    // timestamp untouched. Threshold (px) prevents stray-pose teleport.
+    final segments = _route?.routeNetworkSegments ?? const [];
+    if (_locationConfig.snapToRoute && segments.isNotEmpty) {
+      final snapThresholdPx = 2.0 / effectiveMpp; // ~2 m
+      final snapped = snapToRouteNetwork(
+        Offset(localizedPose.x, localizedPose.y),
+        segments,
+        thresholdPx: snapThresholdPx,
+      );
+      if (snapped.dx != localizedPose.x || snapped.dy != localizedPose.y) {
+        localizedPose = localizedPose.copyWith(x: snapped.dx, y: snapped.dy);
+      }
+    }
 
     // Trace starting coordinate alignment mapping on Frame 1
     if (isFirstFrame) {
@@ -743,16 +759,10 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
         routePoints.map((p) => floorplanToArWorld(p.dx, p.dy)).toList();
 
     final nextWaypoint = routePoints[update.nextWaypointIndex];
-    final activePathAr = [
-      floorplanToArWorld(currentPose.x, currentPose.y),
-      ...routePoints
-          .skip(update.nextWaypointIndex)
-          .map((p) => floorplanToArWorld(p.dx, p.dy)),
-    ];
 
     _poseRepository.updateOverlay(
       pathPoints: allPathAr,
-      activePathPoints: activePathAr,
+      activePathPoints: allPathAr,
       futurePathPoints: const [],
       nextWaypoint: floorplanToArWorld(nextWaypoint.dx, nextWaypoint.dy),
       destination: floorplanToArWorld(routePoints.last.dx, routePoints.last.dy),

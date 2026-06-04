@@ -195,6 +195,24 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       });
     }
 
+    // Continuous follow: as user moves, keep them at screen center so the
+    // Transform.rotate (which pivots around screen center) appears to rotate
+    // around the user, not the map. Preserves current zoom.
+    final oldCoords = _coordsFromLocation(oldWidget.userLocation);
+    final newCoords = _coordsFromLocation(widget.userLocation);
+    if (oldCoords != null &&
+        newCoords != null &&
+        (oldCoords - newCoords).distance > 0.5 &&
+        _imageSize != null &&
+        widget.autoCenterOnUser) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final box = context.findRenderObject() as RenderBox?;
+        if (box == null) return;
+        _followUserAtCurrentZoom(box.size, _imageSize!);
+      });
+    }
+
     final bool routeChanged =
         (oldWidget.route == null && widget.route != null) ||
             (oldWidget.route != null &&
@@ -218,6 +236,50 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     _transformationController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  Offset? _coordsFromLocation(dynamic loc) {
+    if (loc == null) return null;
+    try {
+      return Offset((loc.x as num).toDouble(), (loc.y as num).toDouble());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _followUserAtCurrentZoom(Size containerSize, Size imageSize) {
+    final userPos = _getUserCoords();
+    final imageAR = imageSize.width / imageSize.height;
+    final containerAR = containerSize.width / containerSize.height;
+
+    double displayWidth, displayHeight;
+    if (imageAR > containerAR) {
+      displayWidth = containerSize.width;
+      displayHeight = containerSize.width / imageAR;
+    } else {
+      displayHeight = containerSize.height;
+      displayWidth = containerSize.height * imageAR;
+    }
+
+    final scaleX = displayWidth / imageSize.width;
+    final scaleY = displayHeight / imageSize.height;
+    final userDisplayX =
+        userPos.dx * scaleX + (containerSize.width - displayWidth) / 2;
+    final userDisplayY =
+        userPos.dy * scaleY + (containerSize.height - displayHeight) / 2;
+
+    final zoom = _transformationController.value.getMaxScaleOnAxis();
+    final cx = containerSize.width / 2;
+    final cy = containerSize.height / 2;
+
+    _transformationController.value = Matrix4.identity()
+      ..translateByDouble(
+        cx - userDisplayX * zoom,
+        cy - userDisplayY * zoom,
+        0,
+        1,
+      )
+      ..scaleByDouble(zoom, zoom, zoom, 1);
   }
 
   Offset _getUserCoords() {
@@ -400,16 +462,27 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                                       activePathCoords = fullRouteCoords;
                                     }
 
-                                    return AnimatedBuilder(
-                                      animation: _routeAnimationController,
-                                      builder: (context, _) => CustomPaint(
-                                        size: Size(displayWidth, displayHeight),
-                                        painter: RoutePainter(
-                                          coords: activePathCoords,
-                                          scaleX: scaleX,
-                                          scaleY: scaleY,
-                                          animationValue:
-                                              _routeAnimationController.value,
+                                    return ValueListenableBuilder<bool>(
+                                      valueListenable: GetIt.I<
+                                              LocationConfigService>()
+                                          .snapToRouteNotifier,
+                                      builder: (context, snapEnabled, _) =>
+                                          AnimatedBuilder(
+                                        animation: _routeAnimationController,
+                                        builder: (context, _) => CustomPaint(
+                                          size: Size(
+                                              displayWidth, displayHeight),
+                                          painter: RoutePainter(
+                                            coords: activePathCoords,
+                                            networkSegments: snapEnabled
+                                                ? widget
+                                                    .route!.routeNetworkSegments
+                                                : const [],
+                                            scaleX: scaleX,
+                                            scaleY: scaleY,
+                                            animationValue:
+                                                _routeAnimationController.value,
+                                          ),
                                         ),
                                       ),
                                     );
@@ -721,6 +794,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
 
 class RoutePainter extends CustomPainter {
   final List<Offset> coords;
+  final List<(Offset, Offset)> networkSegments;
   final double scaleX, scaleY;
   final double animationValue;
   final double opacity;
@@ -730,11 +804,26 @@ class RoutePainter extends CustomPainter {
     required this.scaleX,
     required this.scaleY,
     required this.animationValue,
+    this.networkSegments = const [],
     this.opacity = 1.0,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (networkSegments.isNotEmpty) {
+      final networkPaint = Paint()
+        ..color = const Color(0xFF4FC3F7).withValues(alpha: 0.35 * opacity)
+        ..strokeWidth = 0.8
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
+      for (final (a, b) in networkSegments) {
+        canvas.drawLine(
+          Offset(a.dx * scaleX, a.dy * scaleY),
+          Offset(b.dx * scaleX, b.dy * scaleY),
+          networkPaint,
+        );
+      }
+    }
     if (coords.isEmpty) return;
     final valid = coords.where((c) => !c.dx.isNaN && !c.dy.isNaN).toList();
     if (valid.isEmpty) return;
@@ -806,5 +895,6 @@ class RoutePainter extends CustomPainter {
   bool shouldRepaint(RoutePainter old) =>
       old.animationValue != animationValue ||
       old.coords != coords ||
+      old.networkSegments != networkSegments ||
       old.opacity != opacity;
 }
