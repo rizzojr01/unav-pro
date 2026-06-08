@@ -30,6 +30,7 @@ class LocationConfigService {
   static const String _keyShowDebugBanner = 'debug_show_banner';
   static const String _keyArHeadingOffsetDeg = 'ar_heading_offset_deg';
   static const String _keySnapToRoute = 'snap_to_route';
+  static const String _keyAutoHeadingCorrection = 'auto_heading_correction';
 
   LocationConfigService(this._prefs);
 
@@ -146,6 +147,21 @@ class LocationConfigService {
   Future<void> setSnapToRoute(bool value) async {
     snapToRouteNotifier.value = value;
     await _prefs.setBool(_keySnapToRoute, value);
+  }
+
+  /// Auto-correct AR heading offset by observing user's walk direction vs
+  /// nearest route_segment direction. Hides 2-5° backend/ARKit yaw error.
+  /// When enabled, `arHeadingOffsetDeg` is driven automatically; the manual
+  /// slider still works as an override (last writer wins per frame).
+  late final ValueNotifier<bool> autoHeadingCorrectionNotifier = ValueNotifier(
+    _prefs.getBool(_keyAutoHeadingCorrection) ?? true,
+  );
+
+  bool get autoHeadingCorrection => autoHeadingCorrectionNotifier.value;
+
+  Future<void> setAutoHeadingCorrection(bool value) async {
+    autoHeadingCorrectionNotifier.value = value;
+    await _prefs.setBool(_keyAutoHeadingCorrection, value);
   }
 
   /// Get the selected place

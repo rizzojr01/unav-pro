@@ -43,6 +43,8 @@ void showOffsetSettingsModal(BuildContext context) {
               _PositionOffsetRow(locationConfig: locationConfig),
               const SizedBox(height: 6),
               _SnapToRouteRow(locationConfig: locationConfig),
+              const SizedBox(height: 6),
+              _AutoHeadingRow(locationConfig: locationConfig),
             ],
           ),
         ),
@@ -203,6 +205,42 @@ class _SnapToRouteRow extends StatelessWidget {
             Switch(
               value: value,
               onChanged: (v) => locationConfig.setSnapToRoute(v),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _AutoHeadingRow extends StatelessWidget {
+  final LocationConfigService locationConfig;
+
+  const _AutoHeadingRow({required this.locationConfig});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ValueListenableBuilder<bool>(
+      valueListenable: locationConfig.autoHeadingCorrectionNotifier,
+      builder: (context, value, _) {
+        return Row(
+          children: [
+            const SizedBox(width: 36),
+            const Icon(Icons.explore, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Auto heading correction',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Switch(
+              value: value,
+              onChanged: (v) => locationConfig.setAutoHeadingCorrection(v),
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ],

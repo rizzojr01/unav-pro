@@ -15,6 +15,7 @@ import '../../domain/models/guidance_event_type.dart';
 import '../../domain/repositories/ar_pose_repository.dart';
 import '../../domain/services/ar_pose_transformer.dart';
 import '../../domain/services/guidance_sound_service.dart';
+import '../../domain/services/heading_auto_corrector.dart';
 import '../../domain/services/path_tracking_service.dart';
 import 'ar_navigation_event.dart';
 import 'ar_navigation_state.dart';
@@ -42,6 +43,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   DateTime? _originStabilizationStartedAt;
   double _arTravelDistance = 0.0;
   ArPose? _lastPoseForDistance;
+  final HeadingAutoCorrector _headingCorrector = HeadingAutoCorrector();
 
   static const double _headingLockThresholdDeg = 8.0;
   static const double _minimumOriginConfidence = 1.0;
@@ -95,6 +97,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     _originArPose = event.originArPose;
     _arTravelDistance = 0.0;
     _lastPoseForDistance = event.originArPose;
+    _headingCorrector.reset();
     _lastState = ArTrackingState.idle;
     _lastWaypointIndex = 0;
     _wasApproachingWaypoint = false;
@@ -354,15 +357,39 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     // Snap (x,y) onto nearest navigable corridor edge. Heading/confidence/
     // timestamp untouched. Threshold (px) prevents stray-pose teleport.
     final segments = _route?.routeNetworkSegments ?? const [];
+    final unsnappedFp = Offset(localizedPose.x, localizedPose.y);
     if (_locationConfig.snapToRoute && segments.isNotEmpty) {
       final snapThresholdPx = 2.0 / effectiveMpp; // ~2 m
       final snapped = snapToRouteNetwork(
-        Offset(localizedPose.x, localizedPose.y),
+        unsnappedFp,
         segments,
         thresholdPx: snapThresholdPx,
       );
       if (snapped.dx != localizedPose.x || snapped.dy != localizedPose.y) {
         localizedPose = localizedPose.copyWith(x: snapped.dx, y: snapped.dy);
+      }
+    }
+
+    // Auto-tune AR heading offset from observed corridor direction.
+    // Compares the user's unsnapped floorplan walk vector against the nearest
+    // route_segment direction over a short rolling window. Hides 2-5°
+    // backend/ARKit yaw error so the AR path stops drifting into walls.
+    if (_locationConfig.autoHeadingCorrection && segments.isNotEmpty) {
+      final arWorldPos = Offset(
+        event.pose.worldX ?? event.pose.x,
+        event.pose.worldZ ?? -event.pose.y,
+      );
+      final suggestion = _headingCorrector.observe(
+        unsnappedFpPose: unsnappedFp,
+        arWorldPos: arWorldPos,
+        snappedFpPose: Offset(localizedPose.x, localizedPose.y),
+        segments: segments,
+        metersPerPixel: effectiveMpp,
+        currentOffsetDeg: _locationConfig.arHeadingOffsetDeg,
+        timestamp: event.pose.timestamp,
+      );
+      if (suggestion != null) {
+        unawaited(_locationConfig.setArHeadingOffsetDeg(suggestion));
       }
     }
 
@@ -755,17 +782,26 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
         _route!.steps.map((s) => Offset(s.from.x, s.from.y)).toList();
     routePoints.add(Offset(_route!.steps.last.to.x, _route!.steps.last.to.y));
 
-    final allPathAr =
-        routePoints.map((p) => floorplanToArWorld(p.dx, p.dy)).toList();
+    // Snap each path vertex onto the route network before AR-world
+    // conversion. Backend route already rides the navmesh, so usually
+    // a no-op; protects against any stray vertex sitting off-network.
+    final segments = _route!.routeNetworkSegments;
+    final snappedRoutePoints = segments.isEmpty
+        ? routePoints
+        : routePoints.map((p) => snapToRouteNetwork(p, segments)).toList();
 
-    final nextWaypoint = routePoints[update.nextWaypointIndex];
+    final allPathAr =
+        snappedRoutePoints.map((p) => floorplanToArWorld(p.dx, p.dy)).toList();
+
+    final nextWaypoint = snappedRoutePoints[update.nextWaypointIndex];
 
     _poseRepository.updateOverlay(
       pathPoints: allPathAr,
       activePathPoints: allPathAr,
       futurePathPoints: const [],
       nextWaypoint: floorplanToArWorld(nextWaypoint.dx, nextWaypoint.dy),
-      destination: floorplanToArWorld(routePoints.last.dx, routePoints.last.dy),
+      destination: floorplanToArWorld(
+          snappedRoutePoints.last.dx, snappedRoutePoints.last.dy),
     );
   }
 
