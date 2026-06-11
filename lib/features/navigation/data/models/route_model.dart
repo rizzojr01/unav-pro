@@ -8,6 +8,10 @@ import 'multi_floor_navigation_step_model.dart';
 // If the value exceeds 1.0 the backend likely sent feet/pixel; convert to m/px.
 double? _normalizeToMetersPerPixel(double? raw) {
   if (raw == null) return null;
+  // The backend sends 1.0 when it has no per-floor scale ("unscaled"
+  // sentinel) and historic scale files contain literal 0 placeholders —
+  // neither is a usable scale, so fall through to the next source.
+  if (raw <= 0 || raw == 1.0) return null;
   // Standard floorplans are usually 0.05 - 0.2 mpp.
   // If raw > 1.0, it's almost certainly feet per pixel (e.g. 5.0 fpp).
   if (raw > 1.0) return raw * 0.3048; // feet to meters
