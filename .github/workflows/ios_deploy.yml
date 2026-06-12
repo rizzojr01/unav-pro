@@ -251,8 +251,14 @@ jobs:
       - name: Create App Store Connect API Key
         run: |
           mkdir -p ~/.fastlane
-          echo "${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}" > ~/.fastlane/app_store_connect_key.p8
+          printf '%s' "${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}" > ~/.fastlane/app_store_connect_key.p8
           echo "App Store Connect API key file created"
+          echo "--- File contents (first 3 lines) ---"
+          head -3 ~/.fastlane/app_store_connect_key.p8
+          echo "--- File contents (last 3 lines) ---"
+          tail -3 ~/.fastlane/app_store_connect_key.p8
+          echo "--- File size ---"
+          wc -c ~/.fastlane/app_store_connect_key.p8
 
       - name: Create Fastfile
         run: |
