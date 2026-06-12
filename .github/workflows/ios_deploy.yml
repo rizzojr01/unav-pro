@@ -252,6 +252,8 @@ jobs:
         run: |
           mkdir -p ~/.fastlane
           printf '%s' "${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}" > ~/.fastlane/app_store_connect_key.p8
+          # Normalize line endings (strip \r) to fix "issued-at-time in the future" JWT bug
+          tr -d '\r' < ~/.fastlane/app_store_connect_key.p8 > ~/.fastlane/app_store_connect_key.tmp && mv ~/.fastlane/app_store_connect_key.tmp ~/.fastlane/app_store_connect_key.p8
           echo "App Store Connect API key file created"
           echo "--- File contents (first 3 lines) ---"
           head -3 ~/.fastlane/app_store_connect_key.p8
