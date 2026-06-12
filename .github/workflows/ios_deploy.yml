@@ -148,6 +148,13 @@ jobs:
           flutter pub get
           cd ios && bundle install && cd ..
 
+      - name: Create .env from secrets
+        run: |
+          cat > .env << EOF
+          BASE_URL=${{ secrets.BASE_URL }}
+          EOF
+          cat .env
+
       - name: Setup SSH Key for Match
         uses: webfactory/ssh-agent@v0.9.0
         with:
