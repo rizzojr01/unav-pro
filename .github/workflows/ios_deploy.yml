@@ -1,0 +1,495 @@
+name: iOS TestFlight Deployment
+
+on:
+  push:
+    branches:
+      - agent-smart-mode-v1
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'Select App to Deploy'
+        required: true
+        default: 'UnavArAI'
+        type: choice
+        options:
+          - UnavArAI
+      build_version:
+        description: 'Build Version (e.g., 1.0.0)'
+        required: false
+        type: string
+      build_number:
+        description: 'Build Number (e.g., 1)'
+        required: false
+        type: string
+      environment:
+        description: 'Environment'
+        required: true
+        default: 'testflight'
+        type: choice
+        options:
+          - testflight
+          - appstore
+      release_notes:
+        description: 'Release Notes'
+        required: false
+        type: string
+        default: 'New build deployed via GitHub Actions'
+
+env:
+  FLUTTER_VERSION: '3.41.9'
+  RUBY_VERSION: '3.2'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: macos-15
+    timeout-minutes: 45
+    
+    env:
+      CI: true
+      FASTLANE_SKIP_UPDATE_CHECK: true
+      FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: 30
+      FASTLANE_XCODEBUILD_SETTINGS_RETRIES: 3
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Read App Configuration
+        id: config
+        run: |
+          # Determine app to deploy - use input for manual, default for push
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            APP_TO_DEPLOY="${{ github.event.inputs.app }}"
+          else
+            APP_TO_DEPLOY="UnavArAI"
+          fi
+          
+          echo "Reading configuration for app: $APP_TO_DEPLOY"
+          
+          # Extract app configuration from JSON
+          BUNDLE_ID=$(jq -r ".apps[] | select(.id == \"$APP_TO_DEPLOY\") | .bundle_id" .github/app_config.json)
+          TEAM_ID=$(jq -r ".apps[] | select(.id == \"$APP_TO_DEPLOY\") | .team_id" .github/app_config.json)
+          ASC_TEAM_ID=$(jq -r ".apps[] | select(.id == \"$APP_TO_DEPLOY\") | .app_store_connect_team_id" .github/app_config.json)
+          ITC_TEAM_ID=$(jq -r ".apps[] | select(.id == \"$APP_TO_DEPLOY\") | .itc_team_id" .github/app_config.json)
+          APP_NAME=$(jq -r ".apps[] | select(.id == \"$APP_TO_DEPLOY\") | .name" .github/app_config.json)
+          DISPLAY_NAME=$(jq -r ".apps[] | select(.id == \"$APP_TO_DEPLOY\") | .display_name" .github/app_config.json)
+          
+          echo "bundle_id=$BUNDLE_ID" >> $GITHUB_OUTPUT
+          echo "team_id=$TEAM_ID" >> $GITHUB_OUTPUT
+          echo "asc_team_id=$ASC_TEAM_ID" >> $GITHUB_OUTPUT
+          echo "itc_team_id=$ITC_TEAM_ID" >> $GITHUB_OUTPUT
+          echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "display_name=$DISPLAY_NAME" >> $GITHUB_OUTPUT
+          
+          echo "Selected Configuration:"
+          echo "  App: $APP_NAME"
+          echo "  Bundle ID: $BUNDLE_ID"
+          echo "  Team ID: $TEAM_ID"
+          echo "  ASC Team ID: $ASC_TEAM_ID"
+          echo "  ITC Team ID: $ITC_TEAM_ID"
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: false
+
+      - name: Select Newest Xcode
+        run: |
+          echo "Available Xcode versions:"
+          ls -d /Applications/Xcode*.app 2>/dev/null || echo "No Xcode found"
+          # Find the newest Xcode by extracting version numbers
+          NEWEST_XCODE=""
+          for x in /Applications/Xcode*.app; do
+            [ -d "$x" ] || continue
+            VER=$(echo "$x" | sed 's/.*Xcode_*//' | sed 's/\.app//' | sed 's/[^0-9.]//g' | cut -d. -f1)
+            [ -z "$VER" ] && VER="0"
+            if [ -z "$NEWEST_XCODE" ] || [ "$VER" -gt "$NEWEST_VER" ] 2>/dev/null; then
+              NEWEST_XCODE="$x"
+              NEWEST_VER="$VER"
+            fi
+          done
+          if [ -n "$NEWEST_XCODE" ]; then
+            echo "Selecting: $NEWEST_XCODE"
+            sudo xcode-select -s "$NEWEST_XCODE/Contents/Developer"
+          fi
+          echo "Selected Xcode:"
+          xcode-select -p
+          echo "Xcode version:"
+          xcodebuild -version
+          echo "iOS SDK version:"
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Download iOS Platform
+        run: |
+          echo "Downloading iOS platform for selected Xcode..."
+          sudo xcodebuild -downloadPlatform iOS || echo "iOS SDK already available, skipping download"
+          echo "iOS platform ready"
+
+      - name: Clear Pub Cache
+        run: |
+          echo "Clearing pub cache to force fresh package resolution..."
+          rm -rf ~/.pub-cache
+          rm -rf $FLUTTER_ROOT/.pub-cache
+          echo "Pub cache cleared"
+
+      - name: Install Dependencies
+        run: |
+          flutter pub get
+          cd ios && bundle install && cd ..
+
+      - name: Setup SSH Key for Match
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
+
+      - name: Update Xcode Project Configuration
+        run: |
+          BUNDLE_ID="${{ steps.config.outputs.bundle_id }}"
+          TEAM_ID="${{ steps.config.outputs.team_id }}"
+          DISPLAY_NAME="${{ steps.config.outputs.display_name }}"
+          
+          echo "Updating Xcode project with:"
+          echo "  Bundle ID: $BUNDLE_ID"
+          echo "  Team ID: $TEAM_ID"
+          echo "  Display Name: $DISPLAY_NAME"
+          
+          # Update Bundle Identifier and Team ID in project.pbxproj for all configurations
+          sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = .*/PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID;/g" ios/Runner.xcodeproj/project.pbxproj
+          sed -i '' "s/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = $TEAM_ID;/g" ios/Runner.xcodeproj/project.pbxproj
+          
+          # Update display name in Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $DISPLAY_NAME" ios/Runner/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleName $DISPLAY_NAME" ios/Runner/Info.plist
+          
+          echo "Xcode project updated successfully"
+
+      - name: Update Build Version
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_version != ''
+        run: |
+          VERSION="${{ github.event.inputs.build_version }}"
+          echo "Updating version to: $VERSION"
+          
+          # Update version in pubspec.yaml
+          sed -i '' "s/^version: .*/version: $VERSION+${{ github.event.inputs.build_number || '1' }}/" pubspec.yaml
+
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod deintegrate || true
+          pod install --repo-update
+          cd ..
+
+      - name: Clean Previous Builds
+        run: |
+          echo "Cleaning previous build artifacts..."
+          rm -rf ios/DerivedData
+          rm -rf build
+          flutter clean
+          echo "Clean complete"
+
+      - name: Generate Flutter Build Files
+        run: |
+          echo "Generating Flutter iOS build configuration..."
+          flutter pub get
+          flutter build ios --config-only --no-codesign
+          echo "Flutter build files generated"
+
+      - name: Setup fastlane
+        run: |
+          cd ios
+          if [ ! -d "fastlane" ]; then
+            mkdir -p fastlane
+          fi
+          cd ..
+
+      - name: System Diagnostics
+        run: |
+          echo "=== SYSTEM DIAGNOSTICS ==="
+          echo "Xcode Version:"
+          xcodebuild -version
+          echo ""
+          echo "Xcode Select Path:"
+          xcode-select -p
+          echo ""
+          echo "Ruby Version:"
+          ruby --version
+          echo ""
+          echo "Gemfile.lock:"
+          cd ios && bundle show fastlane && cd ..
+          echo ""
+          echo "Flutter Version:"
+          flutter --version
+          echo ""
+          echo "Memory Pressure:"
+          sysctl hw.memsize
+          sysctl hw.ncpu
+          echo ""
+          echo "Disk Space:"
+          df -h /
+          echo ""
+          echo "Available Schemes:"
+          xcodebuild -workspace ios/Runner.xcworkspace -list
+
+      - name: Create App Store Connect API Key
+        run: |
+          mkdir -p ~/.fastlane
+          echo "${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}" > ~/.fastlane/app_store_connect_key.p8
+          echo "App Store Connect API key file created"
+
+      - name: Create Fastfile
+        run: |
+          BUNDLE_ID="${{ steps.config.outputs.bundle_id }}"
+          TEAM_ID="${{ steps.config.outputs.team_id }}"
+          ASC_TEAM_ID="${{ steps.config.outputs.asc_team_id }}"
+          
+          cat > ios/fastlane/Fastfile << 'EOF'
+          default_platform(:ios)
+
+          platform :ios do
+            desc "Deploy to TestFlight"
+            lane :deploy_testflight do |options|
+              app_identifier = options[:app_identifier]
+              team_id = options[:team_id]
+              asc_team_id = options[:asc_team_id]
+              release_notes = options[:release_notes]
+              
+              puts "=" * 80
+              puts "BUILD DIAGNOSTICS"
+              puts "=" * 80
+              puts "App Identifier: #{app_identifier}"
+              puts "Team ID: #{team_id}"
+              puts "ASC Team ID: #{asc_team_id}"
+              puts "Xcode Version: #{`xcodebuild -version`.strip}"
+              puts "Ruby Version: #{RUBY_VERSION}"
+              puts "Fastlane Version: #{Fastlane::VERSION}"
+              puts "=" * 80
+              
+              # CRITICAL: Setup CI environment to prevent build freezing
+              # Creates temporary keychain for code signing
+              setup_ci if ENV['CI']
+              
+              api_key = app_store_connect_api_key(
+                key_id: ENV['APP_STORE_CONNECT_API_KEY_KEY_ID'],
+                issuer_id: ENV['APP_STORE_CONNECT_API_KEY_ISSUER_ID'],
+                key_filepath: File.expand_path("~/.fastlane/app_store_connect_key.p8")
+              )
+              
+              match(
+                type: "appstore",
+                app_identifier: app_identifier,
+                team_id: team_id,
+                readonly: true,
+                verbose: true,
+                api_key: api_key
+              )
+              
+              puts "Installed certificates:"
+              puts `security find-identity -v -s "Apple Distribution" 2>&1` || "No Apple Distribution certs found"
+              puts "Installed provisioning profiles:"
+              puts `ls -la ~/Library/MobileDevice/Provisioning\ Profiles/ 2>&1` || "No profiles found"
+              
+              update_code_signing_settings(
+                use_automatic_signing: false,
+                path: "Runner.xcodeproj",
+                team_id: team_id,
+                profile_name: "match AppStore #{app_identifier}",
+                code_sign_identity: "Apple Distribution",
+                targets: ["Runner"],
+                bundle_identifier: app_identifier
+              )
+              
+              update_code_signing_settings(
+                use_automatic_signing: false,
+                path: "Runner.xcodeproj",
+                targets: ["RunnerTests"]
+              )
+              
+              puts "Starting archive build..."
+              puts "Workspace: Runner.xcworkspace"
+              puts "Scheme: Runner"
+              puts "Export Method: app-store"
+              
+              build_app(
+                workspace: "Runner.xcworkspace",
+                scheme: "Runner",
+                export_method: "app-store",
+                export_options: {
+                  provisioningProfiles: {
+                    app_identifier => "match AppStore #{app_identifier}"
+                  }
+                },
+                destination: "generic/platform=iOS",
+                verbose: true,
+                build_path: "./build",
+                clean: true,
+                skip_package_ipa: false
+              )
+              
+              puts "Archive build complete!"
+              puts "Checking for .ipa file..."
+              puts `ls -lh *.ipa 2>&1` || "No .ipa found"
+              
+              upload_to_testflight(
+                skip_waiting_for_build_processing: true,
+                changelog: release_notes,
+                api_key: api_key
+              )
+            end
+            
+            desc "Deploy to App Store"
+            lane :deploy_appstore do |options|
+              app_identifier = options[:app_identifier]
+              team_id = options[:team_id]
+              asc_team_id = options[:asc_team_id]
+              release_notes = options[:release_notes]
+              
+              puts "=" * 80
+              puts "BUILD DIAGNOSTICS"
+              puts "=" * 80
+              puts "App Identifier: #{app_identifier}"
+              puts "Team ID: #{team_id}"
+              puts "ASC Team ID: #{asc_team_id}"
+              puts "Xcode Version: #{`xcodebuild -version`.strip}"
+              puts "Ruby Version: #{RUBY_VERSION}"
+              puts "Fastlane Version: #{Fastlane::VERSION}"
+              puts "=" * 80
+              
+              # CRITICAL: Setup CI environment to prevent build freezing
+              # Creates temporary keychain for code signing
+              setup_ci if ENV['CI']
+              
+              api_key = app_store_connect_api_key(
+                key_id: ENV['APP_STORE_CONNECT_API_KEY_KEY_ID'],
+                issuer_id: ENV['APP_STORE_CONNECT_API_KEY_ISSUER_ID'],
+                key_filepath: File.expand_path("~/.fastlane/app_store_connect_key.p8")
+              )
+              
+              match(
+                type: "appstore",
+                app_identifier: app_identifier,
+                team_id: team_id,
+                readonly: true,
+                verbose: true,
+                api_key: api_key
+              )
+              
+              puts "Installed certificates:"
+              puts `security find-identity -v -s "Apple Distribution" 2>&1` || "No Apple Distribution certs found"
+              
+              update_code_signing_settings(
+                use_automatic_signing: false,
+                path: "Runner.xcodeproj",
+                team_id: team_id,
+                profile_name: "match AppStore #{app_identifier}",
+                code_sign_identity: "Apple Distribution",
+                targets: ["Runner"],
+                bundle_identifier: app_identifier
+              )
+              
+              update_code_signing_settings(
+                use_automatic_signing: false,
+                path: "Runner.xcodeproj",
+                targets: ["RunnerTests"]
+              )
+              
+              build_app(
+                workspace: "Runner.xcworkspace",
+                scheme: "Runner",
+                export_method: "app-store",
+                export_options: {
+                  provisioningProfiles: {
+                    app_identifier => "match AppStore #{app_identifier}"
+                  }
+                },
+                destination: "generic/platform=iOS",
+                verbose: true,
+                build_path: "./build",
+                clean: true,
+                skip_package_ipa: false
+              )
+              
+              upload_to_app_store(
+                skip_metadata: true,
+                skip_screenshots: true,
+                submit_for_review: false,
+                automatic_release: false,
+                api_key: api_key
+              )
+            end
+          end
+          EOF
+
+      - name: Create Matchfile
+        run: |
+          cat > ios/fastlane/Matchfile << 'EOF'
+          git_url("git@github.com:rizzojr01/ios-certificates.git")
+          storage_mode("git")
+          type("appstore")
+          EOF
+
+      - name: Create Appfile
+        run: |
+          BUNDLE_ID="${{ steps.config.outputs.bundle_id }}"
+          TEAM_ID="${{ steps.config.outputs.team_id }}"
+          ITC_TEAM_ID="${{ steps.config.outputs.itc_team_id }}"
+          
+          cat > ios/fastlane/Appfile << EOF
+          app_identifier("$BUNDLE_ID")
+          itc_team_id("$ITC_TEAM_ID")
+          team_id("$TEAM_ID")
+          EOF
+
+      - name: Deploy to TestFlight
+        if: github.event_name == 'push' || github.event.inputs.environment != 'appstore'
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
+        run: |
+          cd ios
+          bundle exec fastlane deploy_testflight \
+            app_identifier:"${{ steps.config.outputs.bundle_id }}" \
+            team_id:"${{ steps.config.outputs.team_id }}" \
+            asc_team_id:"${{ steps.config.outputs.asc_team_id }}" \
+            release_notes:"Auto-deployed build from commit ${{ github.sha }}"
+
+      - name: Deploy to App Store
+        if: github.event.inputs.environment == 'appstore'
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
+        run: |
+          cd ios
+          bundle exec fastlane deploy_appstore \
+            app_identifier:"${{ steps.config.outputs.bundle_id }}" \
+            team_id:"${{ steps.config.outputs.team_id }}" \
+            asc_team_id:"${{ steps.config.outputs.asc_team_id }}" \
+            release_notes:"Auto-deployed build from commit ${{ github.sha }}"
+
+      - name: Upload Build Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs-${{ github.run_id }}
+          path: |
+            ios/build_logs
+            ios/fastlane/report.xml
+            ios/*.ipa
+            ios/build/**/*.app
+            ~/Library/Logs/scan/*.log
+          retention-days: 7
+          if-no-files-found: ignore
