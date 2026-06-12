@@ -1,0 +1,14 @@
+{
+  "apps": [
+    {
+      "id": "plpro",
+      "name": "PlPro",
+      "bundle_id": "com.taggedweb.pathlogic-pro",
+      "team_id": "M26N2KSNVL",
+      "app_store_connect_team_id": "M26N2KSNVL",
+      "itc_team_id": "M26N2KSNVL",
+      "provisioning_profile_specifier": "PlPro Distribution",
+      "display_name": "PlPro"
+    }
+  ]
+}
