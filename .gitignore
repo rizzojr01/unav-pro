@@ -34,6 +34,10 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# iOS build/export artifacts
+ios/ExportOptions.plist
+ios/build/
+
 # Symbolication related
 app.*.symbols
 
