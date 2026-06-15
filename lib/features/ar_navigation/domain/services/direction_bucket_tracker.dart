@@ -92,12 +92,13 @@ class DirectionBucketTracker {
     final stepMeters =
         math.sqrt(deltaEast * deltaEast + deltaNorth * deltaNorth);
 
-    // Below the step gate the walk vector is just sensor noise. Hold the
-    // FP position steady but advance the AR anchor and the phone heading
-    // so the next non-noise step measures from the most recent AR sample
-    // — and the map keeps rotating as the user turns in place.
+    // Below the step gate the walk vector might be sensor noise OR just a
+    // small fraction of a normal walking step (30 fps × 1 m/s ≈ 3 cm per
+    // frame). Keep `_lastArPose` pointing at the last *committed* sample
+    // so subsequent frames accumulate against it — otherwise advancing
+    // the anchor every frame would forever reset the accumulator and
+    // the user dot would never move.
     if (stepMeters < _minStepMeters) {
-      _lastArPose = currentArPose;
       return referenceFp.copyWith(
         x: lastFp.dx,
         y: lastFp.dy,
