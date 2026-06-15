@@ -64,10 +64,19 @@ class DirectionBucketTracker {
     final lastFp = _lastFpPosition;
     final lastAr = _lastArPose;
 
+    // Phone-facing floorplan heading. Mirrors ArPoseTransformer so the
+    // returned LocalizedPose.heading rotates the map view in sync with
+    // the phone, even though the user dot's POSITION steps in bucketed
+    // travel direction. Decouples visual orientation from the train-on-
+    // tracks motion model.
+    final phoneFpHeading =
+        _normalize(sumHeadingDeg - currentArPose.heading);
+
     if (lastFp == null || lastAr == null) {
       _lastFpPosition = Offset(referenceFp.x, referenceFp.y);
       _lastArPose = currentArPose;
       return referenceFp.copyWith(
+        heading: phoneFpHeading,
         timestamp: currentArPose.timestamp,
         confidence: currentArPose.confidence,
       );
@@ -84,13 +93,15 @@ class DirectionBucketTracker {
         math.sqrt(deltaEast * deltaEast + deltaNorth * deltaNorth);
 
     // Below the step gate the walk vector is just sensor noise. Hold the
-    // FP position steady but advance the AR anchor so the next non-noise
-    // step measures from the most recent AR sample.
+    // FP position steady but advance the AR anchor and the phone heading
+    // so the next non-noise step measures from the most recent AR sample
+    // — and the map keeps rotating as the user turns in place.
     if (stepMeters < _minStepMeters) {
       _lastArPose = currentArPose;
       return referenceFp.copyWith(
         x: lastFp.dx,
         y: lastFp.dy,
+        heading: phoneFpHeading,
         timestamp: currentArPose.timestamp,
         confidence: currentArPose.confidence,
       );
@@ -101,9 +112,8 @@ class DirectionBucketTracker {
     final arWalkAngleDeg =
         math.atan2(deltaNorth, deltaEast) * 180.0 / math.pi;
 
-    // Map AR walk angle into the floorplan compass frame.
+    // Travel direction in the floorplan compass frame.
     //   fpAngle = sumHeadingDeg - arAngle
-    // mirrors ArPoseTransformer's pose-heading derivation.
     final fpAngleDeg = _normalize(sumHeadingDeg - arWalkAngleDeg);
 
     final bucketedDeg =
@@ -136,7 +146,7 @@ class DirectionBucketTracker {
     return referenceFp.copyWith(
       x: candidateFp.dx,
       y: candidateFp.dy,
-      heading: bucketedDeg,
+      heading: phoneFpHeading,
       timestamp: currentArPose.timestamp,
       confidence: currentArPose.confidence,
     );
