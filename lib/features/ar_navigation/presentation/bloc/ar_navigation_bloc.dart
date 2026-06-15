@@ -408,7 +408,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       // overlay so the misaligned line doesn't mislead the user.
       unawaited(_poseRepository.clearOverlay());
     } else {
-      _handleArOverlay(update, localizedPose);
+      _handleArOverlay(update, localizedPose, event.pose);
     }
     _handleAudioGuidance(update, localizedPose);
 
@@ -617,7 +617,11 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     }
   }
 
-  void _handleArOverlay(ArTrackingUpdate update, LocalizedPose currentPose) {
+  void _handleArOverlay(
+    ArTrackingUpdate update,
+    LocalizedPose currentPose,
+    ArPose currentArPose,
+  ) {
     if (_route == null || _originArPose == null || _referencePose == null) {
       return;
     }
@@ -690,26 +694,25 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
         ? routePoints
         : routePoints.map((p) => snapToRouteNetwork(p, segments)).toList();
 
-    // Prepend the user's CURRENT snapped floorplan position to the path so
-    // the AR line literally starts at the user's feet. Skip past waypoints
-    // so only the segment in front of the user is rendered. Mirrors
-    // unav_app PathTrackingService.update.
+    // Path origin = current camera world position at floor height.
+    // We deliberately bypass the FP→AR transform here so the line starts
+    // directly under the camera regardless of any FP-side snap or
+    // transformer drift. The remaining waypoints still flow through the
+    // static FP→AR transform so they keep their world-anchored layout.
     final activeIdx =
         update.nextWaypointIndex.clamp(0, snappedRoutePoints.length - 1);
-    final rawUserFp = Offset(currentPose.x, currentPose.y);
-    final userFp = segments.isEmpty
-        ? rawUserFp
-        : snapToRouteNetwork(rawUserFp, segments,
-            thresholdPx: 2.0 / effectiveMpp);
-
-    final trackedPath = <Offset>[
-      userFp,
-      ...snappedRoutePoints.skip(activeIdx),
+    final cameraOriginAr = <double>[
+      currentArPose.worldX ?? currentArPose.x,
+      floorWorldY,
+      currentArPose.worldZ ?? -currentArPose.y,
     ];
 
-    final pathWorldPoints = trackedPath
-        .map((p) => floorplanToArWorld(p.dx, p.dy))
-        .toList(growable: false);
+    final pathWorldPoints = <List<double>>[
+      cameraOriginAr,
+      ...snappedRoutePoints
+          .skip(activeIdx)
+          .map((p) => floorplanToArWorld(p.dx, p.dy)),
+    ];
 
     // Active = user → next waypoint (thick teal in native renderer).
     // Future = remainder (thin blue). Matches unav_app split.
