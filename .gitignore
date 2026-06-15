@@ -11,7 +11,7 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
-.github/
+
 
 # IntelliJ related
 *.iml
@@ -33,6 +33,10 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+
+# iOS build/export artifacts
+ios/ExportOptions.plist
+ios/build/
 
 # Symbolication related
 app.*.symbols
