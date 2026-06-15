@@ -298,7 +298,7 @@ class _DirectionBucketRow extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Bucketed direction (train on tracks)',
+                    'Bucketed direction',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
