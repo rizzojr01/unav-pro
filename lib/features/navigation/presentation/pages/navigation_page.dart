@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../../../injection.dart';
 import '../../../../shared/services/floor_plan_cache_service.dart';
@@ -51,6 +54,12 @@ class NavigationPage extends StatefulWidget {
 }
 
 class _NavigationPageState extends State<NavigationPage> {
+  // Captured AR pose from a tap-to-relocalize event. When set, overrides
+  // the widget-time `capturedArPose` when restarting AR tracking after a
+  // mid-session relocalization. Cleared back to null on a fresh page
+  // load.
+  ArPose? _overrideOriginPose;
+
   @override
   void initState() {
     super.initState();
@@ -58,6 +67,34 @@ class _NavigationPageState extends State<NavigationPage> {
           InitializeNavigationEvent(
             widget.destination,
             imagePath: widget.imagePath,
+            userPickedCoordinates: widget.userPickedCoordinates,
+            pickedFloor: widget.pickedFloor,
+          ),
+        );
+  }
+
+  /// Stop the AR session, store the freshly-captured pose, and dispatch a
+  /// new `InitializeNavigationEvent` with the captured JPEG. NavigationBloc
+  /// will refetch the route from that image, then `_startArTracking` will
+  /// fire again — this time anchored at the new pose.
+  Future<void> _handleRelocalize({
+    required String imagePath,
+    required ArPose capturedArPose,
+  }) async {
+    final arBloc = context.read<ArNavigationBloc>();
+    if (arBloc.state is! ArNavigationInitial) {
+      arBloc.add(const StopArNavigation());
+      await arBloc.stream.firstWhere((s) => s is ArNavigationInitial);
+    }
+    if (!mounted) return;
+    setState(() {
+      _overrideOriginPose = capturedArPose;
+    });
+    context.read<NavigationBloc>().add(
+          InitializeNavigationEvent(
+            widget.destination,
+            imagePath: imagePath,
+            // Keep manual coordinates / picked floor on subsequent relocs.
             userPickedCoordinates: widget.userPickedCoordinates,
             pickedFloor: widget.pickedFloor,
           ),
@@ -140,7 +177,7 @@ class _NavigationPageState extends State<NavigationPage> {
             ),
             metersPerPixel: floorScale,
             route: state.route,
-            originArPose: widget.capturedArPose,
+            originArPose: _overrideOriginPose ?? widget.capturedArPose,
           ),
         );
   }
@@ -175,6 +212,7 @@ class _NavigationPageState extends State<NavigationPage> {
               userPickedCoordinates: widget.userPickedCoordinates,
               headingAtStart: state.headingAtStart,
               capturedReferenceHeading: state.capturedReferenceHeading,
+              onRelocalize: _handleRelocalize,
             );
           }
           if (state is NavigationError) {
@@ -215,6 +253,10 @@ class _NavigationMapView extends StatefulWidget {
   final Map<String, dynamic>? userPickedCoordinates;
   final double? headingAtStart;
   final double? capturedReferenceHeading;
+  final Future<void> Function({
+    required String imagePath,
+    required ArPose capturedArPose,
+  })? onRelocalize;
 
   const _NavigationMapView({
     super.key,
@@ -230,6 +272,7 @@ class _NavigationMapView extends StatefulWidget {
     this.userPickedCoordinates,
     this.headingAtStart,
     this.capturedReferenceHeading,
+    this.onRelocalize,
   });
 
   @override
@@ -241,6 +284,32 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   late String _selectedFloor;
   late AnimationController _floorAnimController;
   late Map<String, String> _floorPlansByFloor;
+  bool _isCapturing = false;
+
+  Future<void> _captureAndRelocalize() async {
+    if (_isCapturing || widget.onRelocalize == null) return;
+    setState(() => _isCapturing = true);
+    try {
+      // Atomic JPEG + ARFrame pose. The pose is the new origin for the
+      // about-to-be-restarted AR session, so its yaw is locked to the
+      // exact moment the photo went to the localization server.
+      final capture =
+          await getIt<ArPoseRepository>().captureCurrentFrameWithPose();
+      final tempDir = await getTemporaryDirectory();
+      final filePath =
+          '${tempDir.path}/relocalize_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final file = File(filePath);
+      await file.writeAsBytes(capture.jpegBytes);
+      await widget.onRelocalize!(
+        imagePath: filePath,
+        capturedArPose: capture.pose,
+      );
+    } catch (e) {
+      debugPrint('Error capturing image in navigation: $e');
+    } finally {
+      if (mounted) setState(() => _isCapturing = false);
+    }
+  }
 
   @override
   void initState() {
@@ -475,8 +544,41 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                     Positioned(
                       right: 16,
                       top: 10,
-                      child: ArPreviewFloatingWindow(
-                        onTap: () {},
+                      child: Stack(
+                        children: [
+                          ArPreviewFloatingWindow(
+                            onTap: _captureAndRelocalize,
+                          ),
+                          if (_isCapturing)
+                            Positioned.fill(
+                              child: Container(
+                                color: Colors.black45,
+                                child: const Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          const Positioned(
+                            left: 8,
+                            right: 8,
+                            bottom: 6,
+                            child: IgnorePointer(
+                              child: Center(
+                                child: Text(
+                                  'TAP TO RELOCATE',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                 ],
