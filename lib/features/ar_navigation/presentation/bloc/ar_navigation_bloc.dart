@@ -630,16 +630,20 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     final reference = _referencePose!;
     final origin = _originArPose!;
 
-    // Matches ar_temp _floorplanPointToArWorld:
-    //   sumHeadingDeg = reference.heading + captureHeading (AR yaw at session start).
-    // Must use identical angle as ArPoseTransformer (forward direction) so path and
-    // tracked position share the same rotation frame. Includes the live-tunable
-    // heading offset so adjustments rotate the AR path overlay in real time.
+    // Base rotation = reference.heading + captureHeading. Does NOT include
+    // the live-tunable heading offset — that is applied below as a separate
+    // rotation around the camera's current AR position so adjustments pivot
+    // at the user's feet instead of the session start. Without that split,
+    // sliding the offset 5° at the end of a corridor would sweep the far
+    // waypoints by `distance_from_origin × tan(5°)` because the lever arm
+    // was the navigation start point.
     final captureHeading = _normalizeDegrees(origin.heading);
-    final sumHeadingDeg = _normalizeDegrees(
-      reference.heading + captureHeading + _locationConfig.arHeadingOffsetDeg,
-    );
+    final sumHeadingDeg =
+        _normalizeDegrees(reference.heading + captureHeading);
     final sumHeadingRad = sumHeadingDeg * math.pi / 180.0;
+    final offsetRad = _locationConfig.arHeadingOffsetDeg * math.pi / 180.0;
+    final offsetCos = math.cos(offsetRad);
+    final offsetSin = math.sin(offsetRad);
 
     // Origin pose in math-plane (East, North).
     final originWorldX = origin.worldX ?? origin.x;
@@ -707,11 +711,27 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       currentArPose.worldZ ?? -currentArPose.y,
     ];
 
+    // Apply the heading-offset slider as a rotation pivoting at the camera,
+    // so sliding the slider rotates only the line ahead of the user — the
+    // segment we just walked away from doesn't sweep into the wall behind.
+    // East / North math-plane to match floorplanToArWorld's rotation.
+    List<double> applyOffsetAroundCamera(List<double> p) {
+      final eastDelta = p[0] - cameraOriginAr[0];
+      final northDelta = -(p[2] - cameraOriginAr[2]); // worldZ = -North
+      final rotEast = eastDelta * offsetCos - northDelta * offsetSin;
+      final rotNorth = eastDelta * offsetSin + northDelta * offsetCos;
+      return [
+        cameraOriginAr[0] + rotEast,
+        p[1],
+        cameraOriginAr[2] - rotNorth,
+      ];
+    }
+
     final pathWorldPoints = <List<double>>[
       cameraOriginAr,
       ...snappedRoutePoints
           .skip(activeIdx)
-          .map((p) => floorplanToArWorld(p.dx, p.dy)),
+          .map((p) => applyOffsetAroundCamera(floorplanToArWorld(p.dx, p.dy))),
     ];
 
     // Active = user → next waypoint (thick teal in native renderer).
@@ -730,9 +750,12 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       pathPoints: pathWorldPoints,
       activePathPoints: activePathPoints,
       futurePathPoints: futurePathPoints,
-      nextWaypoint:
-          floorplanToArWorld(nextWaypointFp.dx, nextWaypointFp.dy),
-      destination: floorplanToArWorld(destinationFp.dx, destinationFp.dy),
+      nextWaypoint: applyOffsetAroundCamera(
+        floorplanToArWorld(nextWaypointFp.dx, nextWaypointFp.dy),
+      ),
+      destination: applyOffsetAroundCamera(
+        floorplanToArWorld(destinationFp.dx, destinationFp.dy),
+      ),
     );
   }
 
