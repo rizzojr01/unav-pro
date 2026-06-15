@@ -15,6 +15,9 @@ class ArPreviewFloatingWindow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      // `opaque` ensures the gesture arena hits this detector even though
+      // the underlying UiKitView is the visually-painted layer.
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
         width: 180,
@@ -34,23 +37,29 @@ class ArPreviewFloatingWindow extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Stack(
           children: [
-            const ArPreviewNativeView(),
+            // UiKitView swallows touches by default — wrap in IgnorePointer
+            // so the outer GestureDetector sees the tap. The native view
+            // still renders the camera feed normally.
+            const IgnorePointer(child: ArPreviewNativeView()),
             Positioned(
               top: 8,
               left: 8,
               right: 8,
-              child: BlocBuilder<ArNavigationBloc, ArNavigationState>(
-                builder: (context, state) {
-                  if (state is ArNavigationTracking) {
-                    return ArGuidanceBanner(
-                      state: state.state,
-                      remainingDistancePx: state.remainingDistancePx,
-                      distanceToNextWaypointPx: state.distanceToNextWaypointPx,
-                      message: state.guidanceMessage,
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
+              child: IgnorePointer(
+                child: BlocBuilder<ArNavigationBloc, ArNavigationState>(
+                  builder: (context, state) {
+                    if (state is ArNavigationTracking) {
+                      return ArGuidanceBanner(
+                        state: state.state,
+                        remainingDistancePx: state.remainingDistancePx,
+                        distanceToNextWaypointPx:
+                            state.distanceToNextWaypointPx,
+                        message: state.guidanceMessage,
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
               ),
             ),
           ],
