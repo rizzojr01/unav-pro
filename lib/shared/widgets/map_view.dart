@@ -74,6 +74,12 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   Size? _imageSize;
   bool _hasImageError = false;
   bool _isSearching = false;
+  // Last `_mapRotationRad` value the IV matrix was compensated against.
+  // Used to pivot rotation around the user's on-screen position instead
+  // of the screen centre — without this, any drift between the user dot
+  // and screen centre makes the map appear to swing around an off-user
+  // pivot when heading changes.
+  double? _lastAppliedRotation;
   bool _hasInitializedView = false;
   final bool _isAutoCentered = true;
   final TextEditingController _searchController = TextEditingController();
@@ -195,6 +201,22 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       });
     }
 
+    // Subsequent heading updates: pivot the rotation around the user's
+    // on-screen position. Without this the `Transform.rotate` around the
+    // screen centre would swing the map every time `_mapRotationRad`
+    // changes if the user dot had drifted off-centre at all.
+    final newRot = _mapRotationRad;
+    if (_imageSize != null &&
+        _lastAppliedRotation != null &&
+        (_lastAppliedRotation! - newRot).abs() > 1e-6) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final box = context.findRenderObject() as RenderBox?;
+        if (box == null) return;
+        _applyRotationPivot(newRot, box.size, _imageSize!);
+      });
+    }
+
     // Continuous follow: as user moves, keep them at screen center so the
     // Transform.rotate (which pivots around screen center) appears to rotate
     // around the user, not the map. Preserves current zoom.
@@ -245,6 +267,65 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Translates the IV matrix so the user's on-screen position stays put
+  /// across a rotation change. Ports main's `_setManualRotation` shift
+  /// math: project the user's current screen-space offset from centre,
+  /// re-project that offset under the new rotation, and add a translation
+  /// equal to the delta. The user appears pinned regardless of how far
+  /// they have drifted from the screen centre.
+  void _applyRotationPivot(
+    double newRotation,
+    Size containerSize,
+    Size imageSize,
+  ) {
+    final old = _lastAppliedRotation;
+    if (old == null) {
+      _lastAppliedRotation = newRotation;
+      return;
+    }
+    if ((old - newRotation).abs() < 1e-6) return;
+
+    final imageAR = imageSize.width / imageSize.height;
+    final containerAR = containerSize.width / containerSize.height;
+    double dispW, dispH;
+    if (imageAR > containerAR) {
+      dispW = containerSize.width;
+      dispH = containerSize.width / imageAR;
+    } else {
+      dispH = containerSize.height;
+      dispW = containerSize.height * imageAR;
+    }
+    final sX = dispW / imageSize.width;
+    final sY = dispH / imageSize.height;
+    final offX = (containerSize.width - dispW) / 2;
+    final offY = (containerSize.height - dispH) / 2;
+
+    final userPos = _getUserCoords();
+    final userCX = userPos.dx * sX + offX;
+    final userCY = userPos.dy * sY + offY;
+    final cx = containerSize.width / 2;
+    final cy = containerSize.height / 2;
+    final dxU = userCX - cx;
+    final dyU = userCY - cy;
+
+    final cosOld = math.cos(old);
+    final sinOld = math.sin(old);
+    final oldX = cx + dxU * cosOld - dyU * sinOld;
+    final oldY = cy + dxU * sinOld + dyU * cosOld;
+
+    final cosNew = math.cos(newRotation);
+    final sinNew = math.sin(newRotation);
+    final newX = cx + dxU * cosNew - dyU * sinNew;
+    final newY = cy + dxU * sinNew + dyU * cosNew;
+
+    final shiftX = oldX - newX;
+    final shiftY = oldY - newY;
+
+    _transformationController.value = _transformationController.value.clone()
+      ..translateByDouble(shiftX, shiftY, 0, 1);
+    _lastAppliedRotation = newRotation;
   }
 
   void _followUserAtCurrentZoom(Size containerSize, Size imageSize) {
@@ -377,6 +458,10 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     } else {
       _transformationController.value = targetMatrix;
     }
+    // Recentre placed the user back at screen centre. The next rotation
+    // change should pivot around that point, so seed the rotation baseline
+    // here so `_applyRotationPivot` has a starting value.
+    _lastAppliedRotation = _mapRotationRad;
   }
 
   @override
