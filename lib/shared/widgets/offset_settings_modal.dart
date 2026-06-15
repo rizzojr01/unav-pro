@@ -45,6 +45,8 @@ void showOffsetSettingsModal(BuildContext context) {
               _SnapToRouteRow(locationConfig: locationConfig),
               const SizedBox(height: 6),
               _AutoHeadingRow(locationConfig: locationConfig),
+              const SizedBox(height: 6),
+              _DirectionBucketRow(locationConfig: locationConfig),
             ],
           ),
         ),
@@ -271,6 +273,78 @@ class _StepButton extends StatelessWidget {
         ),
         child: Icon(icon, size: 18, color: theme.colorScheme.primary),
       ),
+    );
+  }
+}
+
+class _DirectionBucketRow extends StatelessWidget {
+  final LocationConfigService locationConfig;
+
+  const _DirectionBucketRow({required this.locationConfig});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ValueListenableBuilder<bool>(
+      valueListenable: locationConfig.directionBucketModeNotifier,
+      builder: (context, modeOn, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const SizedBox(width: 36),
+                const Icon(Icons.swap_horizontal_circle_outlined, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Bucketed direction (train on tracks)',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Switch(
+                  value: modeOn,
+                  onChanged: (v) => locationConfig.setDirectionBucketMode(v),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ],
+            ),
+            if (modeOn)
+              Padding(
+                padding: const EdgeInsets.only(left: 60, top: 4),
+                child: ValueListenableBuilder<int>(
+                  valueListenable: locationConfig.directionBucketCountNotifier,
+                  builder: (context, count, _) {
+                    return Row(
+                      children: [
+                        Text(
+                          'Bins',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        const SizedBox(width: 12),
+                        ChoiceChip(
+                          label: const Text('4 (N/E/S/W)'),
+                          selected: count == 4,
+                          onSelected: (_) =>
+                              locationConfig.setDirectionBucketCount(4),
+                        ),
+                        const SizedBox(width: 6),
+                        ChoiceChip(
+                          label: const Text('8'),
+                          selected: count == 8,
+                          onSelected: (_) =>
+                              locationConfig.setDirectionBucketCount(8),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

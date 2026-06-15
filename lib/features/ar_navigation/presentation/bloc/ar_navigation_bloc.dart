@@ -14,6 +14,7 @@ import '../../domain/models/audio_cue_direction.dart';
 import '../../domain/models/guidance_event_type.dart';
 import '../../domain/repositories/ar_pose_repository.dart';
 import '../../domain/services/ar_pose_transformer.dart';
+import '../../domain/services/direction_bucket_tracker.dart';
 import '../../domain/services/guidance_sound_service.dart';
 import '../../domain/services/heading_auto_corrector.dart';
 import '../../domain/services/path_tracking_service.dart';
@@ -41,6 +42,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   double _arTravelDistance = 0.0;
   ArPose? _lastPoseForDistance;
   final HeadingAutoCorrector _headingCorrector = HeadingAutoCorrector();
+  final DirectionBucketTracker _bucketTracker = DirectionBucketTracker();
 
   static const double _headingLockThresholdDeg = 8.0;
 
@@ -88,6 +90,9 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     _arTravelDistance = 0.0;
     _lastPoseForDistance = event.originArPose;
     _headingCorrector.reset();
+    _bucketTracker
+      ..reset()
+      ..bucketCount = _locationConfig.directionBucketCount;
     _lastState = ArTrackingState.idle;
     _lastWaypointIndex = 0;
     _wasApproachingWaypoint = false;
@@ -307,55 +312,75 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
 
     // Use already-corrected metersPerPixel from _onStartNavigation
     final effectiveMpp = _metersPerPixel ?? 0.05;
-
-    // ArPoseTransformer now produces correctly-aligned FP coordinates and
-    // heading directly from ARKit's gravityAndHeading world frame.
-    // No additional delta correction is needed — the session's compass
-    // alignment handles it at the native layer.
-    var localizedPose = _poseTransformer.transform(
-      currentArPose: event.pose,
-      originArPose: _originArPose!,
-      referenceFloorplanPose: _referencePose!,
-      metersPerPixel: effectiveMpp,
-      headingOffsetDeg: _locationConfig.arHeadingOffsetDeg,
-    );
-
-    // Snap (x,y) onto nearest navigable corridor edge. Heading/confidence/
-    // timestamp untouched. Threshold (px) prevents stray-pose teleport.
     final segments = _route?.routeNetworkSegments ?? const [];
-    final unsnappedFp = Offset(localizedPose.x, localizedPose.y);
-    if (_locationConfig.snapToRoute && segments.isNotEmpty) {
-      final snapThresholdPx = 2.0 / effectiveMpp; // ~2 m
-      final snapped = snapToRouteNetwork(
-        unsnappedFp,
-        segments,
-        thresholdPx: snapThresholdPx,
-      );
-      if (snapped.dx != localizedPose.x || snapped.dy != localizedPose.y) {
-        localizedPose = localizedPose.copyWith(x: snapped.dx, y: snapped.dy);
-      }
-    }
+    final bucketMode = _locationConfig.directionBucketMode;
 
-    // Auto-tune AR heading offset from observed corridor direction.
-    // Compares the user's unsnapped floorplan walk vector against the nearest
-    // route_segment direction over a short rolling window. Hides 2-5°
-    // backend/ARKit yaw error so the AR path stops drifting into walls.
-    if (_locationConfig.autoHeadingCorrection && segments.isNotEmpty) {
-      final arWorldPos = Offset(
-        event.pose.worldX ?? event.pose.x,
-        event.pose.worldZ ?? -event.pose.y,
+    LocalizedPose localizedPose;
+
+    if (bucketMode) {
+      // Solution 2 — "push train on tracks". Replace the per-frame AR→FP
+      // transform with a walk-distance + bucketed-direction step along
+      // snap-to-route. Yaw error within the bucket width is absorbed.
+      // Sync the bucket count in case the user toggled it mid-session.
+      _bucketTracker.bucketCount = _locationConfig.directionBucketCount;
+      final captureHeading = _normalizeDegrees(_originArPose!.heading);
+      final sumHeadingDeg = _normalizeDegrees(
+        _referencePose!.heading +
+            captureHeading +
+            _locationConfig.arHeadingOffsetDeg,
       );
-      final suggestion = _headingCorrector.observe(
-        unsnappedFpPose: unsnappedFp,
-        arWorldPos: arWorldPos,
-        snappedFpPose: Offset(localizedPose.x, localizedPose.y),
-        segments: segments,
+      localizedPose = _bucketTracker.track(
+        currentArPose: event.pose,
+        referenceFp: _referencePose!,
+        sumHeadingDeg: sumHeadingDeg,
         metersPerPixel: effectiveMpp,
-        currentOffsetDeg: _locationConfig.arHeadingOffsetDeg,
-        timestamp: event.pose.timestamp,
+        segments: segments,
       );
-      if (suggestion != null) {
-        unawaited(_locationConfig.setArHeadingOffsetDeg(suggestion));
+    } else {
+      // Default solution 1 pipeline — full AR→FP transform per frame.
+      localizedPose = _poseTransformer.transform(
+        currentArPose: event.pose,
+        originArPose: _originArPose!,
+        referenceFloorplanPose: _referencePose!,
+        metersPerPixel: effectiveMpp,
+        headingOffsetDeg: _locationConfig.arHeadingOffsetDeg,
+      );
+
+      // Snap (x,y) onto nearest navigable corridor edge. Heading/confidence/
+      // timestamp untouched. Threshold (px) prevents stray-pose teleport.
+      final unsnappedFp = Offset(localizedPose.x, localizedPose.y);
+      if (_locationConfig.snapToRoute && segments.isNotEmpty) {
+        final snapThresholdPx = 2.0 / effectiveMpp; // ~2 m
+        final snapped = snapToRouteNetwork(
+          unsnappedFp,
+          segments,
+          thresholdPx: snapThresholdPx,
+        );
+        if (snapped.dx != localizedPose.x || snapped.dy != localizedPose.y) {
+          localizedPose = localizedPose.copyWith(x: snapped.dx, y: snapped.dy);
+        }
+      }
+
+      // Auto-tune AR heading offset from observed corridor direction.
+      // Disabled in bucket mode — the bucketed direction already absorbs
+      // the yaw error the auto-correction would otherwise chase.
+      if (_locationConfig.autoHeadingCorrection && segments.isNotEmpty) {
+        final arWorldPos = Offset(
+          event.pose.worldX ?? event.pose.x,
+          event.pose.worldZ ?? -event.pose.y,
+        );
+        final suggestion = _headingCorrector.observe(
+          unsnappedFpPose: unsnappedFp,
+          arWorldPos: arWorldPos,
+          snappedFpPose: Offset(localizedPose.x, localizedPose.y),
+          segments: segments,
+          metersPerPixel: effectiveMpp,
+          currentOffsetDeg: _locationConfig.arHeadingOffsetDeg,
+          timestamp: event.pose.timestamp,
+        );
+        if (suggestion != null) {
+          unawaited(_locationConfig.setArHeadingOffsetDeg(suggestion));
+        }
       }
     }
 
@@ -378,7 +403,13 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       previousWaypointIndex: previousWaypointIndex,
     );
 
-    _handleArOverlay(update, localizedPose);
+    if (bucketMode) {
+      // Pixel-accurate AR rendering is no longer the goal — drop the
+      // overlay so the misaligned line doesn't mislead the user.
+      unawaited(_poseRepository.clearOverlay());
+    } else {
+      _handleArOverlay(update, localizedPose);
+    }
     _handleAudioGuidance(update, localizedPose);
 
     final guidanceMessage = _buildGuidanceMessage(update, localizedPose);
