@@ -86,6 +86,11 @@ class _NavigationPageState extends State<NavigationPage> {
       arBloc.add(const StopArNavigation());
       await arBloc.stream.firstWhere((s) => s is ArNavigationInitial);
     }
+    // Let ARKit fully tear down its VIO solver before the next
+    // StartArNavigation re-creates the session. Without this gap we have
+    // hit `AppleCV3D LPFGInterface` SIGABRT crashes from inside Apple's
+    // tracker when restart races the previous frame's solve.
+    await Future<void>.delayed(const Duration(milliseconds: 350));
     if (!mounted) return;
     setState(() {
       _overrideOriginPose = capturedArPose;
