@@ -14,7 +14,9 @@ import '../../domain/models/audio_cue_direction.dart';
 import '../../domain/models/guidance_event_type.dart';
 import '../../domain/repositories/ar_pose_repository.dart';
 import '../../domain/services/ar_pose_transformer.dart';
+import '../../domain/services/direction_bucket_tracker.dart';
 import '../../domain/services/guidance_sound_service.dart';
+import '../../domain/services/heading_auto_corrector.dart';
 import '../../domain/services/path_tracking_service.dart';
 import 'ar_navigation_event.dart';
 import 'ar_navigation_state.dart';
@@ -37,20 +39,12 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   bool? _lastHeadingAligned;
   double? _lastFrameHeading;
   double? _lastFrameConfidence;
-  int _ignoredOriginFrameCount = 0;
-  final List<ArPose> _originPoseCandidates = [];
-  DateTime? _originStabilizationStartedAt;
   double _arTravelDistance = 0.0;
   ArPose? _lastPoseForDistance;
+  final HeadingAutoCorrector _headingCorrector = HeadingAutoCorrector();
+  final DirectionBucketTracker _bucketTracker = DirectionBucketTracker();
 
   static const double _headingLockThresholdDeg = 8.0;
-  static const double _minimumOriginConfidence = 1.0;
-  static const int _originStableFrameCount = 6;
-  static const double _originMaxHeadingSpreadDeg = 4.0;
-  static const double _originMaxPositionSpreadM = 0.35;
-  static const Duration _minimumOriginSettleDuration =
-      Duration(milliseconds: 700);
-  static const Duration _maximumOriginWaitDuration = Duration(seconds: 3);
 
   StreamSubscription? _poseSubscription;
 
@@ -95,21 +89,16 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     _originArPose = event.originArPose;
     _arTravelDistance = 0.0;
     _lastPoseForDistance = event.originArPose;
+    _headingCorrector.reset();
+    _bucketTracker
+      ..reset()
+      ..bucketCount = _locationConfig.directionBucketCount;
     _lastState = ArTrackingState.idle;
     _lastWaypointIndex = 0;
     _wasApproachingWaypoint = false;
     _lastHeadingAligned = null;
     _lastFrameHeading = null;
     _lastFrameConfidence = null;
-    _ignoredOriginFrameCount = 0;
-    if (event.originArPose == null) {
-      _resetOriginStabilization();
-    } else {
-      _originPoseCandidates
-        ..clear()
-        ..add(event.originArPose!);
-      _originStabilizationStartedAt = event.originArPose!.timestamp;
-    }
 
     _logger.info('🚀 ArNavigationBloc: Starting AR Navigation\n'
         '  - Place: ${_locationConfig.place}\n'
@@ -259,33 +248,18 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
 
     final isFirstFrame = _originArPose == null;
     if (isFirstFrame) {
-      final stableOriginPose = _selectStableOriginPose(event.pose);
-      if (stableOriginPose == null) {
-        _ignoredOriginFrameCount++;
-        _logger.warning(
-            '⏳ AR origin frame ignored while tracking initializes:\n'
-            '  - Ignored Frames: $_ignoredOriginFrameCount\n'
-            '  - Candidate Heading: ${event.pose.heading.toStringAsFixed(1)}°\n'
-            '  - Candidate Confidence: ${event.pose.confidence.toStringAsFixed(2)}\n'
-            '  - Required Confidence: ${_minimumOriginConfidence.toStringAsFixed(2)}\n'
-            '  - Stable Candidates: ${_originPoseCandidates.length}/$_originStableFrameCount');
-        _lastFrameHeading = event.pose.heading;
-        _lastFrameConfidence = event.pose.confidence;
-        return;
-      }
-
-      _originArPose = stableOriginPose;
-      _lastPoseForDistance = stableOriginPose;
+      // Match unav_app behaviour: fall back to first streaming pose when the
+      // capture-time pose was not supplied. No N-frame stability averaging —
+      // ARKit's gravityAndHeading session locks yaw at start.
+      _originArPose = event.pose;
+      _lastPoseForDistance = event.pose;
       _arTravelDistance = 0.0;
-      _logger.info('🏁 AR NAVIGATION POINT ZERO INITIALIZED!\n'
-          '  - Origin AR Heading (Yaw): ${stableOriginPose.heading.toStringAsFixed(1)}°\n'
-          '  - Origin Position: (x: ${stableOriginPose.x.toStringAsFixed(2)}, y: ${stableOriginPose.y.toStringAsFixed(2)}, z: ${stableOriginPose.z.toStringAsFixed(2)})\n'
-          '  - Origin Confidence: ${stableOriginPose.confidence.toStringAsFixed(2)}\n'
-          '  - Ignored Startup Frames: $_ignoredOriginFrameCount\n'
-          '  - Stable Startup Frames: ${_originPoseCandidates.length}\n'
+      _logger.info('🏁 AR NAVIGATION POINT ZERO INITIALIZED (fallback first-frame)\n'
+          '  - Origin AR Heading (Yaw): ${event.pose.heading.toStringAsFixed(1)}°\n'
+          '  - Origin Position: (x: ${event.pose.x.toStringAsFixed(2)}, y: ${event.pose.y.toStringAsFixed(2)}, z: ${event.pose.z.toStringAsFixed(2)})\n'
+          '  - Origin Confidence: ${event.pose.confidence.toStringAsFixed(2)}\n'
           '  - API Reference Heading: ${_referencePose!.heading.toStringAsFixed(1)}°\n'
-          '  - Initial Calculated sumHeadingDeg: ${((_referencePose!.heading + stableOriginPose.heading) % 360.0).toStringAsFixed(1)}°');
-      _resetOriginStabilization();
+          '  - Initial Calculated sumHeadingDeg: ${((_referencePose!.heading + event.pose.heading) % 360.0).toStringAsFixed(1)}°');
     } else {
       if (_lastPoseForDistance != null) {
         final currentX = event.pose.worldX ?? event.pose.x;
@@ -338,31 +312,75 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
 
     // Use already-corrected metersPerPixel from _onStartNavigation
     final effectiveMpp = _metersPerPixel ?? 0.05;
-
-    // ArPoseTransformer now produces correctly-aligned FP coordinates and
-    // heading directly from ARKit's gravityAndHeading world frame.
-    // No additional delta correction is needed — the session's compass
-    // alignment handles it at the native layer.
-    var localizedPose = _poseTransformer.transform(
-      currentArPose: event.pose,
-      originArPose: _originArPose!,
-      referenceFloorplanPose: _referencePose!,
-      metersPerPixel: effectiveMpp,
-      headingOffsetDeg: _locationConfig.arHeadingOffsetDeg,
-    );
-
-    // Snap (x,y) onto nearest navigable corridor edge. Heading/confidence/
-    // timestamp untouched. Threshold (px) prevents stray-pose teleport.
     final segments = _route?.routeNetworkSegments ?? const [];
-    if (_locationConfig.snapToRoute && segments.isNotEmpty) {
-      final snapThresholdPx = 2.0 / effectiveMpp; // ~2 m
-      final snapped = snapToRouteNetwork(
-        Offset(localizedPose.x, localizedPose.y),
-        segments,
-        thresholdPx: snapThresholdPx,
+    final bucketMode = _locationConfig.directionBucketMode;
+
+    LocalizedPose localizedPose;
+
+    if (bucketMode) {
+      // Solution 2 — "push train on tracks". Replace the per-frame AR→FP
+      // transform with a walk-distance + bucketed-direction step along
+      // snap-to-route. Yaw error within the bucket width is absorbed.
+      // Sync the bucket count in case the user toggled it mid-session.
+      _bucketTracker.bucketCount = _locationConfig.directionBucketCount;
+      final captureHeading = _normalizeDegrees(_originArPose!.heading);
+      final sumHeadingDeg = _normalizeDegrees(
+        _referencePose!.heading +
+            captureHeading +
+            _locationConfig.arHeadingOffsetDeg,
       );
-      if (snapped.dx != localizedPose.x || snapped.dy != localizedPose.y) {
-        localizedPose = localizedPose.copyWith(x: snapped.dx, y: snapped.dy);
+      localizedPose = _bucketTracker.track(
+        currentArPose: event.pose,
+        referenceFp: _referencePose!,
+        sumHeadingDeg: sumHeadingDeg,
+        metersPerPixel: effectiveMpp,
+        segments: segments,
+      );
+    } else {
+      // Default solution 1 pipeline — full AR→FP transform per frame.
+      localizedPose = _poseTransformer.transform(
+        currentArPose: event.pose,
+        originArPose: _originArPose!,
+        referenceFloorplanPose: _referencePose!,
+        metersPerPixel: effectiveMpp,
+        headingOffsetDeg: _locationConfig.arHeadingOffsetDeg,
+      );
+
+      // Snap (x,y) onto nearest navigable corridor edge. Heading/confidence/
+      // timestamp untouched. Threshold (px) prevents stray-pose teleport.
+      final unsnappedFp = Offset(localizedPose.x, localizedPose.y);
+      if (_locationConfig.snapToRoute && segments.isNotEmpty) {
+        final snapThresholdPx = 2.0 / effectiveMpp; // ~2 m
+        final snapped = snapToRouteNetwork(
+          unsnappedFp,
+          segments,
+          thresholdPx: snapThresholdPx,
+        );
+        if (snapped.dx != localizedPose.x || snapped.dy != localizedPose.y) {
+          localizedPose = localizedPose.copyWith(x: snapped.dx, y: snapped.dy);
+        }
+      }
+
+      // Auto-tune AR heading offset from observed corridor direction.
+      // Disabled in bucket mode — the bucketed direction already absorbs
+      // the yaw error the auto-correction would otherwise chase.
+      if (_locationConfig.autoHeadingCorrection && segments.isNotEmpty) {
+        final arWorldPos = Offset(
+          event.pose.worldX ?? event.pose.x,
+          event.pose.worldZ ?? -event.pose.y,
+        );
+        final suggestion = _headingCorrector.observe(
+          unsnappedFpPose: unsnappedFp,
+          arWorldPos: arWorldPos,
+          snappedFpPose: Offset(localizedPose.x, localizedPose.y),
+          segments: segments,
+          metersPerPixel: effectiveMpp,
+          currentOffsetDeg: _locationConfig.arHeadingOffsetDeg,
+          timestamp: event.pose.timestamp,
+        );
+        if (suggestion != null) {
+          unawaited(_locationConfig.setArHeadingOffsetDeg(suggestion));
+        }
       }
     }
 
@@ -385,7 +403,13 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       previousWaypointIndex: previousWaypointIndex,
     );
 
-    _handleArOverlay(update, localizedPose);
+    if (bucketMode) {
+      // Pixel-accurate AR rendering is no longer the goal — drop the
+      // overlay so the misaligned line doesn't mislead the user.
+      unawaited(_poseRepository.clearOverlay());
+    } else {
+      _handleArOverlay(update, localizedPose, event.pose);
+    }
     _handleAudioGuidance(update, localizedPose);
 
     final guidanceMessage = _buildGuidanceMessage(update, localizedPose);
@@ -479,102 +503,6 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       normalized += 360.0;
     }
     return normalized;
-  }
-
-  bool _isUsableOriginPose(ArPose pose) {
-    return pose.confidence >= _minimumOriginConfidence &&
-        pose.heading.isFinite &&
-        pose.x.isFinite &&
-        pose.y.isFinite &&
-        pose.z.isFinite;
-  }
-
-  ArPose? _selectStableOriginPose(ArPose pose) {
-    if (!_isUsableOriginPose(pose)) {
-      _resetOriginStabilization();
-      return null;
-    }
-
-    _originStabilizationStartedAt ??= DateTime.now();
-    _originPoseCandidates.add(pose);
-    if (_originPoseCandidates.length > _originStableFrameCount) {
-      _originPoseCandidates.removeAt(0);
-    }
-
-    final settleElapsed =
-        DateTime.now().difference(_originStabilizationStartedAt!);
-    final hasEnoughFrames =
-        _originPoseCandidates.length >= _originStableFrameCount;
-    final hasSettled = settleElapsed >= _minimumOriginSettleDuration;
-
-    if (hasEnoughFrames && hasSettled && _originWindowIsStable()) {
-      return _averageOriginPose(_originPoseCandidates);
-    }
-
-    if (settleElapsed >= _maximumOriginWaitDuration &&
-        _originPoseCandidates.isNotEmpty) {
-      final fallback = _averageOriginPose(_originPoseCandidates);
-      _logger.warning('AR origin stability timeout; using best candidate:\n'
-          '  - Waited: ${settleElapsed.inMilliseconds} ms\n'
-          '  - Candidate Frames: ${_originPoseCandidates.length}\n'
-          '  - Averaged Heading: ${fallback.heading.toStringAsFixed(1)} deg');
-      return fallback;
-    }
-
-    return null;
-  }
-
-  bool _originWindowIsStable() {
-    if (_originPoseCandidates.length < _originStableFrameCount) return false;
-
-    final headings = _originPoseCandidates
-        .map((pose) => _normalizeDegrees(pose.heading))
-        .toList(growable: false);
-    final meanHeading = _circularMeanDegrees(headings);
-    final maxHeadingError = headings
-        .map((heading) => _signedHeadingDeltaDeg(meanHeading, heading).abs())
-        .fold<double>(0.0, math.max);
-
-    final first = _originPoseCandidates.first;
-    final firstX = first.worldX ?? first.x;
-    final firstY = first.worldY ?? first.y;
-    final firstZ = first.worldZ ?? first.z;
-    final maxPositionDelta = _originPoseCandidates.map((candidate) {
-      final dx = (candidate.worldX ?? candidate.x) - firstX;
-      final dy = (candidate.worldY ?? candidate.y) - firstY;
-      final dz = (candidate.worldZ ?? candidate.z) - firstZ;
-      return math.sqrt(dx * dx + dy * dy + dz * dz);
-    }).fold<double>(0.0, math.max);
-
-    return maxHeadingError <= _originMaxHeadingSpreadDeg &&
-        maxPositionDelta <= _originMaxPositionSpreadM;
-  }
-
-  ArPose _averageOriginPose(List<ArPose> poses) {
-    final latest = poses.last;
-    final averagedHeading = _circularMeanDegrees(
-      poses.map((pose) => _normalizeDegrees(pose.heading)),
-    );
-    return latest.copyWith(heading: averagedHeading);
-  }
-
-  double _circularMeanDegrees(Iterable<double> headings) {
-    double sinSum = 0;
-    double cosSum = 0;
-    var count = 0;
-    for (final heading in headings) {
-      final radians = heading * math.pi / 180.0;
-      sinSum += math.sin(radians);
-      cosSum += math.cos(radians);
-      count++;
-    }
-    if (count == 0) return 0;
-    return _normalizeDegrees(math.atan2(sinSum, cosSum) * 180.0 / math.pi);
-  }
-
-  void _resetOriginStabilization() {
-    _originPoseCandidates.clear();
-    _originStabilizationStartedAt = null;
   }
 
   void _handleAudioGuidance(
@@ -689,7 +617,11 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     }
   }
 
-  void _handleArOverlay(ArTrackingUpdate update, LocalizedPose currentPose) {
+  void _handleArOverlay(
+    ArTrackingUpdate update,
+    LocalizedPose currentPose,
+    ArPose currentArPose,
+  ) {
     if (_route == null || _originArPose == null || _referencePose == null) {
       return;
     }
@@ -698,16 +630,20 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     final reference = _referencePose!;
     final origin = _originArPose!;
 
-    // Matches ar_temp _floorplanPointToArWorld:
-    //   sumHeadingDeg = reference.heading + captureHeading (AR yaw at session start).
-    // Must use identical angle as ArPoseTransformer (forward direction) so path and
-    // tracked position share the same rotation frame. Includes the live-tunable
-    // heading offset so adjustments rotate the AR path overlay in real time.
+    // Base rotation = reference.heading + captureHeading. Does NOT include
+    // the live-tunable heading offset — that is applied below as a separate
+    // rotation around the camera's current AR position so adjustments pivot
+    // at the user's feet instead of the session start. Without that split,
+    // sliding the offset 5° at the end of a corridor would sweep the far
+    // waypoints by `distance_from_origin × tan(5°)` because the lever arm
+    // was the navigation start point.
     final captureHeading = _normalizeDegrees(origin.heading);
-    final sumHeadingDeg = _normalizeDegrees(
-      reference.heading + captureHeading + _locationConfig.arHeadingOffsetDeg,
-    );
+    final sumHeadingDeg =
+        _normalizeDegrees(reference.heading + captureHeading);
     final sumHeadingRad = sumHeadingDeg * math.pi / 180.0;
+    final offsetRad = _locationConfig.arHeadingOffsetDeg * math.pi / 180.0;
+    final offsetCos = math.cos(offsetRad);
+    final offsetSin = math.sin(offsetRad);
 
     // Origin pose in math-plane (East, North).
     final originWorldX = origin.worldX ?? origin.x;
@@ -755,17 +691,71 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
         _route!.steps.map((s) => Offset(s.from.x, s.from.y)).toList();
     routePoints.add(Offset(_route!.steps.last.to.x, _route!.steps.last.to.y));
 
-    final allPathAr =
-        routePoints.map((p) => floorplanToArWorld(p.dx, p.dy)).toList();
+    // Snap each backend vertex to corridor as defence against stray points.
+    // Usually a no-op since the backend route already rides the navmesh.
+    final segments = _route!.routeNetworkSegments;
+    final snappedRoutePoints = segments.isEmpty
+        ? routePoints
+        : routePoints.map((p) => snapToRouteNetwork(p, segments)).toList();
 
-    final nextWaypoint = routePoints[update.nextWaypointIndex];
+    // Path origin = current camera world position at floor height.
+    // We deliberately bypass the FP→AR transform here so the line starts
+    // directly under the camera regardless of any FP-side snap or
+    // transformer drift. The remaining waypoints still flow through the
+    // static FP→AR transform so they keep their world-anchored layout.
+    final activeIdx =
+        update.nextWaypointIndex.clamp(0, snappedRoutePoints.length - 1);
+    final cameraOriginAr = <double>[
+      currentArPose.worldX ?? currentArPose.x,
+      floorWorldY,
+      currentArPose.worldZ ?? -currentArPose.y,
+    ];
+
+    // Apply the heading-offset slider as a rotation pivoting at the camera,
+    // so sliding the slider rotates only the line ahead of the user — the
+    // segment we just walked away from doesn't sweep into the wall behind.
+    // East / North math-plane to match floorplanToArWorld's rotation.
+    List<double> applyOffsetAroundCamera(List<double> p) {
+      final eastDelta = p[0] - cameraOriginAr[0];
+      final northDelta = -(p[2] - cameraOriginAr[2]); // worldZ = -North
+      final rotEast = eastDelta * offsetCos - northDelta * offsetSin;
+      final rotNorth = eastDelta * offsetSin + northDelta * offsetCos;
+      return [
+        cameraOriginAr[0] + rotEast,
+        p[1],
+        cameraOriginAr[2] - rotNorth,
+      ];
+    }
+
+    final pathWorldPoints = <List<double>>[
+      cameraOriginAr,
+      ...snappedRoutePoints
+          .skip(activeIdx)
+          .map((p) => applyOffsetAroundCamera(floorplanToArWorld(p.dx, p.dy))),
+    ];
+
+    // Active = user → next waypoint (thick teal in native renderer).
+    // Future = remainder (thin blue). Matches unav_app split.
+    final activePathPoints = pathWorldPoints.length >= 2
+        ? pathWorldPoints.take(2).toList(growable: false)
+        : pathWorldPoints;
+    final futurePathPoints = pathWorldPoints.length > 2
+        ? pathWorldPoints.skip(1).toList(growable: false)
+        : const <List<double>>[];
+
+    final nextWaypointFp = snappedRoutePoints[activeIdx];
+    final destinationFp = snappedRoutePoints.last;
 
     _poseRepository.updateOverlay(
-      pathPoints: allPathAr,
-      activePathPoints: allPathAr,
-      futurePathPoints: const [],
-      nextWaypoint: floorplanToArWorld(nextWaypoint.dx, nextWaypoint.dy),
-      destination: floorplanToArWorld(routePoints.last.dx, routePoints.last.dy),
+      pathPoints: pathWorldPoints,
+      activePathPoints: activePathPoints,
+      futurePathPoints: futurePathPoints,
+      nextWaypoint: applyOffsetAroundCamera(
+        floorplanToArWorld(nextWaypointFp.dx, nextWaypointFp.dy),
+      ),
+      destination: applyOffsetAroundCamera(
+        floorplanToArWorld(destinationFp.dx, destinationFp.dy),
+      ),
     );
   }
 

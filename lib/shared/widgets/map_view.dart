@@ -552,16 +552,20 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
               ),
             ),
 
-            // Debug Info Panel — gated by the debug banner toggle in profile settings
-            ValueListenableBuilder<bool>(
-              valueListenable:
-                  GetIt.instance<LocationConfigService>().debugBannerNotifier,
-              builder: (_, showDebug, __) {
-                if (!showDebug) return const SizedBox.shrink();
-                return Positioned(
-                  left: 16,
-                  top: 100,
-                  child: IgnorePointer(
+            // Debug Info Panel — gated by the debug banner toggle in profile settings.
+            // Positioned must be a direct child of Stack so its parent-data
+            // attaches correctly; otherwise the ValueListenableBuilder returning
+            // SizedBox.shrink leaves a 0×0 non-positioned child that collapses
+            // the surrounding Stack and blanks the whole map.
+            Positioned(
+              left: 16,
+              top: 100,
+              child: ValueListenableBuilder<bool>(
+                valueListenable:
+                    GetIt.instance<LocationConfigService>().debugBannerNotifier,
+                builder: (_, showDebug, __) {
+                  if (!showDebug) return const SizedBox.shrink();
+                  return IgnorePointer(
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
@@ -677,9 +681,9 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                         ],
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
 
             MapControls(
