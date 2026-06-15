@@ -36,10 +36,8 @@ class LocationConfigService {
 
   LocationConfigService(this._prefs);
 
-  // Debug banner always starts off. The profile-settings toggle still
-  // works for the running session, but a fresh launch never shows it,
-  // so QA / demo builds don't surprise the user.
-  late final ValueNotifier<bool> debugBannerNotifier = ValueNotifier(false);
+  late final ValueNotifier<bool> debugBannerNotifier =
+      ValueNotifier(_prefs.getBool(_keyShowDebugBanner) ?? false);
 
   late final ValueNotifier<String> unitNotifier =
       ValueNotifier(_prefs.getString(_keyUnit) ?? 'meter');
