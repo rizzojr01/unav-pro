@@ -11,15 +11,18 @@ import '../entities/localized_pose.dart';
 /// only North-up maps.
 ///
 /// Coordinate systems:
-///   AR world frame (ARKit worldAlignment = .gravityAndHeading):
-///     +X = East, +Y = Up, +Z = South
+///   AR world frame (ARKit worldAlignment = .gravity):
+///     +Y = Up (gravity). +X/+Z span the horizontal plane and are fixed by
+///     the device's orientation at session start — NOT compass-aligned.
+///     The captureHeading term inside sumHeadingDeg is what bridges this
+///     session-relative frame to the floorplan.
 ///
 ///   Native → Dart mapping (AppDelegate.swift):
-///     pose.x = worldX  (East, metres)
-///     pose.y = −worldZ (North, metres — positive = North)
+///     pose.x = worldX  (session-frame "East" axis, metres)
+///     pose.y = −worldZ (session-frame "North" axis, metres)
 ///     pose.z = worldY  (Height, metres)
 ///
-///   Math plane (intermediate, Y-up 2D):
+///   Math plane (intermediate, Y-up 2D, session-frame axes):
 ///     x = East  (worldX)
 ///     y = North (−worldZ)
 ///

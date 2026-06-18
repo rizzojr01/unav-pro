@@ -7,8 +7,9 @@ class ArPose extends Equatable {
   final double heading;
   final double confidence;
   final DateTime timestamp;
-  // Raw ARKit world-space coordinates (metres, gravityAndHeading aligned)
-  // +X = East, +Y = Up, +Z = South
+  // Raw ARKit world-space coordinates (metres, worldAlignment = .gravity).
+  // +Y = Up; +X/+Z are session-relative — fixed by the device's orientation
+  // at session start, NOT compass-aligned.
   final double? worldX;
   final double? worldY;
   final double? worldZ;

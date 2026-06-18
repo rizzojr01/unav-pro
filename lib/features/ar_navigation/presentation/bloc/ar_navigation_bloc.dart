@@ -87,9 +87,16 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     // AR world tracking is always metric. The route model normalizes this
     // value to meters-per-pixel before AR navigation starts; display unit only
     // affects formatted guidance text/audio.
+    //
+    // Sanity range: indoor floorplans run ~0.001-0.5 m/px. Out-of-range
+    // values (the backend's "unscaled" 1.0 sentinel, zero/NaN placeholders,
+    // or unit mix-ups) would mis-scale every AR path segment, so fall back.
     double mpp = event.metersPerPixel;
-    if (mpp == 1.0) {
-      mpp = 0.05; // Use fallback for unscaled/invalid backend values
+    if (!mpp.isFinite || mpp < 0.001 || mpp > 0.5) {
+      _logger.warning(
+          '⚠️ metersPerPixel ${event.metersPerPixel} outside sanity range '
+          '[0.001, 0.5]; using fallback 0.05');
+      mpp = 0.05;
     }
     _metersPerPixel = mpp;
     _originArPose = event.originArPose;
@@ -136,7 +143,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
           '  - API Reference Heading: ${_referencePose!.heading.toStringAsFixed(1)}°\n'
           '  - Initial Calculated sumHeadingDeg: ${((_referencePose!.heading + event.originArPose!.heading) % 360.0).toStringAsFixed(1)}°');
     }
-    _emitArLogSessionHeader(mpp);
+    _emitArLogSessionHeader(mpp: mpp, rawMpp: event.metersPerPixel);
     emit(
       const ArNavigationTracking(
         state: ArTrackingState.localizing,
@@ -148,7 +155,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     );
   }
 
-  void _emitArLogSessionHeader(double mpp) {
+  void _emitArLogSessionHeader({required double mpp, required double rawMpp}) {
     if (_referencePose == null || _route == null) return;
     final routePts = <List<double>>[];
     for (final step in _route!.steps) {
@@ -164,6 +171,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       'building': _locationConfig.building,
       'floor': _referencePose!.floorKey,
       'mpp': mpp,
+      'rawMpp': rawMpp,
+      'offsetInMeters': _locationConfig.offsetInMeters,
       'arHeadingOffsetDeg': _locationConfig.arHeadingOffsetDeg,
       'reference': {
         'x': _referencePose!.x,
@@ -339,10 +348,10 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     // Use already-corrected metersPerPixel from _onStartNavigation
     final effectiveMpp = _metersPerPixel ?? 0.05;
 
-    // ArPoseTransformer now produces correctly-aligned FP coordinates and
-    // heading directly from ARKit's gravityAndHeading world frame.
-    // No additional delta correction is needed — the session's compass
-    // alignment handles it at the native layer.
+    // ArPoseTransformer maps the session-relative (.gravity) AR world frame
+    // onto the floorplan via sumHeadingDeg (reference heading + AR yaw at
+    // capture + user offset). There is no compass alignment at the native
+    // layer — the capture-time yaw term is what bridges the two frames.
     var localizedPose = _poseTransformer.transform(
       currentArPose: event.pose,
       originArPose: _originArPose!,
@@ -751,14 +760,37 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       return [worldX, floorWorldY, worldZ];
     }
 
+    // The path tracker indexes waypoints over the FLATTENED multi-floor step
+    // list, but pixel coordinates from other floors live in different
+    // floorplan frames — projecting them into this AR session's plane draws
+    // lines through walls. Render only the current floor's geometry and remap
+    // the tracker's waypoint index into the filtered list (clamping pins the
+    // marker to this floor's exit point once the route moves past it).
+    var floorSteps = _route!.steps;
+    var waypointIndexOffset = 0;
+    if (_route!.multiFloorSteps.length > 1) {
+      var offset = 0;
+      for (final group in _route!.multiFloorSteps) {
+        if (group.floor == reference.floorKey) {
+          floorSteps = group.steps;
+          waypointIndexOffset = offset;
+          break;
+        }
+        offset += group.steps.length;
+      }
+    }
+    if (floorSteps.isEmpty) return;
+
     final routePoints =
-        _route!.steps.map((s) => Offset(s.from.x, s.from.y)).toList();
-    routePoints.add(Offset(_route!.steps.last.to.x, _route!.steps.last.to.y));
+        floorSteps.map((s) => Offset(s.from.x, s.from.y)).toList();
+    routePoints.add(Offset(floorSteps.last.to.x, floorSteps.last.to.y));
 
     final allPathAr =
         routePoints.map((p) => floorplanToArWorld(p.dx, p.dy)).toList();
 
-    final nextWaypoint = routePoints[update.nextWaypointIndex];
+    final nextWaypoint = routePoints[
+        (update.nextWaypointIndex - waypointIndexOffset)
+            .clamp(0, routePoints.length - 1)];
 
     _poseRepository.updateOverlay(
       pathPoints: allPathAr,

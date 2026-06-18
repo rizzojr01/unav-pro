@@ -22,7 +22,11 @@ class RouteEntity extends BaseEntity {
     this.routeNetworkSegments = const [],
   });
 
-  /// Flat list of all steps across all floors
+  /// Flat list of all steps across all floors.
+  ///
+  /// NOTE: coordinates from different floors live in different floorplan
+  /// pixel frames — filter to a single floor (via [multiFloorSteps]) before
+  /// projecting these points into AR/world space.
   List<NavigationStepEntity> get steps =>
       multiFloorSteps.expand((floor) => floor.steps).toList();
 
