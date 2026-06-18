@@ -74,16 +74,19 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   Size? _imageSize;
   bool _hasImageError = false;
   bool _isSearching = false;
-  // Last `_mapRotationRad` value the IV matrix was compensated against.
-  // Used to pivot rotation around the user's on-screen position instead
-  // of the screen centre — without this, any drift between the user dot
-  // and screen centre makes the map appear to swing around an off-user
-  // pivot when heading changes.
-  double? _lastAppliedRotation;
   bool _hasInitializedView = false;
   final bool _isAutoCentered = true;
   final TextEditingController _searchController = TextEditingController();
   List<DestinationEntity> _filteredDestinations = [];
+
+  // Rotation state — ported from main's `_manualRotation` model.
+  // Driven by the AR-derived heading (userHeading) or the API fallback
+  // (apiInitialHeading). InteractiveViewer wraps Transform.rotate so the
+  // pan/zoom matrix operates on the already-rotated content. Whenever the
+  // rotation target changes we compensate the IV matrix via
+  // `_applyManualRotation` so the user dot stays pinned to its on-screen
+  // position across the change.
+  double _manualRotation = 0.0;
 
   String _calculateDeltaString() {
     if (widget.userHeading == null || widget.apiInitialHeading == null) {
@@ -171,6 +174,14 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     });
   }
 
+  /// Target rotation derived from heading: −(h + 90)·π/180 puts the
+  /// user's forward direction at screen top. Mirrors main's convention.
+  double get _targetRotation {
+    final h = widget.userHeading ?? widget.apiInitialHeading;
+    if (h == null) return 0.0;
+    return -(h + 90.0) * math.pi / 180.0;
+  }
+
   @override
   void didUpdateWidget(MapView oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -185,41 +196,39 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       _filteredDestinations = widget.destinations;
     }
 
-    // First heading update: snap user to screen center so rotation pivots on them.
-    // Triggers on either the first AR-derived heading OR the first API heading
-    // (whichever arrives first), since both drive _mapRotationRad.
+    // First heading update: seed rotation directly, then recenter.
+    // No shift-math needed because we're snapping the user to screen mid
+    // at the same moment we set the rotation baseline.
     final hadHeading =
         oldWidget.userHeading != null || oldWidget.apiInitialHeading != null;
     final hasHeading =
         widget.userHeading != null || widget.apiInitialHeading != null;
     if (!hadHeading && hasHeading && _imageSize != null) {
+      _manualRotation = _targetRotation;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final box = context.findRenderObject() as RenderBox?;
         if (box == null) return;
-        _recenterOnUser(box.size, _imageSize!, initialZoom: 3.5, animate: true);
+        _recenterOnUser(box.size, _imageSize!, initialZoom: 3.5);
       });
     }
 
-    // Subsequent heading updates: pivot the rotation around the user's
-    // on-screen position. Without this the `Transform.rotate` around the
-    // screen centre would swing the map every time `_mapRotationRad`
-    // changes if the user dot had drifted off-centre at all.
-    final newRot = _mapRotationRad;
-    if (_imageSize != null &&
-        _lastAppliedRotation != null &&
-        (_lastAppliedRotation! - newRot).abs() > 1e-6) {
+    // Subsequent heading updates: pivot rotation around the user's
+    // on-screen position via `_applyManualRotation` (translates the IV
+    // matrix so the user stays pinned across the rotation change).
+    final newRot = _targetRotation;
+    if (hadHeading &&
+        hasHeading &&
+        _imageSize != null &&
+        (newRot - _manualRotation).abs() > 1e-6) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        final box = context.findRenderObject() as RenderBox?;
-        if (box == null) return;
-        _applyRotationPivot(newRot, box.size, _imageSize!);
+        _applyManualRotation(newRot);
       });
     }
 
-    // Continuous follow: as user moves, keep them at screen center so the
-    // Transform.rotate (which pivots around screen center) appears to rotate
-    // around the user, not the map. Preserves current zoom.
+    // Continuous follow: user walked far enough that we want to pull
+    // them back toward screen centre. Preserves current zoom + rotation.
     final oldCoords = _coordsFromLocation(oldWidget.userLocation);
     final newCoords = _coordsFromLocation(widget.userLocation);
     if (oldCoords != null &&
@@ -231,7 +240,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         if (!mounted) return;
         final box = context.findRenderObject() as RenderBox?;
         if (box == null) return;
-        _followUserAtCurrentZoom(box.size, _imageSize!);
+        _recenterOnUser(box.size, _imageSize!);
       });
     }
 
@@ -247,7 +256,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         if (!mounted) return;
         final box = context.findRenderObject() as RenderBox?;
         if (box == null) return;
-        _recenterOnUser(box.size, _imageSize!, initialZoom: 3.5, animate: true);
+        _recenterOnUser(box.size, _imageSize!, initialZoom: 3.5);
       });
     }
   }
@@ -269,49 +278,48 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     }
   }
 
-  /// Translates the IV matrix so the user's on-screen position stays put
-  /// across a rotation change. Ports main's `_setManualRotation` shift
-  /// math: project the user's current screen-space offset from centre,
-  /// re-project that offset under the new rotation, and add a translation
-  /// equal to the delta. The user appears pinned regardless of how far
-  /// they have drifted from the screen centre.
-  void _applyRotationPivot(
-    double newRotation,
-    Size containerSize,
-    Size imageSize,
-  ) {
-    final old = _lastAppliedRotation;
-    if (old == null) {
-      _lastAppliedRotation = newRotation;
+  /// Ported verbatim from main: translate the IV matrix so the user's
+  /// on-screen position stays put across a rotation change. Computes the
+  /// user's projected position under the old and new rotation around the
+  /// container centre, then shifts the IV matrix by the delta.
+  void _applyManualRotation(double newRotation) {
+    if (_imageSize == null) {
+      setState(() => _manualRotation = newRotation);
       return;
     }
-    if ((old - newRotation).abs() < 1e-6) return;
 
-    final imageAR = imageSize.width / imageSize.height;
-    final containerAR = containerSize.width / containerSize.height;
-    double dispW, dispH;
-    if (imageAR > containerAR) {
-      dispW = containerSize.width;
-      dispH = containerSize.width / imageAR;
-    } else {
-      dispH = containerSize.height;
-      dispW = containerSize.height * imageAR;
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) {
+      setState(() => _manualRotation = newRotation);
+      return;
     }
-    final sX = dispW / imageSize.width;
-    final sY = dispH / imageSize.height;
-    final offX = (containerSize.width - dispW) / 2;
-    final offY = (containerSize.height - dispH) / 2;
 
+    final cSize = box.size;
+    final iAR = _imageSize!.width / _imageSize!.height;
+    final cAR = cSize.width / cSize.height;
+    double dispW, dispH;
+    if (iAR > cAR) {
+      dispW = cSize.width;
+      dispH = cSize.width / iAR;
+    } else {
+      dispH = cSize.height;
+      dispW = cSize.height * iAR;
+    }
+    final sX = dispW / _imageSize!.width;
+    final sY = dispH / _imageSize!.height;
+    final offX = (cSize.width - dispW) / 2;
+    final offY = (cSize.height - dispH) / 2;
     final userPos = _getUserCoords();
+
     final userCX = userPos.dx * sX + offX;
     final userCY = userPos.dy * sY + offY;
-    final cx = containerSize.width / 2;
-    final cy = containerSize.height / 2;
+    final cx = cSize.width / 2;
+    final cy = cSize.height / 2;
     final dxU = userCX - cx;
     final dyU = userCY - cy;
 
-    final cosOld = math.cos(old);
-    final sinOld = math.sin(old);
+    final cosOld = math.cos(_manualRotation);
+    final sinOld = math.sin(_manualRotation);
     final oldX = cx + dxU * cosOld - dyU * sinOld;
     final oldY = cy + dxU * sinOld + dyU * cosOld;
 
@@ -323,12 +331,24 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     final shiftX = oldX - newX;
     final shiftY = oldY - newY;
 
-    _transformationController.value = _transformationController.value.clone()
+    final newMatrix = _transformationController.value.clone()
       ..translateByDouble(shiftX, shiftY, 0, 1);
-    _lastAppliedRotation = newRotation;
+
+    setState(() {
+      _manualRotation = newRotation;
+      _transformationController.value = newMatrix;
+    });
   }
 
-  void _followUserAtCurrentZoom(Size containerSize, Size imageSize) {
+  /// Ported from main: places the user at horizontally-centered, 75%-down
+  /// in screen space at [initialZoom]. Accounts for the current
+  /// `_manualRotation` since the IV wraps Transform.rotate — the user's
+  /// post-rotation position is what we need to centre.
+  void _recenterOnUser(
+    Size containerSize,
+    Size imageSize, {
+    double initialZoom = 2.5,
+  }) {
     final userPos = _getUserCoords();
     final imageAR = imageSize.width / imageSize.height;
     final containerAR = containerSize.width / containerSize.height;
@@ -349,18 +369,25 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     final userDisplayY =
         userPos.dy * scaleY + (containerSize.height - displayHeight) / 2;
 
-    final zoom = _transformationController.value.getMaxScaleOnAxis();
     final cx = containerSize.width / 2;
     final cy = containerSize.height / 2;
+    final dx = userDisplayX - cx;
+    final dy = userDisplayY - cy;
+    final cosA = math.cos(_manualRotation);
+    final sinA = math.sin(_manualRotation);
+    final rotatedUserX = cx + dx * cosA - dy * sinA;
+    final rotatedUserY = cy + dx * sinA + dy * cosA;
+
+    // Target: horizontally centered, 75% down (Google Maps style).
+    final targetX = containerSize.width / 2;
+    final targetY = containerSize.height * 0.75;
+
+    final translateX = targetX - rotatedUserX * initialZoom;
+    final translateY = targetY - rotatedUserY * initialZoom;
 
     _transformationController.value = Matrix4.identity()
-      ..translateByDouble(
-        cx - userDisplayX * zoom,
-        cy - userDisplayY * zoom,
-        0,
-        1,
-      )
-      ..scaleByDouble(zoom, zoom, zoom, 1);
+      ..translateByDouble(translateX, translateY, 0, 1)
+      ..scaleByDouble(initialZoom, initialZoom, initialZoom, 1);
   }
 
   Offset _getUserCoords() {
@@ -383,85 +410,8 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   void _initializeView(Size containerSize, Size imageSize) {
     if (_hasInitializedView || !widget.autoCenterOnUser) return;
     _hasInitializedView = true;
-    _recenterOnUser(containerSize, imageSize, initialZoom: 3.5, animate: false);
-  }
-
-  /// Current map rotation in radians.
-  /// Formula: -(heading + 90) * π/180 — puts user's forward direction at screen top.
-  ///
-  /// Uses AR-tracked floor-plan heading (userHeading) when available.
-  /// Falls back to apiInitialHeading (= API Ang from backend localization) so the
-  /// map is already correctly oriented before AR tracking fires its first pose.
-  /// At Point Zero, fpHeading == API_Ang exactly, so the transition is seamless.
-  double get _mapRotationRad {
-    final h = widget.userHeading ?? widget.apiInitialHeading;
-    if (h == null) return 0.0;
-    return -(h + 90.0) * math.pi / 180.0;
-  }
-
-  void _recenterOnUser(
-    Size containerSize,
-    Size imageSize, {
-    double initialZoom = 2.5,
-    bool animate = false,
-  }) {
-    final userPos = _getUserCoords();
-    final imageAR = imageSize.width / imageSize.height;
-    final containerAR = containerSize.width / containerSize.height;
-
-    double displayWidth, displayHeight;
-    if (imageAR > containerAR) {
-      displayWidth = containerSize.width;
-      displayHeight = containerSize.width / imageAR;
-    } else {
-      displayHeight = containerSize.height;
-      displayWidth = containerSize.height * imageAR;
-    }
-
-    final scaleX = displayWidth / imageSize.width;
-    final scaleY = displayHeight / imageSize.height;
-    final userDisplayX =
-        userPos.dx * scaleX + (containerSize.width - displayWidth) / 2;
-    final userDisplayY =
-        userPos.dy * scaleY + (containerSize.height - displayHeight) / 2;
-
-    // Place the user at the screen center in IV space.
-    // Transform.rotate (outside IV) pivots around the screen center, so a user
-    // at screen center stays pinned there during any rotation — no compensation needed.
-    final cx = containerSize.width / 2;
-    final cy = containerSize.height / 2;
-    final targetMatrix = Matrix4.identity()
-      ..translateByDouble(
-        cx - userDisplayX * initialZoom,
-        cy - userDisplayY * initialZoom,
-        0,
-        1,
-      )
-      ..scaleByDouble(initialZoom, initialZoom, initialZoom, 1);
-
-    if (animate) {
-      final animation = Matrix4Tween(
-        begin: _transformationController.value,
-        end: targetMatrix,
-      ).animate(
-        CurvedAnimation(
-          parent: AnimationController(
-            vsync: this,
-            duration: const Duration(milliseconds: 300),
-          )..forward(),
-          curve: Curves.easeOutCubic,
-        ),
-      );
-      animation.addListener(() {
-        _transformationController.value = animation.value;
-      });
-    } else {
-      _transformationController.value = targetMatrix;
-    }
-    // Recentre placed the user back at screen centre. The next rotation
-    // change should pivot around that point, so seed the rotation baseline
-    // here so `_applyRotationPivot` has a starting value.
-    _lastAppliedRotation = _mapRotationRad;
+    _manualRotation = _targetRotation;
+    _recenterOnUser(containerSize, imageSize, initialZoom: 3.5);
   }
 
   @override
@@ -501,147 +451,145 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         final scaleY = displayHeight / _imageSize!.height;
         final centerOffsetX = (constraints.maxWidth - displayWidth) / 2;
         final centerOffsetY = (constraints.maxHeight - displayHeight) / 2;
+        final rotationAngle = _manualRotation;
 
         return Stack(
           children: [
-            // Rotating layer: IV + markers wrapped together so markers stay
-            // aligned with the rotated map content.
-            // Formula: -(heading + 90) * π/180 puts user's heading at screen top.
-            // (matches main branch convention; heading 270°=North → 0 rotation)
-            Positioned.fill(
+            // Main structure (ported from main):
+            //   InteractiveViewer ← handles pan/zoom on the whole rotated map.
+            //     Transform.rotate(_manualRotation) ← rotates floorplan + route.
+            //       Center → SizedBox → Stack(image + route painter).
+            // Markers live in the outer Stack and replicate the rotation
+            // around the display centre via _buildMarker so they stay
+            // glued to the right floorplan coordinates without inheriting
+            // the InteractiveViewer's gesture surface.
+            InteractiveViewer(
+              transformationController: _transformationController,
+              minScale: 0.1,
+              maxScale: 8.0,
+              boundaryMargin: const EdgeInsets.all(400),
               child: Transform.rotate(
-                angle: _mapRotationRad,
-                child: Stack(
-                  children: [
-                    InteractiveViewer(
-                      transformationController: _transformationController,
-                      minScale: 0.1,
-                      maxScale: 8.0,
-                      boundaryMargin: const EdgeInsets.all(400),
-                      onInteractionStart: (_) {},
-                      child: Center(
-                        child: SizedBox(
-                          width: displayWidth,
-                          height: displayHeight,
-                          child: Stack(
-                            children: [
-                              Image.memory(_floorPlanBytes!, fit: BoxFit.fill),
-                              if (widget.route != null)
-                                BlocBuilder<ArNavigationBloc,
-                                    ArNavigationState>(
-                                  builder: (context, arState) {
-                                    final fullRouteCoords = widget.route!.steps
-                                        .expand(
-                                          (s) => [
-                                            Offset(s.from.x, s.from.y),
-                                            Offset(s.to.x, s.to.y),
-                                          ],
-                                        )
-                                        .toList();
+                angle: rotationAngle,
+                child: Center(
+                  child: SizedBox(
+                    width: displayWidth,
+                    height: displayHeight,
+                    child: Stack(
+                      children: [
+                        Image.memory(_floorPlanBytes!, fit: BoxFit.fill),
+                        if (widget.route != null)
+                          BlocBuilder<ArNavigationBloc, ArNavigationState>(
+                            builder: (context, arState) {
+                              final fullRouteCoords = widget.route!.steps
+                                  .expand(
+                                    (s) => [
+                                      Offset(s.from.x, s.from.y),
+                                      Offset(s.to.x, s.to.y),
+                                    ],
+                                  )
+                                  .toList();
 
-                                    List<Offset> activePathCoords;
-                                    if (arState is ArNavigationTracking &&
-                                        arState.trackedPath.isNotEmpty) {
-                                      activePathCoords = arState.trackedPath;
-                                    } else {
-                                      activePathCoords = fullRouteCoords;
-                                    }
+                              List<Offset> activePathCoords;
+                              if (arState is ArNavigationTracking &&
+                                  arState.trackedPath.isNotEmpty) {
+                                activePathCoords = arState.trackedPath;
+                              } else {
+                                activePathCoords = fullRouteCoords;
+                              }
 
-                                    return ValueListenableBuilder<bool>(
-                                      valueListenable: GetIt.I<
-                                              LocationConfigService>()
-                                          .snapToRouteNotifier,
-                                      builder: (context, snapEnabled, _) =>
-                                          AnimatedBuilder(
-                                        animation: _routeAnimationController,
-                                        builder: (context, _) => CustomPaint(
-                                          size: Size(
-                                              displayWidth, displayHeight),
-                                          painter: RoutePainter(
-                                            coords: activePathCoords,
-                                            networkSegments: snapEnabled
-                                                ? widget
-                                                    .route!.routeNetworkSegments
-                                                : const [],
-                                            scaleX: scaleX,
-                                            scaleY: scaleY,
-                                            animationValue:
-                                                _routeAnimationController.value,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
+                              return ValueListenableBuilder<bool>(
+                                valueListenable:
+                                    GetIt.I<LocationConfigService>()
+                                        .snapToRouteNotifier,
+                                builder: (context, snapEnabled, _) =>
+                                    AnimatedBuilder(
+                                  animation: _routeAnimationController,
+                                  builder: (context, _) => CustomPaint(
+                                    size: Size(displayWidth, displayHeight),
+                                    painter: RoutePainter(
+                                      coords: activePathCoords,
+                                      networkSegments: snapEnabled
+                                          ? widget.route!.routeNetworkSegments
+                                          : const [],
+                                      scaleX: scaleX,
+                                      scaleY: scaleY,
+                                      animationValue:
+                                          _routeAnimationController.value,
+                                    ),
+                                  ),
                                 ),
-                            ],
+                              );
+                            },
                           ),
-                        ),
-                      ),
+                      ],
                     ),
-                    AnimatedBuilder(
-                      animation: _transformationController,
-                      builder: (context, _) {
-                        final zoom =
-                            _transformationController.value.getMaxScaleOnAxis();
-                        return Stack(
-                          children: [
-                            ...widget.destinations.map(
-                              (d) => _buildMarker(
-                                d.x,
-                                d.y,
-                                scaleX,
-                                scaleY,
-                                centerOffsetX,
-                                centerOffsetY,
-                                zoom,
-                                isPOI: true,
-                                name: d.name,
-                                destination: d,
-                              ),
-                            ),
-                            if (widget.route != null &&
-                                widget.route!.steps.isNotEmpty)
-                              _buildMarker(
-                                widget.route!.steps.last.to.x,
-                                widget.route!.steps.last.to.y,
-                                scaleX,
-                                scaleY,
-                                centerOffsetX,
-                                centerOffsetY,
-                                zoom,
-                                isTarget: true,
-                              ),
-                            _buildMarker(
-                              _getUserCoords().dx, _getUserCoords().dy,
-                              scaleX, scaleY, centerOffsetX, centerOffsetY,
-                              zoom,
-                              isUser: true,
-                              isCheckpoint: widget.isCheckpoint,
-                              // Markers are inside Transform.rotate(-(h+90)°).
-                              // Counter-rotate the arrow by +(h+90)° so net = 0
-                              // → arrow always points straight up on screen.
-                              // Same formula works for both live AR and static angle.
-                              heading: widget.userHeading != null
-                                  ? (widget.userHeading! + 90.0) % 360.0
-                                  : (widget.apiInitialHeading != null
-                                      ? (widget.apiInitialHeading! + 90.0) %
-                                          360.0
-                                      : null),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
 
+            // Marker overlay (outside the IV). Each marker manually
+            // replicates the same rotation that Transform.rotate applies
+            // inside the IV, then projects through the IV matrix to land
+            // at the correct screen position.
+            AnimatedBuilder(
+              animation: _transformationController,
+              builder: (context, _) {
+                final zoom =
+                    _transformationController.value.getMaxScaleOnAxis();
+                return Stack(
+                  children: [
+                    ...widget.destinations.map(
+                      (d) => _buildMarker(
+                        d.x,
+                        d.y,
+                        scaleX,
+                        scaleY,
+                        centerOffsetX,
+                        centerOffsetY,
+                        zoom,
+                        rotationAngle,
+                        displayWidth,
+                        displayHeight,
+                        isPOI: true,
+                        name: d.name,
+                        destination: d,
+                      ),
+                    ),
+                    if (widget.route != null && widget.route!.steps.isNotEmpty)
+                      _buildMarker(
+                        widget.route!.steps.last.to.x,
+                        widget.route!.steps.last.to.y,
+                        scaleX,
+                        scaleY,
+                        centerOffsetX,
+                        centerOffsetY,
+                        zoom,
+                        rotationAngle,
+                        displayWidth,
+                        displayHeight,
+                        isTarget: true,
+                      ),
+                    _buildMarker(
+                      _getUserCoords().dx,
+                      _getUserCoords().dy,
+                      scaleX,
+                      scaleY,
+                      centerOffsetX,
+                      centerOffsetY,
+                      zoom,
+                      rotationAngle,
+                      displayWidth,
+                      displayHeight,
+                      isUser: true,
+                      isCheckpoint: widget.isCheckpoint,
+                    ),
+                  ],
+                );
+              },
+            ),
+
             // Debug Info Panel — gated by the debug banner toggle in profile settings.
-            // Positioned must be a direct child of Stack so its parent-data
-            // attaches correctly; otherwise the ValueListenableBuilder returning
-            // SizedBox.shrink leaves a 0×0 non-positioned child that collapses
-            // the surrounding Stack and blanks the whole map.
             Positioned(
               left: 16,
               top: 100,
@@ -728,7 +676,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                             ),
                           ),
                           Text(
-                            'Map Rot: ${(_transformationController.value.storage[1] != 0 || _transformationController.value.storage[0] != 0) ? (math.atan2(_transformationController.value.storage[1], _transformationController.value.storage[0]) * (180.0 / math.pi)).toStringAsFixed(1) : "0.0"}°',
+                            'Map Rot: ${(_manualRotation * 180.0 / math.pi).toStringAsFixed(1)}°',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11,
@@ -779,7 +727,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                   containerSize,
                   _imageSize!,
                   initialZoom: 3.5,
-                  animate: true,
                 );
               },
               onRelocalize: widget.onRelocalize,
@@ -800,6 +747,10 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     );
   }
 
+  /// Ported from main: rotates the floorplan coordinate around the
+  /// display centre by `rotation` (matching the inner Transform.rotate),
+  /// then projects through the IV matrix to get the screen pixel where
+  /// the marker should sit.
   Widget _buildMarker(
     double x,
     double y,
@@ -807,31 +758,59 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     double sY,
     double offX,
     double offY,
-    double zoom, {
+    double zoom,
+    double rotation,
+    double displayWidth,
+    double displayHeight, {
     bool isUser = false,
     bool isPOI = false,
     bool isTarget = false,
     bool isCheckpoint = false,
-    double? heading,
     String? name,
     DestinationEntity? destination,
   }) {
     final matrix = _transformationController.value;
-    final pos = MatrixUtils.transformPoint(
-      matrix,
-      Offset(x * sX + offX, y * sY + offY),
+    final baseX = x * sX + offX;
+    final baseY = y * sY + offY;
+
+    final mapCenter = Offset(
+      offX + displayWidth / 2,
+      offY + displayHeight / 2,
     );
-    if (pos.dx.isNaN || pos.dy.isNaN) return const SizedBox.shrink();
+    final relativePoint = Offset(baseX, baseY) - mapCenter;
+
+    final cosR = math.cos(rotation);
+    final sinR = math.sin(rotation);
+    final rotatedX = relativePoint.dx * cosR - relativePoint.dy * sinR;
+    final rotatedY = relativePoint.dx * sinR + relativePoint.dy * cosR;
+
+    final finalBasePoint = Offset(rotatedX, rotatedY) + mapCenter;
+    if (finalBasePoint.dx.isNaN ||
+        finalBasePoint.dy.isNaN ||
+        finalBasePoint.dx.isInfinite ||
+        finalBasePoint.dy.isInfinite) {
+      return const SizedBox.shrink();
+    }
+
+    final pos = MatrixUtils.transformPoint(matrix, finalBasePoint);
+    if (pos.dx.isNaN ||
+        pos.dy.isNaN ||
+        pos.dx.isInfinite ||
+        pos.dy.isInfinite) {
+      return const SizedBox.shrink();
+    }
 
     if (isUser) {
       final size = ((isCheckpoint ? 12.0 : 16.0) * zoom).clamp(4.0, 48.0);
+      // Map already rotates so the user's forward direction faces screen up
+      // (via _manualRotation = −(h+90)°). Arrow points 0° → straight up.
       return Positioned(
         left: pos.dx - size / 2,
         top: pos.dy - size / 2,
         child: UserPositionMarker(
           size: size,
           isCheckpoint: isCheckpoint,
-          heading: heading ?? 0.0,
+          heading: 0.0,
           showPulse: !isCheckpoint,
         ),
       );
@@ -842,25 +821,20 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       return Positioned(
         left: pos.dx - size / 2,
         top: pos.dy - size / 2,
-        child: Transform.rotate(
-          angle: -_mapRotationRad,
-          child: DestinationFlagMarker(size: size),
-        ),
+        child: DestinationFlagMarker(size: size),
       );
     }
+
     final size = (8.0 * zoom).clamp(1.5, 32.0);
     return Positioned(
       left: pos.dx - size / 2,
       top: pos.dy - size / 2,
-      child: Transform.rotate(
-        angle: -_mapRotationRad,
-        child: DestinationMarker(
-          size: size,
-          icon: DestinationMarker.getIconForDestination(name ?? ''),
-          onTap: destination != null
-              ? () => widget.onDestinationTap?.call(destination)
-              : null,
-        ),
+      child: DestinationMarker(
+        size: size,
+        icon: DestinationMarker.getIconForDestination(name ?? ''),
+        onTap: destination != null
+            ? () => widget.onDestinationTap?.call(destination)
+            : null,
       ),
     );
   }
