@@ -570,6 +570,23 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
                         displayHeight,
                         isTarget: true,
                       ),
+                    if (widget.route != null && widget.currentFloor != null)
+                      ..._transitionsForCurrentFloor().map(
+                        (t) => _buildMarker(
+                          t.exitPoint.dx,
+                          t.exitPoint.dy,
+                          scaleX,
+                          scaleY,
+                          centerOffsetX,
+                          centerOffsetY,
+                          zoom,
+                          rotationAngle,
+                          displayWidth,
+                          displayHeight,
+                          isTransition: true,
+                          transitionTargetFloor: t.toFloor,
+                        ),
+                      ),
                     _buildMarker(
                       _getUserCoords().dx,
                       _getUserCoords().dy,
@@ -751,6 +768,19 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   /// display centre by `rotation` (matching the inner Transform.rotate),
   /// then projects through the IV matrix to get the screen pixel where
   /// the marker should sit.
+  List<FloorTransition> _transitionsForCurrentFloor() {
+    final route = widget.route;
+    if (route == null) return const [];
+    final current = widget.currentFloor;
+    if (current == null) return const [];
+    String norm(String f) =>
+        f.replaceAll('_floor', '').replaceAll('_', '').trim().toLowerCase();
+    final target = norm(current);
+    return route.floorTransitions
+        .where((t) => norm(t.fromFloor) == target)
+        .toList();
+  }
+
   Widget _buildMarker(
     double x,
     double y,
@@ -766,6 +796,8 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     bool isPOI = false,
     bool isTarget = false,
     bool isCheckpoint = false,
+    bool isTransition = false,
+    String? transitionTargetFloor,
     String? name,
     DestinationEntity? destination,
   }) {
@@ -822,6 +854,41 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         left: pos.dx - size / 2,
         top: pos.dy - size / 2,
         child: DestinationFlagMarker(size: size),
+      );
+    }
+
+    if (isTransition) {
+      final iconSize = (18.0 * zoom).clamp(14.0, 44.0);
+      final boxSize = iconSize + 8;
+      return Positioned(
+        left: pos.dx - boxSize / 2,
+        top: pos.dy - boxSize / 2,
+        child: Tooltip(
+          message: transitionTargetFloor != null
+              ? 'Floor change → ${transitionTargetFloor.replaceAll('_floor', '')}'
+              : 'Floor change',
+          child: Container(
+            width: boxSize,
+            height: boxSize,
+            decoration: BoxDecoration(
+              color: Colors.deepOrange,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.stairs,
+              color: Colors.white,
+              size: iconSize * 0.7,
+            ),
+          ),
+        ),
       );
     }
 

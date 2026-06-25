@@ -44,3 +44,15 @@ class UpdateArPose extends ArNavigationEvent {
   @override
   List<Object?> get props => [pose];
 }
+
+/// Internal event — emitted when the user's floorplan position reaches the
+/// next pending floor transition. Pauses pose forwarding and surfaces the
+/// awaiting-relocalize banner.
+class FloorTransitionReached extends ArNavigationEvent {
+  final int transitionIndex;
+
+  const FloorTransitionReached(this.transitionIndex);
+
+  @override
+  List<Object?> get props => [transitionIndex];
+}

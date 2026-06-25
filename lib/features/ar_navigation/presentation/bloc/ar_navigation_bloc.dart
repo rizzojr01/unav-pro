@@ -41,10 +41,14 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   double? _lastFrameConfidence;
   double _arTravelDistance = 0.0;
   ArPose? _lastPoseForDistance;
+  String? _activeFloorKey;
+  int _nextTransitionIndex = 0;
+  bool _awaitingFloorChange = false;
   final HeadingAutoCorrector _headingCorrector = HeadingAutoCorrector();
   final DirectionBucketTracker _bucketTracker = DirectionBucketTracker();
 
   static const double _headingLockThresholdDeg = 8.0;
+  static const double _transitionTriggerMeters = 1.5;
 
   StreamSubscription? _poseSubscription;
 
@@ -63,6 +67,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     on<StartArNavigation>(_onStartNavigation);
     on<UpdateArPose>(_onUpdatePose);
     on<StopArNavigation>(_onStopNavigation);
+    on<FloorTransitionReached>(_onFloorTransitionReached);
 
     _locationConfig.unitNotifier.addListener(_onUnitChanged);
   }
@@ -99,6 +104,12 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     _lastHeadingAligned = null;
     _lastFrameHeading = null;
     _lastFrameConfidence = null;
+    _activeFloorKey = event.referencePose.floorKey;
+    _awaitingFloorChange = false;
+    _nextTransitionIndex = _findNextTransitionIndex(
+      event.route,
+      event.referencePose.floorKey,
+    );
 
     _logger.info('🚀 ArNavigationBloc: Starting AR Navigation\n'
         '  - Place: ${_locationConfig.place}\n'
@@ -243,6 +254,13 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     Emitter<ArNavigationState> emit,
   ) {
     if (_referencePose == null || _metersPerPixel == null || _route == null) {
+      return;
+    }
+    if (_awaitingFloorChange) {
+      // User has reached the stair/elevator marker on the current floor.
+      // Drop incoming AR poses until the relocalize flow restarts the
+      // session on the new floor — climbing stairs sends ARKit's VIO into
+      // drift that we have no useful mapping for.
       return;
     }
 
@@ -430,6 +448,73 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
         distanceToNextWaypointPx: update.distanceToNextWaypointPx,
         guidanceMessage: guidanceMessage,
         arTravelDistance: _arTravelDistance,
+        activeFloorKey: _activeFloorKey,
+      ),
+    );
+
+    // Floor-transition proximity check. We compare the user's just-mapped
+    // floorplan position to the pending transition's exit point — when within
+    // _transitionTriggerMeters we self-dispatch FloorTransitionReached.
+    final pendingTransition = _pendingTransition;
+    if (pendingTransition != null) {
+      final dx = localizedPose.x - pendingTransition.exitPoint.dx;
+      final dy = localizedPose.y - pendingTransition.exitPoint.dy;
+      final distMeters = math.sqrt(dx * dx + dy * dy) * effectiveMpp;
+      if (distMeters <= _transitionTriggerMeters) {
+        add(FloorTransitionReached(_nextTransitionIndex));
+      }
+    }
+  }
+
+  FloorTransition? get _pendingTransition {
+    final route = _route;
+    if (route == null) return null;
+    final transitions = route.floorTransitions;
+    if (_nextTransitionIndex < 0 ||
+        _nextTransitionIndex >= transitions.length) {
+      return null;
+    }
+    final t = transitions[_nextTransitionIndex];
+    if (t.fromFloor != _activeFloorKey) return null;
+    return t;
+  }
+
+  int _findNextTransitionIndex(RouteEntity route, String activeFloorKey) {
+    final transitions = route.floorTransitions;
+    for (var i = 0; i < transitions.length; i++) {
+      if (transitions[i].fromFloor == activeFloorKey) return i;
+    }
+    return transitions.length; // none pending
+  }
+
+  void _onFloorTransitionReached(
+    FloorTransitionReached event,
+    Emitter<ArNavigationState> emit,
+  ) {
+    if (_awaitingFloorChange) return;
+    final route = _route;
+    if (route == null) return;
+    final transitions = route.floorTransitions;
+    if (event.transitionIndex < 0 ||
+        event.transitionIndex >= transitions.length) {
+      return;
+    }
+    final transition = transitions[event.transitionIndex];
+    final tracking = state;
+    final lastPose = tracking is ArNavigationTracking
+        ? tracking.currentPose
+        : null;
+    if (lastPose == null) return;
+
+    _awaitingFloorChange = true;
+    _logger.info(
+      '🛗 Floor transition reached: ${transition.fromFloor} → ${transition.toFloor}',
+    );
+    unawaited(_soundService.playCue(GuidanceEventType.approachingWaypoint));
+    emit(
+      ArNavigationAwaitingFloorChange(
+        transition: transition,
+        lastPose: lastPose,
       ),
     );
   }

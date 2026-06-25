@@ -450,7 +450,35 @@ class _NavigationMapViewState extends State<_NavigationMapView>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return BlocBuilder<ArNavigationBloc, ArNavigationState>(
+    return BlocConsumer<ArNavigationBloc, ArNavigationState>(
+      listener: (context, arState) {
+        // Auto-sync the floor switcher to AR-driven floor changes:
+        //   - On AwaitingFloorChange: flip the preview to the floor the user
+        //     is about to climb to so they can see where they'll resume.
+        //   - On Tracking with activeFloorKey: keep the switcher locked to
+        //     the floor AR thinks the user is on. Prevents the user's manual
+        //     floor browsing from desyncing the map from AR mid-session.
+        if (arState is ArNavigationAwaitingFloorChange) {
+          final next = arState.toFloor;
+          if (next != _selectedFloor) {
+            _ensureFloorPlanLoaded(next);
+            setState(() {
+              _selectedFloor = next;
+              _floorAnimController.reset();
+              _floorAnimController.forward();
+            });
+          }
+        } else if (arState is ArNavigationTracking &&
+            arState.activeFloorKey != null &&
+            arState.activeFloorKey != _selectedFloor) {
+          _ensureFloorPlanLoaded(arState.activeFloorKey!);
+          setState(() {
+            _selectedFloor = arState.activeFloorKey!;
+            _floorAnimController.reset();
+            _floorAnimController.forward();
+          });
+        }
+      },
       builder: (context, arState) {
         dynamic displayLocation = widget.currentLocation;
         double? displayHeading;
@@ -458,6 +486,9 @@ class _NavigationMapViewState extends State<_NavigationMapView>
         if (arState is ArNavigationTracking && arState.currentPose != null) {
           displayLocation = arState.currentPose!.toLocationEntity();
           displayHeading = arState.currentPose!.heading;
+        } else if (arState is ArNavigationAwaitingFloorChange) {
+          displayLocation = arState.lastPose.toLocationEntity();
+          displayHeading = arState.lastPose.heading;
         }
 
         final arRawHeading = (arState is ArNavigationTracking)
@@ -496,7 +527,7 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                     floorPlanBase64: _floorPlanForSelected,
                     destinations: _destsForSelectedFloor,
                     onDestinationTap: widget.onDestinationTap,
-                    currentFloor: displayLocation.floor,
+                    currentFloor: _selectedFloor,
                     isCheckpoint: (_selectedFloor
                             .replaceAll('_floor', '')
                             .trim() !=
@@ -545,7 +576,8 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                       child: const Icon(Icons.height),
                     ),
                   ),
-                  if (arState is ArNavigationTracking)
+                  if (arState is ArNavigationTracking ||
+                      arState is ArNavigationAwaitingFloorChange)
                     Positioned(
                       right: 16,
                       top: 10,
@@ -586,12 +618,112 @@ class _NavigationMapViewState extends State<_NavigationMapView>
                         ],
                       ),
                     ),
+                  if (arState is ArNavigationAwaitingFloorChange)
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: 24,
+                      child: _FloorChangeBanner(
+                        fromFloor: _floorLabel(arState.fromFloor),
+                        toFloor: _floorLabel(arState.toFloor),
+                        onTapRelocalize: _captureAndRelocalize,
+                        isCapturing: _isCapturing,
+                      ),
+                    ),
                 ],
               ),
             ),
           ],
         );
       },
+    );
+  }
+}
+
+class _FloorChangeBanner extends StatelessWidget {
+  final String fromFloor;
+  final String toFloor;
+  final VoidCallback onTapRelocalize;
+  final bool isCapturing;
+
+  const _FloorChangeBanner({
+    required this.fromFloor,
+    required this.toFloor,
+    required this.onTapRelocalize,
+    required this.isCapturing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.deepOrange.withValues(alpha: 0.4),
+            width: 1.5,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 16,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.stairs, color: Colors.deepOrange, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Take stairs to floor $toFloor',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Tap re-localize once you arrive on floor $toFloor.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: isCapturing ? null : onTapRelocalize,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepOrange,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: isCapturing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Re-localize'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
