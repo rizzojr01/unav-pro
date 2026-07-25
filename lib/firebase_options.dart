@@ -58,7 +58,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1063603108029',
     projectId: 'pathlogic-app',
     storageBucket: 'pathlogic-app.firebasestorage.app',
-    iosBundleId: 'com.taggedweb.pathlogic',
+    iosBundleId: 'com.pathlogic.pro',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -67,6 +67,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1063603108029',
     projectId: 'pathlogic-app',
     storageBucket: 'pathlogic-app.firebasestorage.app',
-    iosBundleId: 'com.taggedweb.pathlogic',
+    iosBundleId: 'com.pathlogic.pro',
   );
 }
