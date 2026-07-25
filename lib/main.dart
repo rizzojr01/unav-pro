@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:smart_sense/app.dart';
 import 'package:smart_sense/core/constants/api_routes.dart';
+import 'package:smart_sense/core/services/server_config_service.dart';
 import 'package:smart_sense/injection.dart';
 import 'package:smart_sense/core/utils/logger.dart';
 import 'package:smart_sense/shared/services/fcm_service.dart';
@@ -67,7 +68,7 @@ void _syncMapsInBackground() {
       .syncMapsForBuilding(
     place: config.place,
     building: config.building,
-    baseUrl: ApiRoutes.baseUrl,
+      baseUrl: getIt<ServerConfigService>().currentUrl,
     force: false, // Don't clear cache on startup; just download missing maps
   )
       .then((result) {

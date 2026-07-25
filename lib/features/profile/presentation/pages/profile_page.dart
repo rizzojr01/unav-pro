@@ -6,6 +6,7 @@ import 'package:smart_sense/features/auth/presentation/bloc/auth_event.dart';
 import 'package:smart_sense/features/auth/presentation/bloc/auth_state.dart';
 
 import '../../../../injection.dart';
+import '../../../../routes/app_router.dart';
 import '../../../../shared/presentation/bloc/location_settings_bloc.dart';
 import '../../../../shared/presentation/bloc/location_settings_event.dart';
 import '../../../../shared/presentation/bloc/location_settings_state.dart';
@@ -99,6 +100,12 @@ class ProfilePage extends StatelessWidget {
                           title: 'Language',
                           subtitle: 'English (US)',
                           onTap: () {},
+                        ),
+                        _SettingsItem(
+                          icon: Icons.dns_outlined,
+                          title: 'Advanced Settings',
+                          subtitle: 'Server endpoint, developer options',
+                          onTap: () => context.push(AppRouter.advancedSettings),
                         ),
                         _SettingsItem(
                           icon: Icons.compress_rounded,

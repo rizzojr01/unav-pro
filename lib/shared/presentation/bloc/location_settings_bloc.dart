@@ -1,6 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/constants/api_routes.dart';
+import '../../../core/services/server_config_service.dart';
+import 'package:get_it/get_it.dart';
 import '../../data/datasources/place_remote_datasource.dart';
 import '../../domain/entities/gps_mapping_entity.dart';
 import '../../domain/entities/wifi_mapping_entity.dart';
@@ -187,7 +189,7 @@ class LocationSettingsBloc
         final result = await mapDownloadService.syncMapsForBuilding(
           place: newPlace,
           building: newBuilding,
-          baseUrl: ApiRoutes.baseUrl,
+          baseUrl: GetIt.instance<ServerConfigService>().currentUrl,
           force: true,
         );
 

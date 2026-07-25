@@ -11,6 +11,7 @@ import '../features/location/presentation/pages/location_detection_page.dart';
 import '../features/destination/presentation/pages/destination_page.dart';
 import '../features/navigation/presentation/pages/navigation_page.dart';
 import '../features/profile/presentation/pages/profile_page.dart';
+import '../features/profile/presentation/pages/advanced_settings_page.dart';
 import '../features/destination/domain/entities/destination_entity.dart';
 import '../features/camera/presentation/bloc/camera_bloc.dart';
 import '../features/destination/presentation/bloc/destination_bloc.dart';
@@ -36,6 +37,7 @@ class AppRouter {
   static const String destination = '/destination';
   static const String navigation = '/navigation';
   static const String profile = '/profile';
+  static const String advancedSettings = '/advanced-settings';
   static const String locateMe = '/locate-me';
   static const String localizationHistory = '/localization-history';
   static const String locateMeFloorPlan = '/locate-me/floor-plan';
@@ -97,6 +99,10 @@ class AppRouter {
         },
       ),
       GoRoute(path: profile, builder: (context, state) => const ProfilePage()),
+      GoRoute(
+        path: advancedSettings,
+        builder: (context, state) => const AdvancedSettingsPage(),
+      ),
       GoRoute(
         path: floorMap,
         builder: (context, state) => const FloorMapPage(),
