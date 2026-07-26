@@ -48,6 +48,7 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
   final DirectionBucketTracker _bucketTracker = DirectionBucketTracker();
 
   static const double _headingLockThresholdDeg = 8.0;
+  static const double _turnNowThresholdDeg = 10.0;
   static const double _transitionTriggerMeters = 1.5;
 
   StreamSubscription? _poseSubscription;
@@ -614,9 +615,14 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
     }
     _lastWaypointIndex = update.nextWaypointIndex;
 
-    // Approaching-waypoint cue: fires once on threshold crossing
+    // Approaching-waypoint cue: fires once on threshold crossing. If the route
+    // actually turns at this waypoint (>25°), play the turn-now cue
+    // (waypoint_pass only); otherwise the softer approaching chime.
     if (update.isApproachingWaypoint && !_wasApproachingWaypoint) {
-      unawaited(_soundService.playCue(GuidanceEventType.approachingWaypoint));
+      final turnAngle = _turnAngleAtWaypointDeg(update.nextWaypointIndex);
+      unawaited(_soundService.playCue(turnAngle > _turnNowThresholdDeg
+          ? GuidanceEventType.turnNow
+          : GuidanceEventType.approachingWaypoint));
     }
     _wasApproachingWaypoint = update.isApproachingWaypoint;
 
@@ -658,6 +664,25 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       sourceDistanceMeters: 6.0,
       distanceToWaypointMeters: distanceMeters,
     );
+  }
+
+  /// Turn angle of the route itself at [waypointIndex] — the bend between the
+  /// incoming and outgoing segments. 0 at the route's endpoints.
+  double _turnAngleAtWaypointDeg(int waypointIndex) {
+    final route = _route;
+    if (route == null || route.steps.isEmpty) return 0;
+    final routePoints =
+        route.steps.map((s) => Offset(s.from.x, s.from.y)).toList();
+    routePoints.add(Offset(route.steps.last.to.x, route.steps.last.to.y));
+    if (waypointIndex <= 0 || waypointIndex >= routePoints.length - 1) return 0;
+    final prev = routePoints[waypointIndex - 1];
+    final curr = routePoints[waypointIndex];
+    final next = routePoints[waypointIndex + 1];
+    final inBearing = math.atan2(curr.dy - prev.dy, curr.dx - prev.dx);
+    final outBearing = math.atan2(next.dy - curr.dy, next.dx - curr.dx);
+    var deltaDeg = (outBearing - inBearing) * 180.0 / math.pi;
+    deltaDeg = ((deltaDeg + 540.0) % 360.0) - 180.0;
+    return deltaDeg.abs();
   }
 
   double _normalizedHeadingSeverity(double headingErrorDeg) {
