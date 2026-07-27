@@ -1,8 +1,10 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:get_it/get_it.dart';
+import 'package:smart_sense/core/services/server_config_service.dart';
 
 class ApiRoutes {
-  // Base URL
-  static String get baseUrl => dotenv.get('BASE_URL');
+  // Base URL — resolves to the active server (local or Koyeb) at call time.
+  static String get baseUrl => GetIt.instance<ServerConfigService>().currentUrl;
 
   // Auth Endpoints
   static const String login = '/auth/login';
