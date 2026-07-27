@@ -187,6 +187,24 @@ private final class IOSArTrackingBridge: NSObject, FlutterStreamHandler, ARSessi
     ])
   }
 
+  func sessionInterruptionEnded(_ session: ARSession) {
+    // Interruption (call, app switch, camera stolen) suspends frame delivery.
+    // Re-run the existing configuration so poses resume instead of the feed
+    // staying dead. Anchors/world origin are preserved; ARKit relocalizes.
+    guard isSessionRunning, let configuration = session.configuration else { return }
+    session.run(configuration)
+  }
+
+  func session(_ session: ARSession, didFailWithError error: Error) {
+    // A failed session never delivers another frame. Restart so the preview
+    // and pose stream come back; the Dart side's relocalize flow handles the
+    // lost world origin.
+    guard isSessionRunning else { return }
+    let configuration = ARWorldTrackingConfiguration()
+    configuration.worldAlignment = .gravity
+    session.run(configuration, options: [.resetTracking, .removeExistingAnchors])
+  }
+
   private func startSession(result: FlutterResult) {
     guard ARWorldTrackingConfiguration.isSupported else {
       result(

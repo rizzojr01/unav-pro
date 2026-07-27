@@ -30,6 +30,9 @@ import '../entities/localized_pose.dart';
 /// is actually going.
 class DirectionBucketTracker {
   static const double _minStepMeters = 0.10;
+  // A single frame-to-frame jump above this is an ARKit relocalization snap,
+  // not walking — re-anchor without moving the dot.
+  static const double _maxStepMeters = 3.0;
 
   Offset? _lastFpPosition;
   ArPose? _lastArPose;
@@ -107,6 +110,18 @@ class DirectionBucketTracker {
         confidence: currentArPose.confidence,
       );
     }
+    if (stepMeters > _maxStepMeters) {
+      // ARKit relocalized with a position snap. Consume the jump so it
+      // doesn't turn into a phantom multi-meter stride along one bucket.
+      _lastArPose = currentArPose;
+      return referenceFp.copyWith(
+        x: lastFp.dx,
+        y: lastFp.dy,
+        heading: phoneFpHeading,
+        timestamp: currentArPose.timestamp,
+        confidence: currentArPose.confidence,
+      );
+    }
 
     // AR-plane angle (CCW from East). Same convention ArPoseTransformer
     // uses for its inverse rotation.
@@ -116,30 +131,57 @@ class DirectionBucketTracker {
     // Travel direction in the floorplan compass frame.
     //   fpAngle = sumHeadingDeg - arAngle
     final fpAngleDeg = _normalize(sumHeadingDeg - arWalkAngleDeg);
-
-    final bucketedDeg =
-        bucketCount == 8 ? _bucket8(fpAngleDeg) : _bucket4(fpAngleDeg);
-
-    final bucketedRad = bucketedDeg * math.pi / 180.0;
-    final unitX = math.cos(bucketedRad);
+    final fpAngleRad = fpAngleDeg * math.pi / 180.0;
     // FP image plane Y is South-positive, which matches sin() for our
     // East=0, South=90° convention.
-    final unitY = math.sin(bucketedRad);
+    final rawWalkUnit = Offset(math.cos(fpAngleRad), math.sin(fpAngleRad));
 
+    final snapThresholdPx = 2.0 / metersPerPixel;
+
+    // The corridors themselves are the "tracks": step along the nearby
+    // corridor direction that best matches the raw walk vector AND actually
+    // advances the dot. Compass buckets alone pin the dot at corners — after
+    // a turn, yaw drift can land the walk in a bucket perpendicular to the
+    // new corridor (or along the old, ended one), and the snap then projects
+    // every step back onto the corner vertex forever.
     final stepPx = stepMeters / metersPerPixel;
-    var candidateFp = Offset(
-      lastFp.dx + unitX * stepPx,
-      lastFp.dy + unitY * stepPx,
-    );
+    final trackDirs =
+        _trackDirections(lastFp, segments, snapThresholdPx, rawWalkUnit);
 
-    if (segments.isNotEmpty) {
-      final snapThresholdPx = 2.0 / metersPerPixel;
-      candidateFp = snapToRouteNetwork(
-        candidateFp,
-        segments,
-        thresholdPx: snapThresholdPx,
+    Offset candidateFp = lastFp;
+    var progressed = false;
+    for (final dir in trackDirs) {
+      final tryFp = Offset(
+        lastFp.dx + dir.dx * stepPx,
+        lastFp.dy + dir.dy * stepPx,
       );
+      final snapped =
+          snapToRouteNetwork(tryFp, segments, thresholdPx: snapThresholdPx);
+      if ((snapped - lastFp).distance >= 0.25 * stepPx) {
+        candidateFp = snapped;
+        progressed = true;
+        break;
+      }
     }
+
+    if (!progressed && trackDirs.isEmpty) {
+      // Off the corridor graph (or no graph at all): original compass-bucket
+      // behavior.
+      final unit = _compassBucketUnit(fpAngleDeg);
+      candidateFp = Offset(
+        lastFp.dx + unit.dx * stepPx,
+        lastFp.dy + unit.dy * stepPx,
+      );
+      if (segments.isNotEmpty) {
+        candidateFp = snapToRouteNetwork(
+          candidateFp,
+          segments,
+          thresholdPx: snapThresholdPx,
+        );
+      }
+    }
+    // ponytail: if no track direction progresses (dead end / walking into a
+    // wall), the dot deliberately stays put — that is the honest reading.
 
     _lastFpPosition = candidateFp;
     _lastArPose = currentArPose;
@@ -151,6 +193,50 @@ class DirectionBucketTracker {
       timestamp: currentArPose.timestamp,
       confidence: currentArPose.confidence,
     );
+  }
+
+  /// Signed unit directions of corridor segments within [thresholdPx] of
+  /// [point], oriented toward [walkUnit] and sorted best-aligned first.
+  /// Perpendicular/backward directions (dot ≤ 0.05) are dropped. Empty when
+  /// no segment is nearby — caller falls back to compass bucketing.
+  static List<Offset> _trackDirections(
+    Offset point,
+    List<(Offset, Offset)> segments,
+    double thresholdPx,
+    Offset walkUnit,
+  ) {
+    final thresholdSq = thresholdPx * thresholdPx;
+    final scored = <(double, Offset)>[];
+    for (final (a, b) in segments) {
+      final ab = b - a;
+      final abLenSq = ab.dx * ab.dx + ab.dy * ab.dy;
+      if (abLenSq <= 1e-6) continue;
+      final ap = point - a;
+      final t = ((ap.dx * ab.dx) + (ap.dy * ab.dy)) / abLenSq;
+      final proj = a + ab * t.clamp(0.0, 1.0);
+      final dx = point.dx - proj.dx;
+      final dy = point.dy - proj.dy;
+      if (dx * dx + dy * dy > thresholdSq) continue;
+      final abLen = math.sqrt(abLenSq);
+      var dir = Offset(ab.dx / abLen, ab.dy / abLen);
+      var dot = (walkUnit.dx * dir.dx) + (walkUnit.dy * dir.dy);
+      // Orient toward the walk: walking a segment "backwards" is on-track.
+      if (dot < 0) {
+        dir = Offset(-dir.dx, -dir.dy);
+        dot = -dot;
+      }
+      if (dot <= 0.05) continue;
+      scored.add((dot, dir));
+    }
+    scored.sort((x, y) => y.$1.compareTo(x.$1));
+    return [for (final s in scored) s.$2];
+  }
+
+  Offset _compassBucketUnit(double fpAngleDeg) {
+    final bucketedDeg =
+        bucketCount == 8 ? _bucket8(fpAngleDeg) : _bucket4(fpAngleDeg);
+    final bucketedRad = bucketedDeg * math.pi / 180.0;
+    return Offset(math.cos(bucketedRad), math.sin(bucketedRad));
   }
 
   static double _bucket4(double fpDeg) {

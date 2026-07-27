@@ -304,14 +304,13 @@ class _StereoGuidanceAudioRenderer implements _GuidanceAudioRenderer {
       case GuidanceEventType.turnNow:
         await _playPattern([
           _CueStep(
-            asset: _offRouteChimeCenterAsset,
+            asset: _waypointPassAsset,
             balance: 0,
-            rate: 1.06,
-            volume: 0.66,
+            rate: 1.12,
+            volume: 0.76,
             haptic: _CueHaptic.medium,
           ),
-          _CueStep(asset: _waypointPassAsset, balance: 0, rate: 1.12, volume: 0.76),
-        ], gap: const Duration(milliseconds: 90));
+        ]);
         return;
       case GuidanceEventType.offRoute:
         await _playPattern([
