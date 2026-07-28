@@ -2,17 +2,22 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import '../error/exceptions.dart';
+import '../services/server_config_service.dart';
 import '../utils/logger.dart';
 
 class ApiClient {
   final Dio _dio;
   final AppLogger _logger;
+  final ServerConfigService _serverConfig;
 
-  ApiClient({required String baseUrl, required AppLogger logger})
-    : _logger = logger,
+  ApiClient({
+    required ServerConfigService serverConfig,
+    required AppLogger logger,
+  }) : _logger = logger,
+      _serverConfig = serverConfig,
       _dio = Dio(
         BaseOptions(
-          baseUrl: baseUrl,
+          baseUrl: serverConfig.currentUrl,
           connectTimeout: const Duration(minutes: 5),
           receiveTimeout: const Duration(minutes: 5),
           sendTimeout: const Duration(minutes: 5),
@@ -24,6 +29,12 @@ class ApiClient {
       ) {
     _setupInterceptors();
     _setupCertificateBypass();
+  }
+
+  /// Always target the currently selected server before issuing a request so
+  /// runtime switches between local and Koyeb take effect immediately.
+  void _useActiveBaseUrl() {
+    _dio.options.baseUrl = _serverConfig.currentUrl;
   }
 
   void _setupCertificateBypass() {
@@ -63,6 +74,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
+    _useActiveBaseUrl();
     try {
       final response = await _dio.get<T>(
         path,
@@ -81,6 +93,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
+    _useActiveBaseUrl();
     try {
       final response = await _dio.post<T>(
         path,
@@ -100,6 +113,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
+    _useActiveBaseUrl();
     try {
       final response = await _dio.put<T>(
         path,
@@ -119,6 +133,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
+    _useActiveBaseUrl();
     try {
       final response = await _dio.delete<T>(
         path,

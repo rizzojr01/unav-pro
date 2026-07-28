@@ -1,6 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_sense/core/network/api_client.dart';
+import 'package:smart_sense/core/services/server_config_service.dart';
 import 'package:smart_sense/core/services/storage_service.dart';
 import 'package:smart_sense/core/utils/logger.dart';
 import 'package:smart_sense/core/constants/api_routes.dart';
@@ -98,8 +99,11 @@ Future<void> initializeDependencies() async {
   // Core
   getIt.registerLazySingleton<AppLogger>(() => AppLogger());
   getIt.registerLazySingleton<StorageService>(() => StorageService(getIt()));
+  getIt.registerLazySingleton<ServerConfigService>(
+    () => ServerConfigService(getIt()),
+  );
   getIt.registerLazySingleton<ApiClient>(
-    () => ApiClient(baseUrl: ApiRoutes.baseUrl, logger: getIt()),
+    () => ApiClient(serverConfig: getIt(), logger: getIt()),
   );
 
   // Shared Services
