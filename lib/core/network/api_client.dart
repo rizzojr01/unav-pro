@@ -164,7 +164,8 @@ class ApiClient {
               data['details'] ??
               'Server error';
         } else if (data is String) {
-          errorMessage = data;
+          errorMessage =
+              friendlyServerMessage(data, error.response?.statusCode);
         }
 
         return ServerException(errorMessage, error.response?.statusCode);

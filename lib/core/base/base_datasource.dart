@@ -104,7 +104,7 @@ abstract class BaseRemoteDataSource {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return NetworkException('Request timeout');
+        return const NetworkException('Request timeout');
       case DioExceptionType.badResponse:
         final statusCode = e.response?.statusCode ?? 500;
         final data = e.response?.data;
@@ -126,15 +126,18 @@ abstract class BaseRemoteDataSource {
             return ServerException(serverMessage.toString(), statusCode);
           }
         } else if (data is String && data.isNotEmpty) {
-          return ServerException(data, statusCode);
+          return ServerException(
+            friendlyServerMessage(data, statusCode),
+            statusCode,
+          );
         }
 
         // Fallback to the provided generic error message if server provided nothing
         return ServerException(errorMessage, statusCode);
       case DioExceptionType.connectionError:
-        return NetworkException('Connection error');
+        return const NetworkException('Connection error');
       case DioExceptionType.cancel:
-        return NetworkException('Request cancelled');
+        return const NetworkException('Request cancelled');
       default:
         return ServerException(errorMessage, 500);
     }
