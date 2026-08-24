@@ -11,6 +11,7 @@ import '../../../../shared/presentation/bloc/location_settings_bloc.dart';
 import '../../../../shared/presentation/bloc/location_settings_event.dart';
 import '../../../../shared/presentation/bloc/location_settings_state.dart';
 import '../../../../shared/services/destinations_cache_service.dart';
+import '../../../../shared/services/floor_plan_cache_service.dart';
 import '../../../../shared/services/location_config_service.dart';
 import '../../../../shared/widgets/auto_detect_location_widget.dart';
 import '../../../../theme/theme_bloc.dart';
@@ -1894,7 +1895,45 @@ class _LocationSettingsSheet extends StatelessWidget {
             }
           },
         ),
-        const SizedBox(height: 40),
+        const SizedBox(height: 24),
+
+        // Clear cached destinations + floor plans; next use re-downloads fresh.
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              await getIt<DestinationsCacheService>().clearAllCache();
+              await getIt<FloorPlanCacheService>().clearAllCache();
+              messenger.clearSnackBars();
+              messenger.showSnackBar(
+                SnackBar(
+                  content: const Text(
+                    'Cached destinations and floor plans cleared',
+                  ),
+                  backgroundColor: theme.colorScheme.secondary,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.delete_sweep_outlined),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: theme.colorScheme.error,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            label: const Text(
+              'CLEAR MAP & DESTINATION CACHE',
+              style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
 
         // Save Button
         SizedBox(

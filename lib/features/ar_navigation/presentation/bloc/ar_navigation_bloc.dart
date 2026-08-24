@@ -354,6 +354,9 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
         sumHeadingDeg: sumHeadingDeg,
         metersPerPixel: effectiveMpp,
         segments: segments,
+        // Snap-to-route toggle now also frees the bucket tracker: off =
+        // dead-reckon anywhere, on = train on tracks.
+        snapToRoute: _locationConfig.snapToRoute,
       );
     } else {
       // Default solution 1 pipeline — full AR→FP transform per frame.

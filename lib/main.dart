@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -6,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:smart_sense/app.dart';
 import 'package:smart_sense/core/constants/api_routes.dart';
+import 'package:smart_sense/core/network/api_client.dart';
 import 'package:smart_sense/core/services/server_config_service.dart';
 import 'package:smart_sense/injection.dart';
 import 'package:smart_sense/core/utils/logger.dart';
@@ -49,6 +52,13 @@ void main() async {
   } catch (e) {
     getIt<AppLogger>().error('FCM initialization failed', error: e);
   }
+
+  // Wake the API server fire-and-forget so a cold-started backend is already
+  // spinning up before the user's first real request. Any response (even an
+  // error page) counts — we only care that the server got hit.
+  unawaited(
+    getIt<ApiClient>().get<dynamic>('/').catchError((_) => null),
+  );
 
   // Pre-download floor plan images for the current building in the background.
   // This populates the FloorPlanCacheService so navigation works without

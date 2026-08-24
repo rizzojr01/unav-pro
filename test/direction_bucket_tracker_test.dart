@@ -71,6 +71,25 @@ void main() {
         reason: 'dot must progress down the second hallway, not pin at corner');
   });
 
+  test('snapToRoute=false lets the dot leave the corridor freely', () {
+    final tracker = DirectionBucketTracker();
+    LocalizedPose free(ArPose p) => tracker.track(
+          currentArPose: p,
+          referenceFp: ref(),
+          sumHeadingDeg: 0,
+          metersPerPixel: mpp,
+          segments: segments,
+          snapToRoute: false,
+        );
+
+    free(pose(0, 0)); // anchor
+    // Walk 45° diagonal, straight off the corridor.
+    var out = free(pose(2, 2));
+    expect(out.x, closeTo(20, 0.5)); // 2m East = 20px
+    expect(out.y, closeTo(20, 0.5),
+        reason: 'dot must follow the raw walk, not snap to a corridor');
+  });
+
   test('relocalization jump does not teleport the dot', () {
     final tracker = DirectionBucketTracker();
     drive(tracker, pose(0, 0)); // anchor

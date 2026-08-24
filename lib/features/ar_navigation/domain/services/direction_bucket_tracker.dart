@@ -63,6 +63,7 @@ class DirectionBucketTracker {
     required double sumHeadingDeg,
     required double metersPerPixel,
     required List<(Offset, Offset)> segments,
+    bool snapToRoute = true,
   }) {
     final lastFp = _lastFpPosition;
     final lastAr = _lastArPose;
@@ -137,6 +138,27 @@ class DirectionBucketTracker {
     final rawWalkUnit = Offset(math.cos(fpAngleRad), math.sin(fpAngleRad));
 
     final snapThresholdPx = 2.0 / metersPerPixel;
+    final stepPx = stepMeters / metersPerPixel;
+
+    // Free-roam: user opted out of the rails — dead-reckon in the raw walk
+    // direction, no track selection, no snapping. The dot follows the user
+    // anywhere, including off the walkable area (and, with yaw drift,
+    // through walls — that is the trade the toggle makes).
+    if (!snapToRoute) {
+      final freeFp = Offset(
+        lastFp.dx + rawWalkUnit.dx * stepPx,
+        lastFp.dy + rawWalkUnit.dy * stepPx,
+      );
+      _lastFpPosition = freeFp;
+      _lastArPose = currentArPose;
+      return referenceFp.copyWith(
+        x: freeFp.dx,
+        y: freeFp.dy,
+        heading: phoneFpHeading,
+        timestamp: currentArPose.timestamp,
+        confidence: currentArPose.confidence,
+      );
+    }
 
     // The corridors themselves are the "tracks": step along the nearby
     // corridor direction that best matches the raw walk vector AND actually
@@ -144,7 +166,6 @@ class DirectionBucketTracker {
     // a turn, yaw drift can land the walk in a bucket perpendicular to the
     // new corridor (or along the old, ended one), and the snap then projects
     // every step back onto the corner vertex forever.
-    final stepPx = stepMeters / metersPerPixel;
     final trackDirs =
         _trackDirections(lastFp, segments, snapThresholdPx, rawWalkUnit);
 
