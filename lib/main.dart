@@ -78,7 +78,7 @@ void _syncMapsInBackground() {
       .syncMapsForBuilding(
     place: config.place,
     building: config.building,
-      baseUrl: getIt<ServerConfigService>().currentUrl,
+    baseUrl: getIt<ServerConfigService>().currentUrl,
     force: false, // Don't clear cache on startup; just download missing maps
   )
       .then((result) {

@@ -8,6 +8,7 @@ import 'package:smart_sense/theme/app_theme.dart';
 import 'package:smart_sense/theme/theme_bloc.dart';
 import 'package:smart_sense/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:smart_sense/features/auth/presentation/bloc/auth_event.dart';
+import 'package:smart_sense/shared/widgets/api_timer_overlay.dart';
 import 'package:smart_sense/shared/widgets/fcm_banner_overlay.dart';
 
 class App extends StatelessWidget {
@@ -34,6 +35,12 @@ class App extends StatelessWidget {
                 darkTheme: AppTheme.light(state.palette.scheme),
                 themeMode: ThemeMode.light,
                 routerConfig: AppRouter.router,
+                builder: (context, child) => Stack(
+                  children: [
+                    if (child != null) child,
+                    const ApiTimerOverlay(),
+                  ],
+                ),
               ),
             ),
           );

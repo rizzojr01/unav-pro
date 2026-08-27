@@ -201,6 +201,10 @@ class FloorPlanCacheService {
       if (await dir.exists()) {
         await dir.delete(recursive: true);
       }
+      // _getDir memoizes the handle, so recreate immediately — otherwise
+      // every download after a clear writes into a deleted directory and
+      // fails with PathNotFoundException.
+      await dir.create(recursive: true);
     } catch (_) {}
   }
 

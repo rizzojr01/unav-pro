@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import '../error/exceptions.dart';
+import 'api_timer_tracker.dart';
 import '../services/server_config_service.dart';
 import '../utils/logger.dart';
 
@@ -48,21 +49,59 @@ class ApiClient {
     );
   }
 
+  /// Total window for retrying failed connects. The OS aborts a single TCP
+  /// connect attempt after ~75s (errno 60) no matter what connectTimeout
+  /// says, so "wait 5 minutes" is only achievable by retrying attempts
+  /// until the window closes — e.g. while the server cold-starts.
+  static const _connectRetryWindow = Duration(minutes: 5);
+  static const _connectRetryDelay = Duration(seconds: 3);
+
   void _setupInterceptors() {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
           _logger.info('Request: ${options.method} ${options.path}');
+          // ??= so retries keep the original timer and window anchor.
+          options.extra['firstAttemptMs'] ??=
+              DateTime.now().millisecondsSinceEpoch;
+          options.extra['timerId'] ??= ApiTimerTracker.instance
+              .begin('${options.method} ${options.path}');
           return handler.next(options);
         },
         onResponse: (response, handler) {
           _logger.info(
             'Response: ${response.statusCode} ${response.requestOptions.path}',
           );
+          final id = response.requestOptions.extra['timerId'];
+          if (id is int) ApiTimerTracker.instance.end(id);
           return handler.next(response);
         },
-        onError: (error, handler) {
+        onError: (error, handler) async {
+          final opts = error.requestOptions;
+          final couldNotConnect =
+              error.type == DioExceptionType.connectionTimeout ||
+                  error.type == DioExceptionType.connectionError ||
+                  error.error is SocketException;
+          final firstAttemptMs = opts.extra['firstAttemptMs'] as int?;
+          final withinWindow = firstAttemptMs != null &&
+              DateTime.now().millisecondsSinceEpoch - firstAttemptMs <
+                  _connectRetryWindow.inMilliseconds;
+          if (couldNotConnect && withinWindow) {
+            _logger.info(
+              'Connect failed for ${opts.path} — retrying '
+              '(server may be cold-starting)',
+            );
+            await Future<void>.delayed(_connectRetryDelay);
+            try {
+              final response = await _dio.fetch<dynamic>(opts);
+              return handler.resolve(response);
+            } on DioException catch (e) {
+              return handler.next(e);
+            }
+          }
           _logger.error('Error: ${error.message}', error: error);
+          final id = opts.extra['timerId'];
+          if (id is int) ApiTimerTracker.instance.end(id, failed: true);
           return handler.next(error);
         },
       ),

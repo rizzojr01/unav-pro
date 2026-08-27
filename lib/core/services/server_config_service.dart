@@ -28,7 +28,7 @@ class ServerConfigService {
       dotenv.get('BASE_URL', fallback: _defaultLocalUrl);
 
   static String get koyebUrl =>
-      dotenv.get('KOYEB_URL', fallback: _defaultKoyebUrl);
+      dotenv.get('KOYEB_BASE_URL', fallback: _defaultKoyebUrl);
 
   /// The currently selected server key.
   String get currentKey => serverKeyNotifier.value;

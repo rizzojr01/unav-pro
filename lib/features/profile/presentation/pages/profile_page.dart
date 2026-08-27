@@ -10,10 +10,10 @@ import '../../../../routes/app_router.dart';
 import '../../../../shared/presentation/bloc/location_settings_bloc.dart';
 import '../../../../shared/presentation/bloc/location_settings_event.dart';
 import '../../../../shared/presentation/bloc/location_settings_state.dart';
+import '../../../../shared/data/datasources/place_remote_datasource.dart';
 import '../../../../shared/services/destinations_cache_service.dart';
 import '../../../../shared/services/floor_plan_cache_service.dart';
 import '../../../../shared/services/location_config_service.dart';
-import '../../../../shared/widgets/auto_detect_location_widget.dart';
 import '../../../../theme/theme_bloc.dart';
 import '../../../../theme/widgets/color_customizer.dart';
 
@@ -1840,16 +1840,8 @@ class _LocationSettingsSheet extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Auto-detect section (GPS + Wi-Fi)
-        const AutoDetectLocationWidget(),
-        const SizedBox(height: 24),
-
-        Divider(
-          color: Theme.of(
-            context,
-          ).colorScheme.outlineVariant.withValues(alpha: 0.3),
-        ),
-        const SizedBox(height: 16),
+        // Auto-detect (GPS + Wi-Fi) hidden for now — detection is unreliable.
+        // Restore by re-adding AutoDetectLocationWidget here.
 
         // Place Dropdown
         _buildDropdownSection(
@@ -1905,12 +1897,11 @@ class _LocationSettingsSheet extends StatelessWidget {
               final messenger = ScaffoldMessenger.of(context);
               await getIt<DestinationsCacheService>().clearAllCache();
               await getIt<FloorPlanCacheService>().clearAllCache();
+              await PlaceRemoteDataSourceImpl.clearCachedPlaces();
               messenger.clearSnackBars();
               messenger.showSnackBar(
                 SnackBar(
-                  content: const Text(
-                    'Cached destinations and floor plans cleared',
-                  ),
+                  content: const Text('Cache cleared'),
                   backgroundColor: theme.colorScheme.secondary,
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(
@@ -1928,7 +1919,7 @@ class _LocationSettingsSheet extends StatelessWidget {
               ),
             ),
             label: const Text(
-              'CLEAR MAP & DESTINATION CACHE',
+              'CLEAR CACHE',
               style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1),
             ),
           ),

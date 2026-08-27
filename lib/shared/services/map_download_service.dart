@@ -72,9 +72,9 @@ class MapDownloadService {
   MapDownloadService(this._cache) {
     _dio = Dio(
       BaseOptions(
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(minutes: 3),
-        sendTimeout: const Duration(seconds: 30),
+        connectTimeout: const Duration(minutes: 5),
+        receiveTimeout: const Duration(minutes: 5),
+        sendTimeout: const Duration(minutes: 5),
       ),
     );
     // Bypass SSL for dev server
@@ -112,8 +112,8 @@ class MapDownloadService {
       final catalogDio = Dio(
         BaseOptions(
           baseUrl: baseUrl,
-          connectTimeout: const Duration(seconds: 30),
-          receiveTimeout: const Duration(seconds: 30),
+          connectTimeout: const Duration(minutes: 5),
+          receiveTimeout: const Duration(minutes: 5),
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
