@@ -96,9 +96,19 @@ class PathTrackingService {
     // Ensure we don't go backwards in waypoints
     activeWaypointIndex = math.max(activeWaypointIndex, previousWaypointIndex);
 
+    // Join the route at the user's nearest on-route point, then follow the
+    // route. A straight line to the next waypoint cuts across non-walkable
+    // space — worst on the final stretch, where it beelines to the
+    // destination.
+    final remaining = routePoints.skip(activeWaypointIndex).toList();
+    final joinPoint = projection.projectedPoint;
     final trackedPath = <Offset>[
       currentPoint,
-      ...routePoints.skip(activeWaypointIndex),
+      if ((joinPoint - currentPoint).distance > 1e-3 &&
+          (remaining.isEmpty ||
+              (joinPoint - remaining.first).distance > 1e-3))
+        joinPoint,
+      ...remaining,
     ];
 
     final distanceToNextWaypointPx =
