@@ -7,8 +7,18 @@
       "team_id": "3AKM83DNCV",
       "app_store_connect_team_id": "3AKM83DNCV",
       "itc_team_id": "3AKM83DNCV",
-      "provisioning_profile_specifier": "FOR PL PRO",
+      "provisioning_profile_specifier": "match AppStore com.pathlogic.pro",
       "display_name": "PathLogicPro"
+    },
+    {
+      "id": "PathLogicProBeta",
+      "name": "PathLogicProBeta",
+      "bundle_id": "com.taggedweb.pathlogic-pro-beta",
+      "team_id": "3AKM83DNCV",
+      "app_store_connect_team_id": "3AKM83DNCV",
+      "itc_team_id": "3AKM83DNCV",
+      "provisioning_profile_specifier": "match AppStore com.taggedweb.pathlogic-pro-beta",
+      "display_name": "PathLogic Pro Beta"
     }
   ]
 }
