@@ -30,6 +30,7 @@ class LocationConfigService {
   static const String _keyShowDebugBanner = 'debug_show_banner';
   static const String _keyArHeadingOffsetDeg = 'ar_heading_offset_deg';
   static const String _keySnapToRoute = 'snap_to_route';
+  static const String _keyServerSnapToRoute = 'server_snap_to_route';
   static const String _keyAutoHeadingCorrection = 'auto_heading_correction';
   static const String _keyDirectionBucketMode = 'direction_bucket_mode';
   static const String _keyDirectionBucketCount = 'direction_bucket_count';
@@ -142,7 +143,7 @@ class LocationConfigService {
   /// Project the user's pose onto the nearest navigable route edge before
   /// display/tracking. Hides server noise and ARKit drift; user toggleable.
   late final ValueNotifier<bool> snapToRouteNotifier =
-      ValueNotifier(_prefs.getBool(_keySnapToRoute) ?? true);
+      ValueNotifier(_prefs.getBool(_keySnapToRoute) ?? false);
 
   bool get snapToRoute => snapToRouteNotifier.value;
 
@@ -151,12 +152,24 @@ class LocationConfigService {
     await _prefs.setBool(_keySnapToRoute, value);
   }
 
+  /// Server-side route snapping: sent as `snap_to_route` in the get-route
+  /// request. Independent of the client-side [snapToRoute] rails above.
+  late final ValueNotifier<bool> serverSnapToRouteNotifier =
+      ValueNotifier(_prefs.getBool(_keyServerSnapToRoute) ?? true);
+
+  bool get serverSnapToRoute => serverSnapToRouteNotifier.value;
+
+  Future<void> setServerSnapToRoute(bool value) async {
+    serverSnapToRouteNotifier.value = value;
+    await _prefs.setBool(_keyServerSnapToRoute, value);
+  }
+
   /// Auto-correct AR heading offset by observing user's walk direction vs
   /// nearest route_segment direction. Hides 2-5° backend/ARKit yaw error.
   /// When enabled, `arHeadingOffsetDeg` is driven automatically; the manual
   /// slider still works as an override (last writer wins per frame).
   late final ValueNotifier<bool> autoHeadingCorrectionNotifier = ValueNotifier(
-    _prefs.getBool(_keyAutoHeadingCorrection) ?? true,
+    _prefs.getBool(_keyAutoHeadingCorrection) ?? false,
   );
 
   bool get autoHeadingCorrection => autoHeadingCorrectionNotifier.value;
@@ -173,7 +186,7 @@ class LocationConfigService {
   /// hides the AR overlay because pixel-accurate alignment is no longer
   /// the goal.
   late final ValueNotifier<bool> directionBucketModeNotifier = ValueNotifier(
-    _prefs.getBool(_keyDirectionBucketMode) ?? false,
+    _prefs.getBool(_keyDirectionBucketMode) ?? true,
   );
 
   bool get directionBucketMode => directionBucketModeNotifier.value;

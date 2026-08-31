@@ -3,6 +3,7 @@ import '../../../../core/error/exceptions.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../injection.dart';
 import '../../../../shared/services/fcm_service.dart';
+import '../../../../shared/services/location_config_service.dart';
 import 'package:smart_sense/core/constants/api_routes.dart';
 import '../models/route_model.dart';
 
@@ -62,6 +63,7 @@ class NavigationRemoteDataSourceImpl extends BaseRemoteDataSource
         'shorten_vlm_response': true,
         'speakVlmFirst': true,
         'unav_multifloor': multiFloorNavigation,
+        'snap_to_route': getIt<LocationConfigService>().serverSnapToRoute,
         'use_vlm': false,
         'offset_in_meters': offsetInMeters,
         'image_compression': imageCompression,
