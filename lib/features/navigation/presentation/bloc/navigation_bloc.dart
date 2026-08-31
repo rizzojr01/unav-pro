@@ -5,8 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 
+import '../../../../core/services/server_config_service.dart';
 import '../../../../shared/services/destinations_cache_service.dart';
 import '../../../../shared/services/floor_plan_cache_service.dart';
+import '../../../../shared/services/map_download_service.dart';
 import '../../../../shared/services/location_config_service.dart';
 import '../../../destination/domain/entities/destination_entity.dart';
 import '../../../locate_me/domain/usecases/get_destinations_usecase.dart';
@@ -73,19 +75,34 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     );
 
     // ── Step 1: Read floor plan from cache (pre-loaded by MapDownloadService) ─
-    // Maps are downloaded when the building is selected; no per-request fetch.
-    final floorPlanBase64 = await floorPlanCacheService
-        .getCachedFloorPlanBase64(
-          place: place,
-          building: building,
-          floor: floor,
-        );
+    // Maps are downloaded when the building is selected. On a cache miss
+    // (cleared cache, failed startup sync) fetch the building's maps on
+    // demand instead of dead-ending the user.
+    var floorPlanBase64 = await floorPlanCacheService.getCachedFloorPlanBase64(
+      place: place,
+      building: building,
+      floor: floor,
+    );
+
+    if (floorPlanBase64 == null || floorPlanBase64.isEmpty) {
+      emit(const NavigationLoading(message: 'Downloading floor maps...'));
+      await getIt<MapDownloadService>().syncMapsForBuilding(
+        place: place,
+        building: building,
+        baseUrl: getIt<ServerConfigService>().currentUrl,
+        force: false, // only fetch what's missing
+      );
+      floorPlanBase64 = await floorPlanCacheService.getCachedFloorPlanBase64(
+        place: place,
+        building: building,
+        floor: floor,
+      );
+    }
 
     if (floorPlanBase64 == null || floorPlanBase64.isEmpty) {
       emit(
         const NavigationError(
-          'Floor map not available. Please go to Settings and re-select your '
-          'building to download the latest maps.',
+          'Floor map not available. Please check your connection and retry.',
         ),
       );
       return;
