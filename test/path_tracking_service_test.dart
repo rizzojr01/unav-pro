@@ -42,11 +42,10 @@ void main() {
         timestamp: DateTime.fromMillisecondsSinceEpoch(0),
       );
 
-  test('drawn path joins the route at the nearest point, not the waypoint',
+  test('drawn path connects directly from current point to next waypoint',
       () {
     const service = PathTrackingService();
-    // User mid-first-hallway, 0.5 m off the line. Old behavior drew a
-    // diagonal straight to the corner (100,0).
+    // User mid-first-hallway, 0.5 m off the line. Draws direct line to corner (100,0).
     final update = service.update(
       pose: pose(50, 5),
       anchor: pose(0, 0),
@@ -55,12 +54,10 @@ void main() {
       previousWaypointIndex: 0,
     );
     expect(update.trackedPath[0], const Offset(50, 5));
-    expect(update.trackedPath[1].dx, closeTo(50, 0.5),
-        reason: 'must join the route perpendicular at (50,0)');
-    expect(update.trackedPath[1].dy, closeTo(0, 0.5));
+    expect(update.trackedPath[1], const Offset(100, 0));
   });
 
-  test('final stretch joins the last segment instead of beelining', () {
+  test('final stretch connects directly from current point to destination', () {
     const service = PathTrackingService();
     // User beside the second hallway, halfway to the destination.
     final update = service.update(
@@ -70,10 +67,8 @@ void main() {
       metersPerPixel: 0.1,
       previousWaypointIndex: 2,
     );
-    // Path: user → (100,50) on the segment → destination (100,100).
-    expect(update.trackedPath[1].dx, closeTo(100, 0.5));
-    expect(update.trackedPath[1].dy, closeTo(50, 0.5),
-        reason: 'must not draw straight from user to destination');
-    expect(update.trackedPath.last, const Offset(100, 100));
+    // Path: user → destination (100,100).
+    expect(update.trackedPath[0], const Offset(97, 50));
+    expect(update.trackedPath[1], const Offset(100, 100));
   });
 }

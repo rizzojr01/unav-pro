@@ -840,14 +840,8 @@ class ArNavigationBloc extends Bloc<ArNavigationEvent, ArNavigationState> {
       ];
     }
 
-    // Join the route at the user's projected on-route point first, so the
-    // AR line meets the route instead of beelining to the next waypoint
-    // (or the destination, on the final stretch).
-    final joinFp = update.projectedPathPoint;
     final pathWorldPoints = <List<double>>[
       cameraOriginAr,
-      if (joinFp != null)
-        applyOffsetAroundCamera(floorplanToArWorld(joinFp.dx, joinFp.dy)),
       ...snappedRoutePoints
           .skip(activeIdx)
           .map((p) => applyOffsetAroundCamera(floorplanToArWorld(p.dx, p.dy))),
